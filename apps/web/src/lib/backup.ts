@@ -322,7 +322,8 @@ function proxyUrl(target: string, method: string): string
 function webdavTargetUrl(cfg: BackupConfig): string
 {
   const base = (cfg.remoteUrl ?? '').replace(/\/$/, '')
-  const path = cfg.path ?? 'momohelper/backup.json'
+  // 备份文件直接放在服务地址指向的目录下，目录层级完全由服务地址控制
+  const path = cfg.path ?? 'backup.json'
 
   return `${base}/${path}`
 }
@@ -332,35 +333,8 @@ function webdavAuthHeader(cfg: BackupConfig): string
   return `Basic ${btoa(`${cfg.username ?? ''}:${cfg.password ?? ''}`)}`
 }
 
-/** 逐级建目录：WebDAV 不支持递归 MKCOL，父目录不存在会 409 */
-async function webdavEnsureDir(cfg: BackupConfig): Promise<void>
-{
-  const base = (cfg.remoteUrl ?? '').replace(/\/$/, '')
-  const path = cfg.path ?? 'momohelper/backup.json'
-  const dir = path.split('/').slice(0, -1)
-  let current = base
-
-  for (const segment of dir)
-  {
-    current = `${current}/${segment}`
-
-    const res = await fetch(proxyUrl(current, 'MKCOL'), {
-      method: 'POST',
-      headers: { Authorization: webdavAuthHeader(cfg) }
-    })
-
-    // 405 = 已存在，属正常
-    if (!res.ok && res.status !== 405)
-    {
-      throw new BackupError(`创建远端目录失败（HTTP ${res.status}）`)
-    }
-  }
-}
-
 async function webdavPut(cfg: BackupConfig, content: string): Promise<void>
 {
-  await webdavEnsureDir(cfg)
-
   const res = await fetch(proxyUrl(webdavTargetUrl(cfg), 'PUT'), {
     method: 'POST',
     headers: {

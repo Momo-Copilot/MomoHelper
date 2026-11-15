@@ -653,7 +653,7 @@ export default function SettingsPage()
               <input
                 value={webdavUrl}
                 onChange={(event) => setWebdavUrl(event.target.value)}
-                placeholder="服务地址，如 https://dav.jianguoyun.com/dav/"
+                placeholder="服务地址（含目录），如 https://dav.example.com/WebDAV/momo"
                 className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
               />
               <div className="flex gap-3">
