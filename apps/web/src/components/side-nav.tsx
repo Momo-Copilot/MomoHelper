@@ -91,15 +91,23 @@ function StatusCard()
       </span>
       <div className="min-w-0 flex-1 leading-tight">
         <p className="text-[var(--text-sm)] font-medium">本机凭据</p>
-        <p className="flex items-center gap-1.5 truncate text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+        <p className="mt-1 flex items-center gap-1.5 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
           <span
             aria-hidden
             className={`h-1.5 w-1.5 shrink-0 rounded-full ${
               connected ? 'bg-[var(--color-familiar)]' : 'bg-[var(--color-border-strong)]'
             }`}
           />
-          {connected ? '墨墨已连接' : '未配置凭据'}
-          {status?.hasAiKey ? ' · AI 已配置' : ' · AI 未配置'}
+          {connected ? '墨墨已连接' : '墨墨未配置'}
+        </p>
+        <p className="mt-0.5 flex items-center gap-1.5 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+          <span
+            aria-hidden
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+              status?.hasAiKey ? 'bg-[var(--color-familiar)]' : 'bg-[var(--color-border-strong)]'
+            }`}
+          />
+          {status?.hasAiKey ? 'AI 已配置' : 'AI 未配置'}
         </p>
       </div>
     </Link>
