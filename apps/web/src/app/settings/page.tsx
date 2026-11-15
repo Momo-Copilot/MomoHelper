@@ -711,6 +711,11 @@ export default function SettingsPage()
                 placeholder="仓库名，如 bonanliu/momohelper-backup（需提前创建，建议私有）"
                 className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
               />
+              {backupTarget === 'gitee' && (
+                <p className="text-[var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+                  Gitee 仓库需至少有一次提交（新建时勾选「使用 Readme 初始化」即可）；备份文件会自动建在 momohelper/ 目录下。
+                </p>
+              )}
             </>
           )}
 

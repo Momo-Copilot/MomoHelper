@@ -215,6 +215,13 @@ async function githubGet(cfg: BackupConfig): Promise<string>
 
 const GITEE_API = 'https://gitee.com/api/v5'
 
+/**
+ * Gitee contents API 与 GitHub 语义不同（实测）：
+ *   - 新建文件：POST，不要 sha（嵌套目录会自动创建）
+ *   - 更新文件：PUT，必须带现有文件的 sha
+ * 以前统一用 PUT，首次备份（备份文件不存在）必然报
+ * {"messages":["sha is missing","sha is empty"]}，与仓库里有没有 README 无关。
+ */
 async function giteePut(cfg: BackupConfig, content: string): Promise<void>
 {
   const path = cfg.path ?? 'momohelper/backup.json'
@@ -237,27 +244,9 @@ async function giteePut(cfg: BackupConfig, content: string): Promise<void>
     )
   }
 
-  const branch = ((await repoRes.json()) as { default_branch?: string; empty?: boolean }).default_branch ?? 'master'
+  const branch = ((await repoRes.json()) as { default_branch?: string }).default_branch ?? 'master'
 
-  // 空仓库（无任何提交）：Gitee contents API 无法创建第一个文件，
-  // 报 sha is missing / sha is empty——引导用户先在网页端初始化
-  const rootRes = await fetch(
-    `${GITEE_API}/repos/${owner}/${repo}/contents/?ref=${branch}&access_token=${cfg.token}`
-  )
-
-  if (rootRes.ok)
-  {
-    const root = await rootRes.json()
-
-    if (Array.isArray(root) && root.length === 0)
-    {
-      throw new BackupError(
-        '仓库是空仓库（没有任何提交），Gitee 接口无法向空仓库创建文件。请打开 Gitee 仓库页面点「初始化仓库」，或删除后重建时勾选「使用 Readme 初始化」，然后重试备份。'
-      )
-    }
-  }
-
-  // 现有文件 sha（更新必带）
+  // 现有文件 sha（更新必带）；文件缺失时 Gitee 返回 200 + [] 而非 404
   let sha: string | undefined
 
   const fileRes = await fetch(
@@ -268,7 +257,7 @@ async function giteePut(cfg: BackupConfig, content: string): Promise<void>
   {
     const data = await fileRes.json()
 
-    // 空仓库/文件缺失时 Gitee 返回 200 + []，不是 404
+    // 文件缺失时 Gitee 返回 200 + []，不是 404
     sha = Array.isArray(data) ? undefined : (data as { sha?: string }).sha
   }
   else if (fileRes.status !== 404)
@@ -276,8 +265,9 @@ async function giteePut(cfg: BackupConfig, content: string): Promise<void>
     throw new BackupError(`读取远端文件失败（HTTP ${fileRes.status}）`)
   }
 
+  // 首次备份走 POST 新建，之后走 PUT 更新
   const res = await fetch(`${GITEE_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
-    method: 'PUT',
+    method: sha ? 'PUT' : 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       access_token: cfg.token,
@@ -294,7 +284,7 @@ async function giteePut(cfg: BackupConfig, content: string): Promise<void>
 
     throw new BackupError(
       detail.includes('sha is missing') || detail.includes('sha is empty')
-        ? 'Gitee 拒绝写入：仓库可能还没有任何提交（空仓库）。请先在 Gitee 仓库页面初始化仓库（建一个 Readme），再回来备份。'
+        ? 'Gitee 拒绝写入：仓库可能还没有任何提交（零提交仓库）。请在 Gitee 仓库页面点「初始化仓库」建一个 Readme 后重试。'
         : `上传失败（HTTP ${res.status}）：${detail}`
     )
   }
@@ -336,14 +326,22 @@ async function giteeGet(cfg: BackupConfig): Promise<string>
     throw new BackupError(`下载失败（HTTP ${res.status}）`)
   }
 
-  const data = (await res.json()) as { content?: string; encoding?: string }
+  const data: unknown = await res.json()
 
-  if (data.encoding !== 'base64' || !data.content)
+  // 文件缺失时 Gitee 返回 200 + []，而不是 404
+  if (Array.isArray(data))
+  {
+    throw new BackupError('远端还没有备份文件，请先执行一次备份')
+  }
+
+  const file = data as { content?: string; encoding?: string }
+
+  if (file.encoding !== 'base64' || !file.content)
   {
     throw new BackupError('远端文件格式异常')
   }
 
-  return decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))))
+  return decodeURIComponent(escape(atob(file.content.replace(/\n/g, ''))))
 }
 
 /* ============================ WebDAV ============================ */
