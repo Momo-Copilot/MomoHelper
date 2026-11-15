@@ -13,6 +13,7 @@ import { useDeferredValue, useMemo, useState } from 'react'
 import type { LibraryRecordRowDto, StudyResponse } from '@momo/types'
 import { Segmented } from '@/components/kit'
 import { Icon } from '@/components/icons'
+import { WordCardPopover } from '@/components/word-card'
 import { beijingDayOf } from '@/lib/analyze'
 
 const PAGE_SIZE = 100
@@ -81,6 +82,27 @@ const SORTERS: Record<SortKey, (a: LibraryRecordRowDto, b: LibraryRecordRowDto) 
   count: (a, b) => b.studyCount - a.studyCount,
   added: (a, b) => compareDate(a.addDate, b.addDate, 'desc'),
   alpha: (a, b) => (a.spelling ?? '').localeCompare(b.spelling ?? '', 'en')
+}
+
+/** 可点击单词：点按弹词卡（与遗忘词页一致），点其他位置自动关闭 */
+function WordButton({ spelling }: { spelling: string })
+{
+  const [open, setOpen] = useState(false)
+
+  return (
+    <span className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        title="点击查看词条释义"
+        className="font-[family-name:var(--font-display)] text-[var(--text-md)] underline decoration-[var(--color-border-strong)] decoration-dotted underline-offset-4 transition-colors hover:decoration-[var(--color-accent)]"
+      >
+        {spelling}
+      </button>
+      {open && <WordCardPopover spelling={spelling} onClose={() => setOpen(false)} />}
+    </span>
+  )
 }
 
 function DayCell({ value }: { value?: string })
@@ -250,8 +272,8 @@ export function LibraryTableView({ records }: { records: LibraryRecordRowDto[] }
                   <td className="px-3 py-2 tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
                     {safePage * PAGE_SIZE + i + 1}
                   </td>
-                  <td className="px-3 py-2 font-[family-name:var(--font-display)] text-[var(--text-md)]">
-                    {row.spelling}
+                  <td className="px-3 py-2">
+                    <WordButton spelling={row.spelling} />
                   </td>
                   <td className="px-3 py-2 text-right tabular font-[family-name:var(--font-mono)] text-[var(--text-sm)]">
                     {row.studyCount}
