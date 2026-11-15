@@ -104,6 +104,50 @@ export interface RestoreSource
 
 const GITHUB_API = 'https://api.github.com'
 
+/**
+ * 仓库不存在时自动创建私有仓库（首次备份零准备）。
+ * 仅当 owner 与 Token 所属用户一致时可建（建在别人名下需要更高权限，报错引导）。
+ */
+async function ensureGithubRepo(cfg: BackupConfig, owner: string, repo: string): Promise<void>
+{
+  const userRes = await fetch(`${GITHUB_API}/user`, {
+    headers: { Authorization: `Bearer ${cfg.token}`, Accept: 'application/vnd.github+json' }
+  })
+
+  if (!userRes.ok)
+  {
+    throw new BackupError(`Token 校验失败（HTTP ${userRes.status}），请检查 Token 是否有效`)
+  }
+
+  const login = ((await userRes.json()) as { login?: string }).login
+
+  if (login !== owner)
+  {
+    throw new BackupError(
+      `仓库 ${owner}/${repo} 不存在，且 Token 属于 ${login}，无法在 ${owner} 名下自动建仓；请先把仓库建好，或把仓库名改为 ${login}/<仓库名>`
+    )
+  }
+
+  const createRes = await fetch(`${GITHUB_API}/user/repos`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${cfg.token}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ name: repo, private: true, auto_init: true })
+  })
+
+  if (!createRes.ok)
+  {
+    const detail = (await createRes.text()).slice(0, 160)
+
+    throw new BackupError(
+      `自动创建仓库失败（HTTP ${createRes.status}）：${detail}。请手动创建仓库后重试。`
+    )
+  }
+}
+
 async function githubPut(cfg: BackupConfig, content: string): Promise<void>
 {
   const path = cfg.path ?? 'momohelper/backup.json'
@@ -116,6 +160,7 @@ async function githubPut(cfg: BackupConfig, content: string): Promise<void>
 
   // 先查现有文件 sha（contents API 更新必须带 sha；不存在则 404 走新建）
   let sha: string | undefined
+  let repoMissing = false
 
   try
   {
@@ -133,7 +178,12 @@ async function githubPut(cfg: BackupConfig, content: string): Promise<void>
     {
       sha = ((await res.json()) as { sha?: string }).sha
     }
-    else if (res.status !== 404)
+    else if (res.status === 404)
+    {
+      // 文件不存在或仓库不存在——PUT 后再区分，仓库缺失时自动建
+      repoMissing = true
+    }
+    else
     {
       throw new BackupError(`读取远端文件失败（HTTP ${res.status}），请检查 Token 权限`)
     }
@@ -147,9 +197,8 @@ async function githubPut(cfg: BackupConfig, content: string): Promise<void>
     // 网络错误继续走 PUT，让上传请求本身报出更明确的错误
   }
 
-  const res = await fetch(
-    `${GITHUB_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`,
-    {
+  const doPut = async (): Promise<Response> =>
+    fetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${cfg.token}`,
@@ -161,8 +210,16 @@ async function githubPut(cfg: BackupConfig, content: string): Promise<void>
         content: btoa(unescape(encodeURIComponent(content))),
         sha
       })
-    }
-  )
+    })
+
+  let res = await doPut()
+
+  // 仓库不存在 → 自动建私有仓 → 重试一次（sha 已知为空）
+  if (res.status === 404 && repoMissing)
+  {
+    await ensureGithubRepo(cfg, owner, repo)
+    res = await doPut()
+  }
 
   if (!res.ok)
   {
@@ -215,6 +272,44 @@ async function githubGet(cfg: BackupConfig): Promise<string>
 
 const GITEE_API = 'https://gitee.com/api/v5'
 
+/**
+ * 仓库不存在时自动创建私有仓库（与 GitHub 同策略）。
+ * owner 与 Token 所属用户不一致时报错引导（Gitee 个人令牌建不了企业/他人仓库）。
+ */
+async function ensureGiteeRepo(cfg: BackupConfig, owner: string, repo: string): Promise<void>
+{
+  const userRes = await fetch(`${GITEE_API}/user?access_token=${cfg.token}`)
+
+  if (!userRes.ok)
+  {
+    throw new BackupError(`Token 校验失败（HTTP ${userRes.status}），请检查私人令牌是否有效`)
+  }
+
+  const login = ((await userRes.json()) as { login?: string }).login
+
+  if (login !== owner)
+  {
+    throw new BackupError(
+      `仓库 ${owner}/${repo} 不存在，且令牌属于 ${login}，无法在 ${owner} 名下自动建仓；请先建好仓库，或把仓库名改为 ${login}/<仓库名>`
+    )
+  }
+
+  const createRes = await fetch(`${GITEE_API}/user/repos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ access_token: cfg.token, name: repo, private: true, auto_init: true })
+  })
+
+  if (!createRes.ok)
+  {
+    const detail = (await createRes.text()).slice(0, 160)
+
+    throw new BackupError(
+      `自动创建仓库失败（HTTP ${createRes.status}）：${detail}。请手动创建仓库后重试。`
+    )
+  }
+}
+
 async function giteePut(cfg: BackupConfig, content: string): Promise<void>
 {
   const path = cfg.path ?? 'momohelper/backup.json'
@@ -225,8 +320,14 @@ async function giteePut(cfg: BackupConfig, content: string): Promise<void>
     throw new BackupError('仓库格式应为 owner/repo')
   }
 
-  // Gitee 内容接口按分支操作，先取默认分支
-  const repoRes = await fetch(`${GITEE_API}/repos/${owner}/${repo}?access_token=${cfg.token}`)
+  // Gitee 内容接口按分支操作，先取默认分支；仓库不存在时自动建
+  let repoRes = await fetch(`${GITEE_API}/repos/${owner}/${repo}?access_token=${cfg.token}`)
+
+  if (repoRes.status === 404)
+  {
+    await ensureGiteeRepo(cfg, owner, repo)
+    repoRes = await fetch(`${GITEE_API}/repos/${owner}/${repo}?access_token=${cfg.token}`)
+  }
 
   if (!repoRes.ok)
   {
