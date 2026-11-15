@@ -21,6 +21,7 @@ export { listNotepads } from './notepads'
 export {
   getVocabularyBySpelling,
   listInterpretations,
-  listPhrases
+  listPhrases,
+  listNotes
 } from './vocabulary'
-export type { MaimemoVocabulary, MaimemoInterpretation, MaimemoPhrase } from './vocabulary'
+export type { MaimemoVocabulary, MaimemoInterpretation, MaimemoPhrase, MaimemoNote } from './vocabulary'

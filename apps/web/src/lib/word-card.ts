@@ -1,9 +1,10 @@
 /**
- * 单词词卡数据源（方案 A：墨墨自建优先，AI 兜底）。
+ * 单词词卡数据源：我的自建 + AI 双区块展示。
  *
  * 右栏面板点单词 → 弹词卡：
- * 1. 墨墨 Token 已绑：voc_id → 自建释义/例句，有则展示（标注「我的自建」）；
- * 2. 无自建内容（多数情况——官方词库释义不开放）或墨墨未绑：DeepSeek 生成（标注「AI 生成」）。
+ * 1. 「我的自建」：墨墨 Token 已绑时，拉取自建释义/助记/例句；
+ *    三者皆空时显示「暂无数据」提示（官方词库释义不在开放 API 范围内）。
+ * 2. 「AI 生成」：DeepSeek 生成音标/释义/例句，作为补充信息始终展示。
  *
  * 结果按词缓存到 localStorage（有效期 24h），重复点击不发请求。
  */
@@ -12,8 +13,10 @@ import { explainWord, type WordExplanation } from '@momo/ai'
 import {
   getVocabularyBySpelling,
   listInterpretations,
+  listNotes,
   listPhrases,
   type MaimemoInterpretation,
+  type MaimemoNote,
   type MaimemoPhrase
 } from '@momo/maimemo'
 
@@ -21,17 +24,34 @@ import { getAiClient } from './ai'
 import { getMaimemoClient } from './maimemo'
 import { getAiThinkingMode, getMaimemoToken } from './settings'
 
+/** 我的自建区块（墨墨开放 API 范围内的三类自建内容） */
+export interface MineSection
+{
+  definitions: string[]
+  /** 助记（note_type + 内容） */
+  notes: { type: string; text: string }[]
+  /** 例句（句子 + 翻译） */
+  phrases: { text: string; translation: string }[]
+  /** 三类皆空为 true，UI 显示「暂无数据」 */
+  empty: boolean
+}
+
+/** AI 生成区块 */
+export interface AiSection
+{
+  phonetic: string
+  definitions: string[]
+  example?: string
+  exampleTranslation?: string
+}
+
 /** 词卡统一展示形状 */
 export interface WordCard
 {
   spelling: string
-  /** 数据来源：我的自建 / AI 生成 */
-  source: 'mine' | 'ai'
-  phonetic: string
-  /** 词性+释义文本（自建时为用户原文，AI 时为生成文本） */
-  definitions: string[]
-  example?: string
-  exampleTranslation?: string
+  mine: MineSection
+  /** null = AI 未获取到（未配 Key 或请求失败） */
+  ai: AiSection | null
   fetchedAt: string
 }
 
@@ -72,6 +92,11 @@ function saveCache(cache: Map<string, CacheEntry>): void
   }
 }
 
+function cacheCard(card: WordCard): void
+{
+  saveCache(new Map([...loadCache(), [card.spelling.toLowerCase(), { card, at: card.fetchedAt }]]))
+}
+
 export function getCachedWordCard(spelling: string): WordCard | null
 {
   const entry = loadCache().get(spelling.toLowerCase())
@@ -80,50 +105,66 @@ export function getCachedWordCard(spelling: string): WordCard | null
   return Date.now() - new Date(entry.at).getTime() < CACHE_TTL_MS ? entry.card : null
 }
 
-/** AI 兜底：DeepSeek 生成词条解释（思考模式跟随全局选择） */
-async function generateByAi(spelling: string): Promise<WordCard>
+/** AI 生成：DeepSeek 补充词条信息（思考模式跟随全局选择） */
+async function generateByAi(spelling: string): Promise<AiSection | null>
 {
-  const client = getAiClient()
-  const thinking = getAiThinkingMode() === 'on'
-  const { data } = await explainWord(client, { spelling, thinking })
+  try
+  {
+    const client = getAiClient()
+    const thinking = getAiThinkingMode() === 'on'
+    const { data } = await explainWord(client, { spelling, thinking })
 
-  return {
-    spelling,
-    source: 'ai',
-    phonetic: data.phonetic,
-    definitions: data.definitions
-      .split(/[;；\n]/)
-      .map((item) => item.trim())
-      .filter(Boolean),
-    example: data.example,
-    exampleTranslation: data.exampleTranslation,
-    fetchedAt: new Date().toISOString()
+    return {
+      phonetic: data.phonetic,
+      definitions: data.definitions
+        .split(/[;；\n]/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+      example: data.example,
+      exampleTranslation: data.exampleTranslation
+    }
+  }
+  catch
+  {
+    // 未配 Key / 请求失败：AI 区块整体隐藏，不阻塞「我的自建」展示
+    return null
   }
 }
 
-/** 墨墨自建内容 → 词卡 */
-function fromMine(
-  spelling: string,
+/** 墨墨自建内容 → 我的区块 */
+function toMineSection(
   interpretations: MaimemoInterpretation[],
+  notes: MaimemoNote[],
   phrases: MaimemoPhrase[]
-): WordCard
+): MineSection
 {
-  const published = interpretations.filter((item) => item.status !== 'DELETED')
+  const definitions = interpretations
+    .filter((item) => item.status !== 'DELETED')
+    .map((item) => item.interpretation)
+  const noteRows = notes
+    .filter((item) => item.status !== 'DELETED')
+    .map((item) => ({ type: item.noteType, text: item.note }))
+  const phraseRows = phrases
+    .filter((item) => item.status !== 'DELETED')
+    .map((item) => ({ text: item.phrase, translation: item.interpretation }))
 
   return {
-    spelling,
-    source: 'mine',
-    phonetic: '',
-    definitions: published.map((item) => item.interpretation),
-    example: phrases[0]?.phrase,
-    exampleTranslation: phrases[0]?.interpretation,
-    fetchedAt: new Date().toISOString()
+    definitions,
+    notes: noteRows,
+    phrases: phraseRows,
+    empty: definitions.length === 0 && noteRows.length === 0 && phraseRows.length === 0
   }
+}
+
+/** 空 AI 区块（未配 AI Key 时兜底，让缓存结构完整） */
+function emptyAi(): AiSection
+{
+  return { phonetic: '', definitions: [] }
 }
 
 /**
- * 取词卡：先查缓存 → 墨墨自建（有内容即用）→ AI 兜底。
- * 墨墨接口失败（未绑 Token / 网络异常 / 接口不可用）不阻塞，直接走 AI。
+ * 取词卡：先查缓存 → 并行拉「我的自建」与 AI → 双区块返回。
+ * 墨墨接口失败（未绑 Token / 网络异常）不阻塞：自建区块标记为空。
  */
 export async function getWordCard(spelling: string): Promise<WordCard>
 {
@@ -132,6 +173,16 @@ export async function getWordCard(spelling: string): Promise<WordCard>
   if (cached)
   {
     return cached
+  }
+
+  const fetchedAt = new Date().toISOString()
+
+  // 我的自建：Token 未绑或接口失败都按「无数据」处理
+  let mine: MineSection = {
+    definitions: [],
+    notes: [],
+    phrases: [],
+    empty: true
   }
 
   if (getMaimemoToken())
@@ -143,27 +194,25 @@ export async function getWordCard(spelling: string): Promise<WordCard>
 
       if (voc)
       {
-        const [interpretations, phrases] = await Promise.all([
+        const [interpretations, notes, phrases] = await Promise.all([
           listInterpretations(maimemo, voc.id),
+          listNotes(maimemo, voc.id),
           listPhrases(maimemo, voc.id)
         ])
-        const usable = interpretations.filter((item) => item.status !== 'DELETED')
 
-        if (usable.length > 0 || phrases.length > 0)
-        {
-          const card = fromMine(spelling, interpretations, phrases)
-          saveCache(new Map([...loadCache(), [spelling.toLowerCase(), { card, at: card.fetchedAt }]]))
-          return card
-        }
+        mine = toMineSection(interpretations, notes, phrases)
       }
     }
     catch
     {
-      // 墨墨失败不阻塞，AI 兜底
+      // 墨墨失败不阻塞 AI 区块
     }
   }
 
-  const card = await generateByAi(spelling)
-  saveCache(new Map([...loadCache(), [spelling.toLowerCase(), { card, at: card.fetchedAt }]]))
+  const ai = (await generateByAi(spelling)) ?? emptyAi()
+  const card: WordCard = { spelling, mine, ai, fetchedAt }
+
+  cacheCard(card)
+
   return card
 }

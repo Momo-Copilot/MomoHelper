@@ -100,3 +100,41 @@ export async function listPhrases(
 
   return (data?.phrases ?? []).map((raw) => phraseSchema.parse(raw))
 }
+
+/** 用户自建助记（谐音/词根/联想等，仅本人创建的内容） */
+export interface MaimemoNote
+{
+  id: string
+  /** 助记类型：联想 / 谐音 / 词根 / 词源 / 固搭 等 */
+  noteType: string
+  note: string
+  status: string
+}
+
+const noteSchema = z.object({
+  id: z.string(),
+  note_type: z.string(),
+  note: z.string(),
+  status: z.string()
+})
+
+/** 列出某词的自建助记 */
+export async function listNotes(client: MaimemoClient, vocId: string): Promise<MaimemoNote[]>
+{
+  const data = await client.request<{ notes?: unknown[] }>(
+    'GET',
+    `/notes?voc_id=${encodeURIComponent(vocId)}`
+  )
+
+  return (data?.notes ?? []).map((raw) =>
+  {
+    const parsed = noteSchema.parse(raw)
+
+    return {
+      id: parsed.id,
+      noteType: parsed.note_type,
+      note: parsed.note,
+      status: parsed.status
+    }
+  })
+}

@@ -2,13 +2,125 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-import { Icon } from '@/components/icons'
 import type { WordCard } from '@/lib/word-card'
 
 /**
  * 词卡弹层：点击单词出现，点击其他任意位置关闭。
- * 数据来源标注「我的自建」/「AI 生成」；加载中显示骨架。
+ * 双区块：「我的自建」（释义/助记/例句，皆空时提示暂无数据）+「AI 生成」。
  */
+
+function SectionTag({ text, accent }: { text: string; accent?: boolean })
+{
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[var(--text-xs)] font-medium ${
+        accent
+          ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
+          : 'bg-[var(--color-bg-subtle)] text-[var(--color-text-subtle)]'
+      }`}
+    >
+      {text}
+    </span>
+  )
+}
+
+/** 我的自建区块：释义 / 助记 / 例句，三类皆空显示「暂无数据」 */
+function MineSectionView({ card }: { card: WordCard })
+{
+  const { mine } = card
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <p className="text-[var(--text-xs)] font-medium text-[var(--color-text-muted)]">
+          我的自建
+        </p>
+        <SectionTag text={mine.empty ? '暂无数据' : '来自墨墨'} accent={!mine.empty} />
+      </div>
+
+      {mine.empty ? (
+        <p className="mt-2 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2.5 text-[var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+          你还没有为这个词创建自建内容（释义 / 助记 / 例句）。可在墨墨 App 中添加，官方词库释义不在开放接口范围内。
+        </p>
+      ) : (
+        <div className="mt-2 space-y-2.5">
+          {mine.definitions.length > 0 && (
+            <ul className="space-y-1">
+              {mine.definitions.map((definition, i) => (
+                <li key={i} className="text-[var(--text-sm)] leading-relaxed">
+                  {definition}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {mine.notes.map((note, i) => (
+            <p key={`note-${i}`} className="text-[var(--text-sm)] leading-relaxed">
+              <span className="mr-1.5 rounded-sm bg-[var(--color-bg-subtle)] px-1.5 py-0.5 text-[var(--text-xs)] text-[var(--color-text-muted)]">
+                {note.type}
+              </span>
+              {note.text}
+            </p>
+          ))}
+
+          {mine.phrases.map((phrase, i) => (
+            <p
+              key={`phrase-${i}`}
+              className="rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-[var(--text-sm)] leading-relaxed"
+            >
+              {phrase.text}
+              <span className="mt-1 block text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                {phrase.translation}
+              </span>
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** AI 生成区块：音标 / 释义 / 例句 */
+function AiSectionView({ card }: { card: WordCard })
+{
+  if (!card.ai || card.ai.definitions.length === 0)
+  {
+    return null
+  }
+
+  const { ai } = card
+
+  return (
+    <div className="border-t border-[var(--color-border)] pt-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[var(--text-xs)] font-medium text-[var(--color-text-muted)]">
+          AI 补充
+        </p>
+        <SectionTag text="AI 生成" />
+      </div>
+
+      <ul className="mt-2 space-y-1">
+        {ai.definitions.map((definition, i) => (
+          <li key={i} className="text-[var(--text-sm)] leading-relaxed">
+            {definition}
+          </li>
+        ))}
+      </ul>
+
+      {ai.example && (
+        <p className="mt-2.5 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-[var(--text-sm)] leading-relaxed">
+          {ai.example}
+          {ai.exampleTranslation && (
+            <span className="mt-1 block text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              {ai.exampleTranslation}
+            </span>
+          )}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function WordCardPopover({
   spelling,
   onClose
@@ -75,26 +187,15 @@ export function WordCardPopover({
       aria-label={`${spelling} 词条`}
       className="absolute left-0 top-full z-20 mt-2 w-[min(420px,calc(100vw-80px))] rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-pop)]"
     >
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="flex items-baseline gap-2">
-          <span className="font-[family-name:var(--font-display)] text-[var(--text-md)] font-semibold">
-            {spelling}
-          </span>
-          {card?.phonetic && (
-            <span className="font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
-              {card.phonetic}
-            </span>
-          )}
-        </p>
-        <span
-          className={`rounded-full px-2 py-0.5 text-[var(--text-xs)] font-medium ${
-            card?.source === 'mine'
-              ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
-              : 'bg-[var(--color-bg-subtle)] text-[var(--color-text-subtle)]'
-          }`}
-        >
-          {card ? (card.source === 'mine' ? '我的自建' : 'AI 生成') : ''}
+      <div className="flex items-baseline gap-2">
+        <span className="font-[family-name:var(--font-display)] text-[var(--text-md)] font-semibold">
+          {spelling}
         </span>
+        {card?.ai?.phonetic && (
+          <span className="font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+            {card.ai.phonetic}
+          </span>
+        )}
       </div>
 
       {error ? (
@@ -106,30 +207,10 @@ export function WordCardPopover({
           <div className="mt-2 h-3 w-1/2 animate-pulse rounded-sm bg-[var(--color-bg-subtle)]" />
         </div>
       ) : (
-        <>
-          <ul className="mt-2 space-y-1">
-            {card.definitions.map((definition, i) => (
-              <li key={i} className="text-[var(--text-sm)] leading-relaxed">
-                {definition}
-              </li>
-            ))}
-            {card.definitions.length === 0 && (
-              <li className="text-[var(--text-sm)] text-[var(--color-text-subtle)]">
-                暂无释义
-              </li>
-            )}
-          </ul>
-          {card.example && (
-            <p className="mt-2.5 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-[var(--text-sm)] leading-relaxed">
-              {card.example}
-              {card.exampleTranslation && (
-                <span className="mt-1 block text-[var(--text-xs)] text-[var(--color-text-subtle)]">
-                  {card.exampleTranslation}
-                </span>
-              )}
-            </p>
-          )}
-        </>
+        <div className="mt-2 space-y-3">
+          <MineSectionView card={card} />
+          <AiSectionView card={card} />
+        </div>
       )}
     </div>
   )
