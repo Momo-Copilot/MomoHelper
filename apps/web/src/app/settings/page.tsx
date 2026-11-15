@@ -13,6 +13,8 @@ import {
 import { Icon } from '@/components/icons'
 import { ErrorNote, PageHeader, Segmented, Tile } from '@/components/kit'
 import { verifyDeepSeekKey } from '@/lib/ai'
+import { BackupError, createBackup, fetchBackup, type BackupTarget } from '@/lib/backup'
+import { restoreBackup } from '@/lib/backup-restore'
 import { verifyMaimemoToken } from '@/lib/maimemo'
 import {
   clearDeepSeekKey,
@@ -58,6 +60,134 @@ export default function SettingsPage()
 
   /** AI 思考模式（全局唯一配置点）：null = 未配置 */
   const [thinking, setThinking] = useState<AiThinkingMode | null>(null)
+
+  /* ============================ 数据备份 ============================ */
+
+  const [backupTarget, setBackupTarget] = useState<BackupTarget>('github')
+  const [backupToken, setBackupToken] = useState('')
+  const [backupRepo, setBackupRepo] = useState('')
+  const [webdavUrl, setWebdavUrl] = useState('')
+  const [webdavUser, setWebdavUser] = useState('')
+  const [webdavPass, setWebdavPass] = useState('')
+  const [backupBusy, setBackupBusy] = useState<'backup' | 'restore' | null>(null)
+  const [backupNotice, setBackupNotice] = useState<string | null>(null)
+  const [backupError, setBackupError] = useState<string | null>(null)
+
+  useEffect(
+    () =>
+    {
+      // 恢复上次使用的备份配置（不含密码类字段——安全考虑不持久化）
+      setBackupTarget((localStorage.getItem('momo.backupTarget') as BackupTarget) ?? 'github')
+      setBackupRepo(localStorage.getItem('momo.backupRepo') ?? '')
+      setWebdavUrl(localStorage.getItem('momo.backupWebdavUrl') ?? '')
+      setWebdavUser(localStorage.getItem('momo.backupWebdavUser') ?? '')
+      setBackupToken(localStorage.getItem('momo.backupToken') ?? '')
+    },
+    []
+  )
+
+  function saveBackupPrefs(target: BackupTarget, repo: string, remote: string, user: string, token: string): void
+  {
+    try
+    {
+      localStorage.setItem('momo.backupTarget', target)
+
+      if (repo)
+      {
+        localStorage.setItem('momo.backupRepo', repo)
+      }
+
+      if (remote)
+      {
+        localStorage.setItem('momo.backupWebdavUrl', remote)
+      }
+
+      if (user)
+      {
+        localStorage.setItem('momo.backupWebdavUser', user)
+      }
+
+      if (token)
+      {
+        localStorage.setItem('momo.backupToken', token)
+      }
+    }
+    catch
+    {
+      // 忽略
+    }
+  }
+
+  function buildBackupConfig()
+  {
+    return backupTarget === 'webdav'
+      ? {
+          target: backupTarget as BackupTarget,
+          remoteUrl: webdavUrl.trim(),
+          username: webdavUser.trim(),
+          password: webdavPass,
+          path: 'momohelper/backup.json'
+        }
+      : {
+          target: backupTarget as BackupTarget,
+          token: backupToken.trim(),
+          repo: backupRepo.trim(),
+          path: 'momohelper/backup.json'
+        }
+  }
+
+  async function runBackup(): Promise<void>
+  {
+    setBackupBusy('backup')
+    setBackupError(null)
+    setBackupNotice(null)
+
+    try
+    {
+      const cfg = buildBackupConfig()
+      const result = await createBackup(cfg)
+
+      saveBackupPrefs(cfg.target, cfg.repo ?? '', cfg.remoteUrl ?? '', cfg.username ?? '', cfg.token ?? '')
+      setBackupNotice(`备份完成：${new Date(result.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })} · ${(result.size / 1024).toFixed(1)} KB`)
+    }
+    catch (error)
+    {
+      setBackupError(error instanceof BackupError ? error.message : `备份失败：${error instanceof Error ? error.message : '未知错误'}`)
+    }
+    finally
+    {
+      setBackupBusy(null)
+    }
+  }
+
+  async function runRestore(): Promise<void>
+  {
+    setBackupBusy('restore')
+    setBackupError(null)
+    setBackupNotice(null)
+
+    try
+    {
+      const cfg = buildBackupConfig()
+      const source = await fetchBackup(cfg)
+      const result = await restoreBackup(source)
+
+      saveBackupPrefs(cfg.target, cfg.repo ?? '', cfg.remoteUrl ?? '', cfg.username ?? '', cfg.token ?? '')
+      setBackupNotice(
+        `恢复完成（远端备份时间 ${new Date(source.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}）：` +
+        `诊断合并 ${result.diagnoseMerged} 条 · 词卡补入 ${result.wordCardsMerged} 条` +
+        `${result.libraryRestored ? ' · 词库快照已写回' : ''}${result.settingsApplied ? ' · 已采纳远端思考模式' : ''}。刷新页面生效。`
+      )
+    }
+    catch (error)
+    {
+      setBackupError(error instanceof BackupError ? error.message : `恢复失败：${error instanceof Error ? error.message : '未知错误'}`)
+    }
+    finally
+    {
+      setBackupBusy(null)
+    }
+  }
 
   useEffect(
     () =>
@@ -460,6 +590,126 @@ export default function SettingsPage()
       </Tile>
 
       <Tile index={3} hover={false} className="mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-bg)] text-[var(--color-accent)]"
+            >
+              <Icon name="book" className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="text-[var(--text-md)] font-semibold">数据备份</h2>
+              <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                诊断历史、词卡缓存、词库快照备份到你的私有远端；凭据不包含
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          <Segmented
+            ariaLabel="备份目标"
+            value={backupTarget}
+            options={[
+              ['github', 'GitHub'],
+              ['gitee', 'Gitee'],
+              ['webdav', 'WebDAV']
+            ]}
+            onChange={(next) =>
+            {
+              setBackupTarget(next as BackupTarget)
+              setBackupError(null)
+              setBackupNotice(null)
+            }}
+          />
+
+          {backupTarget === 'webdav' ? (
+            <>
+              <input
+                value={webdavUrl}
+                onChange={(event) => setWebdavUrl(event.target.value)}
+                placeholder="服务地址，如 https://dav.jianguoyun.com/dav/"
+                className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+              />
+              <div className="flex gap-3">
+                <input
+                  value={webdavUser}
+                  onChange={(event) => setWebdavUser(event.target.value)}
+                  placeholder="账号"
+                  autoComplete="off"
+                  className="h-10 flex-1 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                />
+                <input
+                  type="password"
+                  value={webdavPass}
+                  onChange={(event) => setWebdavPass(event.target.value)}
+                  placeholder="密码 / 应用密码"
+                  autoComplete="new-password"
+                  className="h-10 flex-1 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <input
+                type="password"
+                value={backupToken}
+                onChange={(event) => setBackupToken(event.target.value)}
+                placeholder={backupTarget === 'github' ? 'GitHub Token（需 Contents 读写权限）' : 'Gitee 私人令牌'}
+                autoComplete="off"
+                className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+              />
+              <input
+                value={backupRepo}
+                onChange={(event) => setBackupRepo(event.target.value)}
+                placeholder="仓库名，如 bonanliu/momohelper-backup（需提前创建，建议私有）"
+                className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+              />
+            </>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={backupBusy !== null}
+              onClick={() => void runBackup()}
+              className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+            >
+              {backupBusy === 'backup' ? '备份中…' : '立即备份'}
+            </button>
+            <button
+              type="button"
+              disabled={backupBusy !== null}
+              onClick={() => void runRestore()}
+              className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
+            >
+              {backupBusy === 'restore' ? '恢复中…' : '从云端恢复'}
+            </button>
+          </div>
+
+          <p className="text-[var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+            备份内容：AI 诊断历史（合并去重）、AI 词卡缓存（只补缺）、词库学习记录快照、思考模式。
+            <span className="font-medium text-[var(--color-text-muted)]">不含墨墨 Token 与 DeepSeek Key</span>
+            （换设备重新粘贴即可，避免明文凭据上云）。
+            {backupTarget === 'webdav' && ' 若服务不支持跨域，上传会被浏览器拦截，需配置代理后重试。'}
+          </p>
+        </div>
+
+        {backupError && (
+          <div className="mt-3">
+            <ErrorNote message={backupError} />
+          </div>
+        )}
+        {backupNotice && (
+          <p className="mt-3 flex items-start gap-1.5 text-[var(--text-sm)] leading-relaxed text-[var(--color-familiar)]">
+            <Icon name="check" className="mt-0.5 h-4 w-4 shrink-0" />
+            {backupNotice}
+          </p>
+        )}
+      </Tile>
+
+      <Tile index={4} hover={false} className="mt-4">
         <p className="text-[var(--text-sm)] text-[var(--color-text-muted)]">
           说明：本工具是纯前端应用，你的墨墨 Token 与 DeepSeek Key
           只保存在这台设备的浏览器里。DeepSeek 由浏览器直连；墨墨请求经本站

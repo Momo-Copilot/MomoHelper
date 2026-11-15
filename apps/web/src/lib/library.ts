@@ -290,3 +290,49 @@ export async function loadLibrary(
 
   return { records, total: meta.total, complete: meta.complete, fetchedAt }
 }
+
+/* ============================ 备份集成 ============================ */
+
+/** 供 backup.ts 读取快照（records + meta），无缓存返回 null */
+async function readSnapshotForBackup(): Promise<{
+  records: unknown[]
+  meta: unknown
+} | null>
+{
+  const cached = await readCache()
+
+  return cached ? { records: cached.records, meta: cached.meta } : null
+}
+
+/** 供 backup-restore.ts 写回快照；IndexedDB 不可用返回 false */
+async function writeSnapshotFromBackup(snapshot: {
+  records: unknown[]
+  meta: unknown
+}): Promise<boolean>
+{
+  try
+  {
+    const records = snapshot.records as LibraryRecordRowDto[]
+    const meta = snapshot.meta as LibraryMeta
+
+    if (!Array.isArray(records) || !meta?.fetchedAt)
+    {
+      return false
+    }
+
+    await replaceRecords(records)
+    await putMeta({ ...meta, key: META_KEY })
+
+    return true
+  }
+  catch
+  {
+    return false
+  }
+}
+
+import { registerLibraryReader } from './backup'
+import { registerLibraryWriter } from './backup-restore'
+
+registerLibraryReader(readSnapshotForBackup)
+registerLibraryWriter(writeSnapshotFromBackup)
