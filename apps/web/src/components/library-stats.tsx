@@ -22,7 +22,7 @@ function Metric({
   return (
     <div className="rounded-md bg-[var(--color-bg-subtle)] px-4 py-3">
       <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">{label}</p>
-      <p className="mt-1 tabular font-[family-name:var(--font-mono)] text-[var(--text-xl)] font-semibold leading-none">
+      <p className="mt-1 whitespace-nowrap tabular font-[family-name:var(--font-mono)] text-[var(--text-xl)] font-semibold leading-none">
         {value}
         {unit && (
           <span className="ml-1 text-[var(--text-xs)] font-normal text-[var(--color-text-subtle)]">
@@ -60,16 +60,23 @@ function BucketRow({
       <span className="w-[104px] shrink-0 truncate text-[var(--text-xs)] text-[var(--color-text-muted)]">
         {bucket.label}
       </span>
-      <span className="h-3 flex-1 overflow-hidden rounded-sm bg-[var(--color-bg-subtle)]">
+      <span className="h-3 min-w-0 flex-1 overflow-hidden rounded-sm bg-[var(--color-bg-subtle)]">
         <span
           className="block h-full rounded-sm"
           style={{ width: `${max === 0 ? 0 : (bucket.count / max) * 100}%`, background: color }}
         />
       </span>
-      <span className="w-[104px] shrink-0 text-right font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-muted)]">
-        <span className="tabular text-[var(--color-text)]">{bucket.count.toLocaleString('zh-CN')}</span>
-        {' · '}
-        {(bucket.ratio * 100).toFixed(1)}%
+      {/* 数字与百分比各自定宽右对齐：整列竖向对齐，且不会在窄屏被折成两行 */}
+      <span className="flex shrink-0 items-baseline gap-1.5 whitespace-nowrap font-[family-name:var(--font-mono)] text-[var(--text-xs)]">
+        <span className="tabular w-[56px] text-right text-[var(--color-text)]">
+          {bucket.count.toLocaleString('zh-CN')}
+        </span>
+        <span aria-hidden className="text-[var(--color-text-subtle)]">
+          ·
+        </span>
+        <span className="tabular w-[44px] text-right text-[var(--color-text-subtle)]">
+          {(bucket.ratio * 100).toFixed(1)}%
+        </span>
       </span>
     </div>
   )

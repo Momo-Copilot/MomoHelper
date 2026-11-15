@@ -142,7 +142,7 @@ export function LibraryTimelineView({ months }: { months: LibraryMonthRowDto[] }
               {newestFirst.map((month) => (
                 <tr
                   key={month.month}
-                  className="border-t border-[var(--color-border)] text-[var(--text-sm)]"
+                  className="whitespace-nowrap border-t border-[var(--color-border)] text-[var(--text-sm)]"
                 >
                   <td className="py-2 tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-muted)]">
                     {month.month}
