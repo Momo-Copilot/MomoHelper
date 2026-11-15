@@ -143,7 +143,7 @@ export function LibraryStatsView({ stats }: { stats: LibraryStatsDto })
           </p>
         </div>
         <p className="mt-1 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
-          按 study_count 分桶，次数越多说明见得多、复习间隔越长
+          按学习次数分桶，次数越多说明见得多、复习间隔越长
         </p>
         <div className="mt-5 space-y-3">
           {stats.countBuckets.map((bucket) => (
