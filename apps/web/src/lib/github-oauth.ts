@@ -96,7 +96,8 @@ export async function handleGithubCallback(): Promise<OAuthCallbackResult>
 
   try
   {
-    const res = await fetch('/api/github-oauth', {
+    // EdgeOne 路由 /api/github-oauth/* 要求星号前至少一段路径，固定用 /exchange
+    const res = await fetch('/api/github-oauth/exchange', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, redirect_uri: `${window.location.origin}/settings` })

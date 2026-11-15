@@ -309,8 +309,8 @@ async function giteeGet(cfg: BackupConfig): Promise<string>
 
 /* ============================ WebDAV ============================ */
 
-/** WebDAV 统一经本站边缘函数代理转发（/api/webdav）：绕开坚果云等服务的 CORS 限制 */
-const WEBDAV_PROXY = '/api/webdav'
+/** WebDAV 统一经本站边缘函数代理转发（/api/webdav/proxy）：绕开坚果云等服务的 CORS 限制 */
+const WEBDAV_PROXY = '/api/webdav/proxy'
 
 /** 目标 URL + 方法 → 代理 URL */
 function proxyUrl(target: string, method: string): string
