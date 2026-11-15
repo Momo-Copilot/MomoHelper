@@ -149,8 +149,9 @@ export default function SettingsPage()
           target: backupTarget as BackupTarget,
           remoteUrl: webdavUrl.trim(),
           username: webdavUser.trim(),
-          password: webdavPass,
-          path: 'momohelper/backup.json'
+          password: webdavPass
+          // WebDAV 不传 path：用 backup.ts 默认 backup.json，目录由服务地址决定。
+          // 实测部分 NAS 自动建目录只支持一层缺失，多传层级会 403
         }
       : {
           target: backupTarget as BackupTarget,
