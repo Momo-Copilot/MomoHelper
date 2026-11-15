@@ -131,15 +131,6 @@ export function WordCardPopover({
           )}
         </>
       )}
-
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="关闭词条"
-        className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-subtle)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text)]"
-      >
-        <Icon name="chevron-right" className="h-4 w-4 rotate-90" />
-      </button>
     </div>
   )
 }
