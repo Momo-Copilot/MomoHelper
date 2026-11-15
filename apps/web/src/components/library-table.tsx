@@ -77,7 +77,7 @@ function DayCell({ value }: { value?: string })
   const day = beijingDayOf(value)
 
   return day ? (
-    <span className="tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-muted)]">
+    <span className="whitespace-nowrap tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-muted)]">
       {day}
     </span>
   ) : (
@@ -197,15 +197,15 @@ export function LibraryTableView({ records }: { records: LibraryRecordRowDto[] }
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-md border border-[var(--color-border)]">
-        <table className="w-full min-w-[820px] border-collapse text-left">
+        <table className="w-max min-w-full border-collapse text-left">
           <thead>
-            <tr className="bg-[var(--color-bg-subtle)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+            <tr className="whitespace-nowrap bg-[var(--color-bg-subtle)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
               <th className="w-12 px-3 py-2.5 font-normal">#</th>
               <th className="px-3 py-2.5 font-normal">单词</th>
-              <th className="w-16 px-3 py-2.5 text-right font-normal" title="study_count">
+              <th className="w-20 px-3 py-2.5 text-right font-normal" title="study_count">
                 学习次数
               </th>
-              <th className="w-20 px-3 py-2.5 text-center font-normal" title="last_response">
+              <th className="w-24 px-3 py-2.5 text-center font-normal" title="last_response">
                 最近作答
               </th>
               <th className="w-28 px-3 py-2.5 font-normal">标签</th>
@@ -296,7 +296,7 @@ export function LibraryTableView({ records }: { records: LibraryRecordRowDto[] }
                   </td>
                   <td className="px-3 py-2">
                     {row.nextStudyDate ? (
-                      <span className="tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] font-medium text-[var(--color-accent)]">
+                      <span className="whitespace-nowrap tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] font-medium text-[var(--color-accent)]">
                         {beijingDayOf(row.nextStudyDate)}
                       </span>
                     ) : (
