@@ -33,6 +33,17 @@ const RESPONSE_META: Record<StudyResponse, { label: string; className: string }>
   FAMILIAR: { label: '认识', className: 'text-[var(--color-familiar)]' }
 }
 
+/** 接口实测返回过未知枚举值，白名单外一律按未作答展示，避免渲染崩溃 */
+function responseMetaOf(value: LibraryRecordRowDto['lastResponse'])
+{
+  if (!value)
+  {
+    return null
+  }
+
+  return RESPONSE_META[value as StudyResponse] ?? null
+}
+
 const TAG_META: Record<string, { label: string; className: string }> = {
   STICKING: {
     label: 'STICKING',
@@ -69,7 +80,7 @@ const SORTERS: Record<SortKey, (a: LibraryRecordRowDto, b: LibraryRecordRowDto) 
   next: (a, b) => compareDate(a.nextStudyDate, b.nextStudyDate, 'asc'),
   count: (a, b) => b.studyCount - a.studyCount,
   added: (a, b) => compareDate(a.addDate, b.addDate, 'desc'),
-  alpha: (a, b) => a.spelling.localeCompare(b.spelling, 'en')
+  alpha: (a, b) => (a.spelling ?? '').localeCompare(b.spelling ?? '', 'en')
 }
 
 function DayCell({ value }: { value?: string })
@@ -125,10 +136,7 @@ export function LibraryTableView({ records }: { records: LibraryRecordRowDto[] }
 
     if (needle)
     {
-      rows = rows.filter(
-        (row) =>
-          row.spelling.toLowerCase().includes(needle) || row.vocId.toLowerCase().includes(needle)
-      )
+      rows = rows.filter((row) => (row.spelling ?? '').toLowerCase().includes(needle))
     }
 
     if (tagFilter === 'sticking')
@@ -162,7 +170,7 @@ export function LibraryTableView({ records }: { records: LibraryRecordRowDto[] }
               setKeyword(event.target.value)
               setPage(0)
             }}
-            placeholder="搜索单词或 voc_id"
+            placeholder="搜索单词"
             aria-label="搜索单词"
             className="h-9 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] pl-9 pr-3 text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
           />
@@ -249,13 +257,16 @@ export function LibraryTableView({ records }: { records: LibraryRecordRowDto[] }
                     {row.studyCount}
                   </td>
                   <td className="px-3 py-2 text-center text-[var(--text-xs)]">
-                    {row.lastResponse ? (
-                      <span className={`font-medium ${RESPONSE_META[row.lastResponse].className}`}>
-                        {RESPONSE_META[row.lastResponse].label}
-                      </span>
-                    ) : (
-                      <span className="text-[var(--color-text-subtle)]">—</span>
-                    )}
+                    {(() =>
+                    {
+                      const meta = responseMetaOf(row.lastResponse)
+
+                      return meta ? (
+                        <span className={`font-medium ${meta.className}`}>{meta.label}</span>
+                      ) : (
+                        <span className="text-[var(--color-text-subtle)]">—</span>
+                      )
+                    })()}
                   </td>
                   <td className="px-3 py-2">
                     {row.tags.length === 0 ? (
