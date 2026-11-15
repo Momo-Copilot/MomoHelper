@@ -102,7 +102,28 @@ export function getCachedWordCard(spelling: string): WordCard | null
   const entry = loadCache().get(spelling.toLowerCase())
   if (!entry) return null
 
-  return Date.now() - new Date(entry.at).getTime() < CACHE_TTL_MS ? entry.card : null
+  if (Date.now() - new Date(entry.at).getTime() >= CACHE_TTL_MS)
+  {
+    return null
+  }
+
+  // 结构校验：旧版缓存（单卡片结构，无 mine/ai 字段）直接作废，
+  // 否则渲染读 card.mine.empty 会 TypeError 崩掉整个页面
+  const card = entry.card as Partial<WordCard>
+
+  if (
+    !card ||
+    typeof card.mine !== 'object' ||
+    card.mine === null ||
+    !Array.isArray(card.mine.definitions) ||
+    !Array.isArray(card.mine.notes) ||
+    !Array.isArray(card.mine.phrases)
+  )
+  {
+    return null
+  }
+
+  return entry.card
 }
 
 /** AI 生成：DeepSeek 补充词条信息（思考模式跟随全局选择） */
