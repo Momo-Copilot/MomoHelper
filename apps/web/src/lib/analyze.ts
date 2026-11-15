@@ -24,7 +24,9 @@ const COUNT_BUCKETS: { key: string; label: string; min: number; max: number }[] 
   { key: '20+', label: '20 次以上', min: 21, max: Number.POSITIVE_INFINITY }
 ]
 
-/** 作答分布：last_response 为空（null 或空串）的词归到「未作答」 */
+/** 作答分布：last_response 非白名单值（空串、缺字段、未知枚举）一律归「未作答」 */
+const RESPONSE_VALUES = new Set<StudyResponse>(['FORGET', 'VAGUE', 'FAMILIAR'])
+
 const RESPONSE_LABELS: { key: string; label: string; value: StudyResponse | null }[] = [
   { key: 'FORGET', label: '忘记', value: 'FORGET' },
   { key: 'VAGUE', label: '模糊', value: 'VAGUE' },
@@ -125,8 +127,11 @@ export function analyzeLibrary(
       }
     }
 
-    // 接口对「还没作答过」返回空串而不是缺字段，|| 把空串一并归入未作答
-    const response = record.lastResponse || null
+    // 归一化为白名单枚举：接口实测返回过空串（而非缺字段）表示未作答，
+    // 防御性兜底任何非 FORGET/VAGUE/FAMILIAR 的值，保证分桶总和等于记录总数
+    const response = RESPONSE_VALUES.has(record.lastResponse as StudyResponse)
+      ? record.lastResponse
+      : null
     const responseKey = response ?? 'NONE'
     responseCounts.set(responseKey, (responseCounts.get(responseKey) ?? 0) + 1)
 
