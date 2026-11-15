@@ -237,7 +237,25 @@ async function giteePut(cfg: BackupConfig, content: string): Promise<void>
     )
   }
 
-  const branch = ((await repoRes.json()) as { default_branch?: string }).default_branch ?? 'master'
+  const branch = ((await repoRes.json()) as { default_branch?: string; empty?: boolean }).default_branch ?? 'master'
+
+  // 空仓库（无任何提交）：Gitee contents API 无法创建第一个文件，
+  // 报 sha is missing / sha is empty——引导用户先在网页端初始化
+  const rootRes = await fetch(
+    `${GITEE_API}/repos/${owner}/${repo}/contents/?ref=${branch}&access_token=${cfg.token}`
+  )
+
+  if (rootRes.ok)
+  {
+    const root = await rootRes.json()
+
+    if (Array.isArray(root) && root.length === 0)
+    {
+      throw new BackupError(
+        '仓库是空仓库（没有任何提交），Gitee 接口无法向空仓库创建文件。请打开 Gitee 仓库页面点「初始化仓库」，或删除后重建时勾选「使用 Readme 初始化」，然后重试备份。'
+      )
+    }
+  }
 
   // 现有文件 sha（更新必带）
   let sha: string | undefined
@@ -248,7 +266,10 @@ async function giteePut(cfg: BackupConfig, content: string): Promise<void>
 
   if (fileRes.ok)
   {
-    sha = ((await fileRes.json()) as { sha?: string }).sha
+    const data = await fileRes.json()
+
+    // 空仓库/文件缺失时 Gitee 返回 200 + []，不是 404
+    sha = Array.isArray(data) ? undefined : (data as { sha?: string }).sha
   }
   else if (fileRes.status !== 404)
   {
@@ -269,7 +290,13 @@ async function giteePut(cfg: BackupConfig, content: string): Promise<void>
 
   if (!res.ok)
   {
-    throw new BackupError(`上传失败（HTTP ${res.status}）：${(await res.text()).slice(0, 160)}`)
+    const detail = (await res.text()).slice(0, 160)
+
+    throw new BackupError(
+      detail.includes('sha is missing') || detail.includes('sha is empty')
+        ? 'Gitee 拒绝写入：仓库可能还没有任何提交（空仓库）。请先在 Gitee 仓库页面初始化仓库（建一个 Readme），再回来备份。'
+        : `上传失败（HTTP ${res.status}）：${detail}`
+    )
   }
 }
 
@@ -283,8 +310,20 @@ async function giteeGet(cfg: BackupConfig): Promise<string>
     throw new BackupError('仓库格式应为 owner/repo')
   }
 
+  // Gitee contents GET 必须带 ref（不带会返回 {"message":"ref"}）
+  const repoRes = await fetch(`${GITEE_API}/repos/${owner}/${repo}?access_token=${cfg.token}`)
+
+  if (!repoRes.ok)
+  {
+    throw new BackupError(
+      repoRes.status === 404 ? '仓库不存在或无权访问' : `读取仓库失败（HTTP ${repoRes.status}）`
+    )
+  }
+
+  const branch = ((await repoRes.json()) as { default_branch?: string }).default_branch ?? 'master'
+
   const res = await fetch(
-    `${GITEE_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?access_token=${cfg.token}`
+    `${GITEE_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${branch}&access_token=${cfg.token}`
   )
 
   if (res.status === 404)
