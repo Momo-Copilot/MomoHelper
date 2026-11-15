@@ -197,28 +197,37 @@ export function LibraryTableView({ records }: { records: LibraryRecordRowDto[] }
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-md border border-[var(--color-border)]">
-        <table className="w-full min-w-[940px] border-collapse text-left">
+        <table className="w-full min-w-[820px] border-collapse text-left">
           <thead>
             <tr className="bg-[var(--color-bg-subtle)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
               <th className="w-12 px-3 py-2.5 font-normal">#</th>
-              <th className="px-3 py-2.5 font-normal">voc_spelling</th>
+              <th className="px-3 py-2.5 font-normal">单词</th>
               <th className="w-16 px-3 py-2.5 text-right font-normal" title="study_count">
                 学习次数
               </th>
-              <th className="w-20 px-3 py-2.5 text-center font-normal">last_response</th>
-              <th className="w-28 px-3 py-2.5 font-normal">tags</th>
-              <th className="w-28 px-3 py-2.5 font-normal">add_date</th>
-              <th className="w-28 px-3 py-2.5 font-normal">first_study</th>
-              <th className="w-28 px-3 py-2.5 font-normal">last_study</th>
-              <th className="w-28 px-3 py-2.5 font-normal">next_study</th>
-              <th className="w-40 px-3 py-2.5 font-normal">voc_id</th>
+              <th className="w-20 px-3 py-2.5 text-center font-normal" title="last_response">
+                最近作答
+              </th>
+              <th className="w-28 px-3 py-2.5 font-normal">标签</th>
+              <th className="w-28 px-3 py-2.5 font-normal" title="add_date">
+                加入日期
+              </th>
+              <th className="w-28 px-3 py-2.5 font-normal" title="first_study_date">
+                首学日期
+              </th>
+              <th className="w-28 px-3 py-2.5 font-normal" title="last_study_date">
+                最近学习
+              </th>
+              <th className="w-28 px-3 py-2.5 font-normal" title="next_study_date">
+                下次复习
+              </th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={10}
+                  colSpan={9}
                   className="px-3 py-10 text-center text-[var(--text-sm)] text-[var(--color-text-subtle)]"
                 >
                   没有符合条件的词。
@@ -293,11 +302,6 @@ export function LibraryTableView({ records }: { records: LibraryRecordRowDto[] }
                     ) : (
                       <span className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">—</span>
                     )}
-                  </td>
-                  <td className="max-w-[160px] truncate px-3 py-2 font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-subtle)]">
-                    <span title={row.vocId} className="select-all">
-                      {row.vocId}
-                    </span>
                   </td>
                 </tr>
               ))
