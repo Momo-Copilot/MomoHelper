@@ -11,16 +11,19 @@ import {
   MaimemoRateLimitError
 } from '@momo/maimemo'
 import { Icon } from '@/components/icons'
-import { ErrorNote, PageHeader, Tile } from '@/components/kit'
+import { ErrorNote, PageHeader, Segmented, Tile } from '@/components/kit'
 import { verifyDeepSeekKey } from '@/lib/ai'
 import { verifyMaimemoToken } from '@/lib/maimemo'
 import {
   clearDeepSeekKey,
   clearMaimemoToken,
+  getAiThinkingMode,
   getDeepSeekKey,
   getLocalStatus,
+  setAiThinkingMode,
   setDeepSeekKey,
-  setMaimemoToken
+  setMaimemoToken,
+  type AiThinkingMode
 } from '@/lib/settings'
 
 /**
@@ -53,10 +56,14 @@ export default function SettingsPage()
   /** 仅客户端首次渲染后读取，避免静态导出阶段触碰 localStorage 造成水合不一致 */
   const [hasKey, setHasKey] = useState<boolean | null>(null)
 
+  /** AI 思考模式（全局唯一配置点）：null = 未配置 */
+  const [thinking, setThinking] = useState<AiThinkingMode | null>(null)
+
   useEffect(
     () =>
     {
       setHasKey(getDeepSeekKey() !== null)
+      setThinking(getAiThinkingMode())
 
       if (getDeepSeekKey() === null)
       {
@@ -411,6 +418,48 @@ export default function SettingsPage()
       </Tile>
 
       <Tile index={2} hover={false} className="mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--color-vague-bg)] text-[var(--color-vague)]"
+            >
+              <Icon name="message" className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="text-[var(--text-md)] font-semibold">AI 思考模式</h2>
+              <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                开启回答更深入但更慢，关闭更快；问词与遗忘词诊断共用
+              </p>
+            </div>
+          </div>
+          <Segmented
+            ariaLabel="AI 思考模式"
+            value={thinking ?? ''}
+            options={[
+              ['on', '开'],
+              ['off', '关']
+            ]}
+            onChange={(next) =>
+            {
+              if (next === 'on' || next === 'off')
+              {
+                setAiThinkingMode(next)
+                setThinking(next)
+              }
+            }}
+          />
+        </div>
+        <p className="mt-3 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+          {thinking
+            ? thinking === 'on'
+              ? '当前：开启 —— 诊断与问词会多花一些时间，结论更细致。'
+              : '当前：关闭 —— 诊断与问词响应更快。'
+            : '尚未配置：发起 AI 诊断或提问前需要先在这里选择。'}
+        </p>
+      </Tile>
+
+      <Tile index={3} hover={false} className="mt-4">
         <p className="text-[var(--text-sm)] text-[var(--color-text-muted)]">
           说明：本工具是纯前端应用，你的墨墨 Token 与 DeepSeek Key
           只保存在这台设备的浏览器里。DeepSeek 由浏览器直连；墨墨请求经本站

@@ -1,22 +1,20 @@
 'use client'
 
+import Link from 'next/link'
+
 import { useEffect, useRef, useState } from 'react'
 
 import { Icon } from '@/components/icons'
 import { Markdown } from '@/components/markdown'
-import { ErrorNote, PageHeader, Segmented, Tile } from '@/components/kit'
+import { ErrorNote, PageHeader, Tile } from '@/components/kit'
 import { askStream } from '@/lib/ai'
-import {
-  getAiThinkingMode,
-  setAiThinkingMode,
-  type AiThinkingMode
-} from '@/lib/settings'
+import { getAiThinkingMode } from '@/lib/settings'
 
 /**
  * AI 问词：浏览器直连 DeepSeek 流式接口。
  * 回答自动注入该词的真实学习数据（学习次数 / 顽固标记）；
  * 未绑定墨墨时也能提问，只是缺少学习上下文。
- * 思考模式由用户在此页选择（开 / 关），不设默认，选择会记住。
+ * 思考模式在设置页统一配置；未配置时引导跳转。
  */
 export default function AskPage()
 {
@@ -25,8 +23,8 @@ export default function AskPage()
   const [answer, setAnswer] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  /** null = 用户还没选过思考模式（localStorage 无记录） */
-  const [thinking, setThinking] = useState<AiThinkingMode | null>(null)
+  /** null = 设置页还没配置过思考模式 */
+  const [thinking, setThinking] = useState<'on' | 'off' | null>(null)
 
   const answerRef = useRef('')
   const abortRef = useRef<AbortController | null>(null)
@@ -40,7 +38,7 @@ export default function AskPage()
     []
   )
 
-  // 挂载后读取已保存的选择（localStorage 仅浏览器可用）
+  // 挂载后读取设置（localStorage 仅浏览器可用）；发起请求前会重读一次
   useEffect(
     () =>
     {
@@ -48,13 +46,6 @@ export default function AskPage()
     },
     []
   )
-
-  function chooseThinking(mode: AiThinkingMode): void
-  {
-    setThinking(mode)
-    setAiThinkingMode(mode)
-    setError(null)
-  }
 
   function stop(): void
   {
@@ -70,10 +61,13 @@ export default function AskPage()
       return
     }
 
-    // 思考模式不设默认：未选择时引导用户先选
-    if (!thinking)
+    // 每次发起前重读设置：用户可能在别的标签页刚改过
+    const mode = getAiThinkingMode()
+
+    if (!mode)
     {
-      setError('请先选择思考模式：开启回答更深入，关闭回答更快')
+      setError('请先到「设置 → AI 思考模式」选择开或关，再发起提问')
+      setThinking(null)
       return
     }
 
@@ -90,7 +84,7 @@ export default function AskPage()
       await askStream(
         text,
         spelling.trim() || undefined,
-        thinking === 'on',
+        mode === 'on',
         (delta) =>
         {
           answerRef.current += delta
@@ -184,26 +178,6 @@ export default function AskPage()
                 停止
               </button>
             )}
-            <div className="ml-auto flex items-center gap-2.5">
-              <span className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
-                思考模式{thinking ? '' : '（未选择）'}
-              </span>
-              <Segmented
-                ariaLabel="思考模式"
-                value={thinking ?? ''}
-                options={[
-                  ['on', '开'],
-                  ['off', '关']
-                ]}
-                onChange={(next) =>
-                {
-                  if (next === 'on' || next === 'off')
-                  {
-                    chooseThinking(next)
-                  }
-                }}
-              />
-            </div>
           </div>
         </form>
       </Tile>

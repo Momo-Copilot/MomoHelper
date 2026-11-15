@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
@@ -15,7 +17,7 @@ import {
   type DiagnoseRecord
 } from '@/lib/diagnose-history'
 import { getStickingWords, getTodayForgotten } from '@/lib/maimemo'
-import { getAiThinkingMode, setAiThinkingMode, type AiThinkingMode } from '@/lib/settings'
+import { getAiThinkingMode, type AiThinkingMode } from '@/lib/settings'
 
 const REASON_LABELS: Record<string, string> = {
   SPELLING_SIMILAR: '拼写相似',
@@ -136,9 +138,9 @@ export default function ForgetPage()
   const [tab, setTab] = useState<Tab>('today')
   /** 当前选中的词（跨 Tab 保持，切 Tab 不丢） */
   const [selected, setSelected] = useState<string | null>(null)
-  /** null = 用户还没选过思考模式（localStorage 无记录） */
+  /** null = 设置页还没配置过思考模式 */
   const [thinking, setThinking] = useState<AiThinkingMode | null>(null)
-  /** 未选思考模式就点诊断时的提示 */
+  /** 未配置思考模式就点诊断时的提示 */
   const [modeNotice, setModeNotice] = useState<string | null>(null)
   /** 挂载后从 localStorage 载入的诊断历史（spelling 小写 → 记录） */
   const [history, setHistory] = useState<Map<string, DiagnoseRecord>>(new Map())
@@ -160,13 +162,6 @@ export default function ForgetPage()
     },
     []
   )
-
-  function chooseThinking(mode: AiThinkingMode): void
-  {
-    setThinking(mode)
-    setAiThinkingMode(mode)
-    setModeNotice(null)
-  }
 
   const query = useQuery({
     queryKey: ['forget', tab],
@@ -204,17 +199,22 @@ export default function ForgetPage()
   /** 选中词最近一次诊断是否失败 */
   const isFailedSelected = diagnose.isError && diagnose.variables?.spelling === selected
 
-  /** 对指定词发起诊断（点选与重新诊断共用）；思考模式未选时引导先选 */
+  /** 对指定词发起诊断（点选与重新诊断共用）；思考模式未配置时引导去设置页 */
   function requestDiagnosis(spelling: string): void
   {
-    if (!thinking)
+    // 每次诊断前重读设置：用户可能刚在设置页改过
+    const mode = getAiThinkingMode()
+
+    if (!mode)
     {
-      setModeNotice('请先选择思考模式：开启诊断更深入，关闭诊断更快')
+      setThinking(null)
+      setModeNotice('请先到「设置 → AI 思考模式」选择开或关，再发起诊断')
       return
     }
 
+    setThinking(mode)
     setModeNotice(null)
-    diagnose.mutate({ spelling, thinking: thinking === 'on' })
+    diagnose.mutate({ spelling, thinking: mode === 'on' })
   }
 
   function selectWord(spelling: string): void
@@ -248,25 +248,15 @@ export default function ForgetPage()
                 setTab(next)
               }}
             />
-            <span className="flex items-center gap-2">
-              <span className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
-                思考模式{thinking ? '' : '（未选择）'}
-              </span>
-              <Segmented
-                ariaLabel="思考模式"
-                value={thinking ?? ''}
-                options={[
-                  ['on', '开'],
-                  ['off', '关']
-                ]}
-                onChange={(next) =>
-                {
-                  if (next === 'on' || next === 'off')
-                  {
-                    chooseThinking(next)
-                  }
-                }}
-              />
+            <span className="flex items-center gap-2 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <Icon name="message" className="h-3.5 w-3.5" />
+              思考模式：{thinking ?? '未配置'}
+              <Link
+                href="/settings"
+                className="underline decoration-dotted underline-offset-4 transition-colors hover:text-[var(--color-accent)]"
+              >
+                去设置
+              </Link>
             </span>
           </div>
         }

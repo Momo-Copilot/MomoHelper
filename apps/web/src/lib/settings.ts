@@ -112,8 +112,8 @@ export function clearDeepSeekKey(): void
 export type AiThinkingMode = 'on' | 'off'
 
 /**
- * 读取用户选择的思考模式。
- * 代码不做任何默认：未选择返回 null，由页面引导用户先选择再发起 AI 请求。
+ * 读取思考模式（全局唯一配置点在设置页）。
+ * 未选择返回 null，由 AI 调用前引导用户去设置页配置。
  */
 export function getAiThinkingMode(): AiThinkingMode | null
 {
@@ -122,7 +122,7 @@ export function getAiThinkingMode(): AiThinkingMode | null
   return value === 'on' || value === 'off' ? value : null
 }
 
-/** 记录用户选择（问词页 / 遗忘词页共用同一份偏好，选择一次全局生效） */
+/** 记录思考模式（设置页统一配置，全局生效） */
 export function setAiThinkingMode(mode: AiThinkingMode): void
 {
   write(STORAGE_KEYS.aiThinking, mode)
