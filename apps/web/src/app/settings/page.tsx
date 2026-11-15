@@ -15,6 +15,7 @@ import { ErrorNote, PageHeader, Segmented, Tile } from '@/components/kit'
 import { verifyDeepSeekKey } from '@/lib/ai'
 import { BackupError, createBackup, fetchBackup, type BackupTarget } from '@/lib/backup'
 import { restoreBackup } from '@/lib/backup-restore'
+import { handleGithubCallback, startGithubLogin } from '@/lib/github-oauth'
 import { verifyMaimemoToken } from '@/lib/maimemo'
 import {
   clearDeepSeekKey,
@@ -72,6 +73,8 @@ export default function SettingsPage()
   const [backupBusy, setBackupBusy] = useState<'backup' | 'restore' | null>(null)
   const [backupNotice, setBackupNotice] = useState<string | null>(null)
   const [backupError, setBackupError] = useState<string | null>(null)
+  /** OAuth 登录是否可用（前端配置了 client_id） */
+  const oauthClientId = process.env.NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID ?? ''
 
   useEffect(
     () =>
@@ -82,6 +85,27 @@ export default function SettingsPage()
       setWebdavUrl(localStorage.getItem('momo.backupWebdavUrl') ?? '')
       setWebdavUser(localStorage.getItem('momo.backupWebdavUser') ?? '')
       setBackupToken(localStorage.getItem('momo.backupToken') ?? '')
+    },
+    []
+  )
+
+  // GitHub OAuth 回调处理：URL 带 code+state 时换 token 并填入
+  useEffect(
+    () =>
+    {
+      void handleGithubCallback().then((result) =>
+      {
+        if (result.token)
+        {
+          setBackupToken(result.token)
+          setBackupTarget('github')
+          setBackupNotice('GitHub 授权成功，Token 已填入，选择仓库后即可备份。')
+        }
+        else if (result.message)
+        {
+          setBackupError(result.message)
+        }
+      })
     },
     []
   )
@@ -652,11 +676,31 @@ export default function SettingsPage()
             </>
           ) : (
             <>
+              {backupTarget === 'github' && oauthClientId && (
+                <button
+                  type="button"
+                  onClick={() =>
+                  {
+                    try
+                    {
+                      startGithubLogin()
+                    }
+                    catch (error)
+                    {
+                      setBackupError(error instanceof Error ? error.message : 'OAuth 未配置')
+                    }
+                  }}
+                  className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-4 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+                >
+                  <Icon name="link" className="h-4 w-4" />
+                  使用 GitHub 授权登录
+                </button>
+              )}
               <input
                 type="password"
                 value={backupToken}
                 onChange={(event) => setBackupToken(event.target.value)}
-                placeholder={backupTarget === 'github' ? 'GitHub Token（需 Contents 读写权限）' : 'Gitee 私人令牌'}
+                placeholder={backupTarget === 'github' ? 'GitHub Token（OAuth 登录或手动粘贴，需 Contents 读写权限）' : 'Gitee 私人令牌'}
                 autoComplete="off"
                 className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
               />

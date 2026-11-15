@@ -309,8 +309,17 @@ async function giteeGet(cfg: BackupConfig): Promise<string>
 
 /* ============================ WebDAV ============================ */
 
-/** 基本结构：PUT/GET + Basic Auth。CORS 不通时由调用方走边缘函数代理 */
-function webdavUrl(cfg: BackupConfig): string
+/** WebDAV 统一经本站边缘函数代理转发（/api/webdav）：绕开坚果云等服务的 CORS 限制 */
+const WEBDAV_PROXY = '/api/webdav'
+
+/** 目标 URL + 方法 → 代理 URL */
+function proxyUrl(target: string, method: string): string
+{
+  const params = new URLSearchParams({ url: target, method })
+  return `${WEBDAV_PROXY}?${params.toString()}`
+}
+
+function webdavTargetUrl(cfg: BackupConfig): string
 {
   const base = (cfg.remoteUrl ?? '').replace(/\/$/, '')
   const path = cfg.path ?? 'momohelper/backup.json'
@@ -318,18 +327,9 @@ function webdavUrl(cfg: BackupConfig): string
   return `${base}/${path}`
 }
 
-async function webdavFetch(cfg: BackupConfig, method: string, body?: string): Promise<Response>
+function webdavAuthHeader(cfg: BackupConfig): string
 {
-  const auth = btoa(`${cfg.username ?? ''}:${cfg.password ?? ''}`)
-
-  return fetch(webdavUrl(cfg), {
-    method,
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/json'
-    },
-    body
-  })
+  return `Basic ${btoa(`${cfg.username ?? ''}:${cfg.password ?? ''}`)}`
 }
 
 /** 逐级建目录：WebDAV 不支持递归 MKCOL，父目录不存在会 409 */
@@ -344,9 +344,9 @@ async function webdavEnsureDir(cfg: BackupConfig): Promise<void>
   {
     current = `${current}/${segment}`
 
-    const res = await fetch(current, {
-      method: 'MKCOL',
-      headers: { Authorization: `Basic ${btoa(`${cfg.username ?? ''}:${cfg.password ?? ''}`)}` }
+    const res = await fetch(proxyUrl(current, 'MKCOL'), {
+      method: 'POST',
+      headers: { Authorization: webdavAuthHeader(cfg) }
     })
 
     // 405 = 已存在，属正常
@@ -361,7 +361,14 @@ async function webdavPut(cfg: BackupConfig, content: string): Promise<void>
 {
   await webdavEnsureDir(cfg)
 
-  const res = await webdavFetch(cfg, 'PUT', content)
+  const res = await fetch(proxyUrl(webdavTargetUrl(cfg), 'PUT'), {
+    method: 'POST',
+    headers: {
+      Authorization: webdavAuthHeader(cfg),
+      'Content-Type': 'application/json'
+    },
+    body: content
+  })
 
   if (!res.ok)
   {
@@ -371,7 +378,10 @@ async function webdavPut(cfg: BackupConfig, content: string): Promise<void>
 
 async function webdavGet(cfg: BackupConfig): Promise<string>
 {
-  const res = await webdavFetch(cfg, 'GET')
+  const res = await fetch(proxyUrl(webdavTargetUrl(cfg), 'GET'), {
+    method: 'GET',
+    headers: { Authorization: webdavAuthHeader(cfg) }
+  })
 
   if (res.status === 404)
   {
