@@ -14,16 +14,17 @@ import type {
   StudyResponse
 } from '@momo/types'
 
-/** 掌握度分桶：学习次数越多说明见得越多 */
+/** 掌握度分桶：学习次数越多说明见得越多。0 次 = 加入词库但还没学过 */
 const COUNT_BUCKETS: { key: string; label: string; min: number; max: number }[] = [
-  { key: '1', label: '1 次', min: 0, max: 1 },
+  { key: '0', label: '0 次', min: 0, max: 0 },
+  { key: '1', label: '1 次', min: 1, max: 1 },
   { key: '2-5', label: '2–5 次', min: 2, max: 5 },
   { key: '6-10', label: '6–10 次', min: 6, max: 10 },
   { key: '11-20', label: '11–20 次', min: 11, max: 20 },
   { key: '20+', label: '20 次以上', min: 21, max: Number.POSITIVE_INFINITY }
 ]
 
-/** 作答分布：last_response 为空的词归到「未作答」 */
+/** 作答分布：last_response 为空（null 或空串）的词归到「未作答」 */
 const RESPONSE_LABELS: { key: string; label: string; value: StudyResponse | null }[] = [
   { key: 'FORGET', label: '忘记', value: 'FORGET' },
   { key: 'VAGUE', label: '模糊', value: 'VAGUE' },
@@ -108,7 +109,7 @@ export function analyzeLibrary(
 
     studyCountSum += count
 
-    if (count <= 1)
+    if (count === 1)
     {
       singleStudyCount++
     }
@@ -124,7 +125,8 @@ export function analyzeLibrary(
       }
     }
 
-    const response = record.lastResponse ?? null
+    // 接口对「还没作答过」返回空串而不是缺字段，|| 把空串一并归入未作答
+    const response = record.lastResponse || null
     const responseKey = response ?? 'NONE'
     responseCounts.set(responseKey, (responseCounts.get(responseKey) ?? 0) + 1)
 
