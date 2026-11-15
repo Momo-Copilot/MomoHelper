@@ -202,7 +202,9 @@ export function LibraryTableView({ records }: { records: LibraryRecordRowDto[] }
             <tr className="bg-[var(--color-bg-subtle)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
               <th className="w-12 px-3 py-2.5 font-normal">#</th>
               <th className="px-3 py-2.5 font-normal">voc_spelling</th>
-              <th className="w-16 px-3 py-2.5 text-right font-normal">study_count</th>
+              <th className="w-16 px-3 py-2.5 text-right font-normal" title="study_count">
+                学习次数
+              </th>
               <th className="w-20 px-3 py-2.5 text-center font-normal">last_response</th>
               <th className="w-28 px-3 py-2.5 font-normal">tags</th>
               <th className="w-28 px-3 py-2.5 font-normal">add_date</th>
