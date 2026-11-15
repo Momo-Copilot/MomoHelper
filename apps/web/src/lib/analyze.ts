@@ -32,8 +32,8 @@ const RESPONSE_LABELS: { key: string; label: string; value: StudyResponse | null
 ]
 
 const TAG_LABELS: { key: string; label: string }[] = [
-  { key: 'STICKING', label: '顽固 STICKING' },
-  { key: 'WELL_FAMILIAR', label: '熟词 WELL_FAMILIAR' },
+  { key: 'STICKING', label: '顽固词' },
+  { key: 'WELL_FAMILIAR', label: '熟词' },
   { key: 'NONE', label: '无标签' }
 ]
 

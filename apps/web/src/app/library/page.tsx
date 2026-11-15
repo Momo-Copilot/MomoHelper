@@ -124,6 +124,12 @@ export default function LibraryPage()
   }
 
   const data = query.data
+  const loaded = data.records.length
+  const expected = data.total ?? loaded
+  const isComplete = data.complete && loaded >= expected
+  const wordLabel = isComplete
+    ? `${loaded.toLocaleString('zh-CN')} 词`
+    : `${loaded.toLocaleString('zh-CN')} / ${expected.toLocaleString('zh-CN')} 词`
   const fetchedLabel = new Date(data.fetchedAt).toLocaleString('zh-CN', {
     month: '2-digit',
     day: '2-digit',
@@ -137,7 +143,7 @@ export default function LibraryPage()
     <div>
       <PageHeader
         title="词库"
-        description={`${(data.total ?? data.records.length).toLocaleString('zh-CN')} 词 · 更新于 ${fetchedLabel}`}
+        description={`${wordLabel} · 更新于 ${fetchedLabel}`}
         actions={
           <button
             type="button"
@@ -154,12 +160,14 @@ export default function LibraryPage()
         }
       />
 
-      {!data.complete && (
-        <p className="mb-4 flex items-center gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[var(--text-sm)] text-[var(--color-vague)]">
-          <Icon name="alert" className="h-4 w-4 shrink-0" />
-          分页边界异常，本次只取到 {data.records.length.toLocaleString('zh-CN')} 条
-          {data.total ? `（接口返回总数 ${data.total.toLocaleString('zh-CN')}）` : ''}
-          ，统计结果可能偏小。
+      {!isComplete && (
+        <p className="mb-4 flex items-start gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[var(--text-sm)] text-[var(--color-vague)]">
+          <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            只取到 {loaded.toLocaleString('zh-CN')} 条，接口总数 {expected.toLocaleString('zh-CN')}
+            条。差额多为未安排复习的词（没有 next_study_date），墨墨接口暂不提供按此筛选的查询，
+            以下统计仅覆盖已进入复习计划的词。
+          </span>
         </p>
       )}
 

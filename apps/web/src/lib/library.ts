@@ -233,7 +233,10 @@ export async function loadLibrary(
   options: LibraryLoadOptions = {}
 ): Promise<LibrarySnapshotDto>
 {
-  const cached = options.force ? null : await readCache()
+  // 上次没拉全的缓存直接作废：否则页面会一直显示偏小的统计，
+  // 直到缓存自然过期（最多 24 小时）才重试，用户以为数据就是这么多
+  const raw = options.force ? null : await readCache()
+  const cached = raw && raw.meta.complete ? raw : null
 
   if (cached)
   {

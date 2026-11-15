@@ -70,6 +70,8 @@ export interface QueryStudyRecordsParams
   nextStudyDateStart?: string
   nextStudyDateEnd?: string
   limit?: number
+  /** 偏移量（接口未在文档中声明，实测若被忽略会返回重复数据，调用方需自行判定） */
+  offset?: number
 }
 
 export interface QueryStudyRecordsResult
@@ -96,7 +98,8 @@ export async function queryStudyRecords(
               ...(params.nextStudyDateEnd ? { end: params.nextStudyDateEnd } : {})
             }
           : undefined,
-      limit: params.limit
+      limit: params.limit,
+      offset: params.offset
     })
 
     const parsed = recordsSchema.parse(data)
@@ -114,12 +117,24 @@ export async function queryStudyRecords(
 
 export interface QueryAllStudyRecordsOptions
 {
-  /** 每页条数，接口上限 1000 */
+  /** 每页条数，接口默认上限 1000 */
   pageSize?: number
-  /** 安全阀：最多翻多少页，避免异常数据下无限循环 */
+  /** 安全阀：每种策略最多翻多少页，避免异常数据下无限循环 */
   maxPages?: number
   /** 每翻完一页回吐一次已拉取条数，供 UI 显示进度 */
   onProgress?: (loaded: number, total: number | null) => void
+}
+
+/** 各策略实际取到的条数，用于 UI 标注与线上排查 */
+export interface StudyRecordFetchDiagnostics
+{
+  total: number | null
+  /** 单请求全量取到多少（0 = 没走到这条） */
+  singleShot: number
+  /** offset 翻页后累计条数 */
+  offsetPaged: number
+  /** 日期窗口翻页后累计条数 */
+  windowPaged: number
 }
 
 export interface QueryAllStudyRecordsResult
@@ -129,17 +144,26 @@ export interface QueryAllStudyRecordsResult
   total: number | null
   /** false = 被分页边界或安全阀截断，UI 需标注数据可能不全 */
   complete: boolean
+  diagnostics: StudyRecordFetchDiagnostics
 }
+
+/** 单请求拉全的条数上限：再大响应体可能拖到边缘函数超时 */
+const MAX_SINGLE_SHOT = 12_000
 
 /**
  * 全量拉取单词级学习记录（8000+ 词时分页取全）。
  *
- * 接口单次 limit 上限 1000、无 offset，只能按 next_study_date 滑动窗口：
- * as_count 拿总数 → 每页取满后把窗口起点挪到「本页最后一个复习日期的次日」。
- * next_study_date 是北京时间 00:00 的 UTC 表示（如 2027-07-04T16:00:00.000Z），
- * 因此追加 24h 得到的 ISO 字符串与接口返回值同格式，不会因时区解析偏 8 小时。
+ * 关键约束：未安排复习的词 next_study_date 为空，日期窗口过滤会把它们整体排除，
+ * 只靠窗口翻页永远取不全（实测 8614 词里只有 2212 条带复习日期）。
+ * 因此按可靠性从高到低试三种策略，取到 as_count 总数即停：
+ *   1. 单请求 limit = total：不带任何过滤，能覆盖全部词
+ *   2. offset 翻页：文档未声明，探一页验证是否生效
+ *   3. next_study_date 滑动窗口：兜底，只能覆盖有复习日期的词
  *
- * 频控无压力：8000 词约 9 次请求，远低于 20 次 / 10 秒的限额。
+ * next_study_date 是北京时间 00:00 的 UTC 表示（如 2027-07-04T16:00:00.000Z），
+ * 窗口起点追加 24h 得到的 ISO 与接口返回值同格式，不会因时区解析偏 8 小时。
+ *
+ * 频控无压力：最坏约 11 个请求，远低于 20 次 / 10 秒的限额。
  */
 export async function queryStudyRecordsAll(
   client: MaimemoClient,
@@ -154,20 +178,19 @@ export async function queryStudyRecordsAll(
 
   const seen = new Set<string>()
   const records: MaimemoStudyRecord[] = []
-  let start: string | undefined
-  let complete = true
+  const diagnostics: StudyRecordFetchDiagnostics = {
+    total,
+    singleShot: 0,
+    offsetPaged: 0,
+    windowPaged: 0
+  }
 
-  for (let page = 0; page < maxPages; page++)
+  /** 去重吸收一页，返回新增条数 */
+  function absorb(list: MaimemoStudyRecord[]): number
   {
-    const result = await queryStudyRecords(client, {
-      limit: pageSize,
-      nextStudyDateStart: start
-    })
-
-    // 边界可能重叠（同一复习日跨页），按 voc_id 去重
     let fresh = 0
 
-    for (const record of result.records)
+    for (const record of list)
     {
       if (seen.has(record.voc_id))
       {
@@ -179,6 +202,105 @@ export async function queryStudyRecordsAll(
       fresh++
     }
 
+    return fresh
+  }
+
+  const hasAll = (): boolean => total !== null && records.length >= total
+
+  const done = (complete: boolean): QueryAllStudyRecordsResult => ({
+    records,
+    total,
+    complete,
+    diagnostics
+  })
+
+  // ---------- 策略 1：单请求拉全 ----------
+  // 文档写 limit 上限 1000，但实测可能放行更大值。这条最关键：
+  // 未安排复习的词没有 next_study_date，永远不会被日期窗口覆盖，只能靠无过滤查询拿到。
+  let seed: MaimemoStudyRecord[] = []
+
+  if (total !== null && total > 0 && total <= MAX_SINGLE_SHOT)
+  {
+    try
+    {
+      const shot = await queryStudyRecords(client, { limit: total })
+
+      seed = shot.records
+      diagnostics.singleShot = seed.length
+      absorb(seed)
+      options.onProgress?.(records.length, total)
+
+      if (hasAll())
+      {
+        return done(true)
+      }
+    }
+    catch (error)
+    {
+      // 401 必须上抛；其余（体积/超时）不致命，继续翻页
+      if (error instanceof MaimemoAuthError)
+      {
+        throw error
+      }
+    }
+  }
+
+  // ---------- 策略 2：offset 翻页 ----------
+  // 文档没声明 offset，探一页就知道：能探出新 voc_id 说明生效。
+  if (seed.length > 0 && !hasAll())
+  {
+    let offset = seed.length
+    let supported = false
+    let batch = await queryStudyRecords(client, { limit: pageSize, offset })
+
+    if (batch.records.some((record) => !seen.has(record.voc_id)))
+    {
+      supported = true
+    }
+
+    for (let page = 0; supported && page < maxPages; page++)
+    {
+      const fresh = absorb(batch.records)
+
+      offset += batch.records.length
+      diagnostics.offsetPaged = records.length
+      options.onProgress?.(records.length, total)
+
+      if (batch.records.length < pageSize || fresh === 0 || hasAll())
+      {
+        break
+      }
+
+      batch = await queryStudyRecords(client, { limit: pageSize, offset })
+    }
+
+    if (hasAll())
+    {
+      return done(true)
+    }
+
+    if (supported)
+    {
+      // offset 可用但没翻完（撞上 maxPages），比日期窗口可靠，不再往下试
+      return done(false)
+    }
+  }
+
+  // ---------- 策略 3：next_study_date 滑动窗口兜底 ----------
+  let start: string | undefined
+  let complete = true
+
+  for (let page = 0; page < maxPages; page++)
+  {
+    const result = await queryStudyRecords(client, {
+      limit: pageSize,
+      nextStudyDateStart: start
+    })
+
+    // 边界可能重叠（同一复习日跨页），按 voc_id 去重
+    const fresh = absorb(result.records)
+
+    diagnostics.windowPaged = records.length
     options.onProgress?.(records.length, total)
 
     if (result.records.length < pageSize)
@@ -219,7 +341,7 @@ export async function queryStudyRecordsAll(
     }
   }
 
-  return { records, total, complete }
+  return done(total === null ? complete : complete && hasAll())
 }
 
 /** 从后往前找最后一个存在的 next_study_date */
