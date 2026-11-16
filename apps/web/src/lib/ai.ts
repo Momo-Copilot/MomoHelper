@@ -62,10 +62,11 @@ async function findRecordContext(spelling: string): Promise<AskContext>
     }
 
     const client = getMaimemoClient()
-    const records = await queryStudyRecords(client, { limit: 1000 })
-    const record = records.records.find(
-      (item) => item.voc_spelling.toLowerCase() === spelling.toLowerCase()
-    )
+    // 服务端按拼写定位（spellings 最多 1000、忽略其他条件），
+    // 原拼写 + 小写两种形态一起传，规避服务端大小写匹配差异
+    const spellings = [...new Set([spelling, spelling.toLowerCase()])]
+    const records = await queryStudyRecords(client, { spellings })
+    const record = records.records[0]
 
     if (!record)
     {
@@ -130,10 +131,10 @@ export async function diagnoseWord(spelling: string, thinking: boolean): Promise
     if (getMaimemoToken())
     {
       const client = getMaimemoClient()
-      const records = await queryStudyRecords(client, { limit: 1000 })
-      const record = records.records.find(
-        (item) => item.voc_spelling.toLowerCase() === spelling.toLowerCase()
-      )
+      // 服务端按拼写定位（原拼写 + 小写两种形态），不再全量拉 1000 条
+      const spellings = [...new Set([spelling, spelling.toLowerCase()])]
+      const records = await queryStudyRecords(client, { spellings })
+      const record = records.records[0]
 
       if (record)
       {

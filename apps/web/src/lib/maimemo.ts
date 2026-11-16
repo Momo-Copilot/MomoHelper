@@ -18,7 +18,7 @@ import {
   toBeijingDate,
   getStudyProgress,
   getTodayItems,
-  queryStudyRecords,
+  queryStudyRecordsFiltered,
   listNotepads
 } from '@momo/maimemo'
 import type {
@@ -292,10 +292,13 @@ export async function getStickingWords(): Promise<ForgottenResult>
 
   try
   {
-    const records = await queryStudyRecords(client, { limit: 1000 })
+    // 服务端按 STICKING 标签筛选：此前无过滤拉 1000 条再前端过滤，
+    // 词库超过 1000 词时后面的顽固词会被整体漏掉
+    const result = await queryStudyRecordsFiltered(client, { tags: 'STICKING' })
 
     return {
-      words: records.records
+      words: result.records
+        // 服务端筛选异常失效时兜底：最多退化为「前 1000 条里的顽固词」
         .filter((item) => item.tags.includes('STICKING'))
         .map((item) => ({
           vocId: item.voc_id,

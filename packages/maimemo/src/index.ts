@@ -10,12 +10,13 @@ export {
   MaimemoApiError
 } from './errors'
 export { toBeijingDate, beijingToday, beijingDayStartUtc } from './time'
-export { getStudyProgress, getTodayItems, queryStudyRecords, queryStudyRecordsAll } from './study'
+export { getStudyProgress, getTodayItems, queryStudyRecords, queryStudyRecordsAll, queryStudyRecordsFiltered } from './study'
 export type {
   QueryStudyRecordsParams,
   QueryStudyRecordsResult,
   QueryAllStudyRecordsOptions,
-  QueryAllStudyRecordsResult
+  QueryAllStudyRecordsResult,
+  QueryFilteredStudyRecordsResult
 } from './study'
 export { listNotepads } from './notepads'
 export {

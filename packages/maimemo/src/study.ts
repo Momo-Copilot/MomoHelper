@@ -69,6 +69,12 @@ export interface QueryStudyRecordsParams
   asCount?: boolean
   nextStudyDateStart?: string
   nextStudyDateEnd?: string
+  /** 服务端按标签筛选（官方 enum 仅 STICKING 顽固词），多个标签为 or 关系 */
+  tags?: string
+  /** 服务端按拼写筛选（最多 1000，忽略其他条件，不可与 vocIds 同时使用） */
+  spellings?: string[]
+  /** 服务端按单词 ID 筛选（忽略其他条件，不可与 spellings 同时使用） */
+  vocIds?: string[]
   limit?: number
   /** 偏移量（接口未在文档中声明，实测若被忽略会返回重复数据，调用方需自行判定） */
   offset?: number
@@ -88,7 +94,8 @@ export async function queryStudyRecords(
 {
   try
   {
-    // next_study_date 为嵌套对象（.start / .end），非扁平字段
+    // next_study_date 为嵌套对象（.start / .end），非扁平字段；
+    // undefined 字段会被 JSON.stringify 自动剔除，不会以 null 形式发给服务端
     const data = await client.request<unknown>('POST', '/study/query_study_records', {
       as_count: params.asCount,
       next_study_date:
@@ -98,6 +105,9 @@ export async function queryStudyRecords(
               ...(params.nextStudyDateEnd ? { end: params.nextStudyDateEnd } : {})
             }
           : undefined,
+      tags: params.tags,
+      spellings: params.spellings,
+      voc_ids: params.vocIds,
       limit: params.limit,
       offset: params.offset
     })
@@ -135,6 +145,84 @@ export interface StudyRecordFetchDiagnostics
   offsetPaged: number
   /** 日期窗口翻页后累计条数 */
   windowPaged: number
+}
+
+export interface QueryFilteredStudyRecordsResult
+{
+  records: MaimemoStudyRecord[]
+  /** as_count 在同一筛选条件下返回的总数；拿不到为 null */
+  total: number | null
+  /** true = 结果与 as_count 总数对齐（或单页拉完）；false = 可能被分页截断 */
+  complete: boolean
+}
+
+/**
+ * 服务端筛选条件下拉取学习记录（tags / spellings / voc_ids）。
+ *
+ * 与 queryStudyRecordsAll 的区别：筛选把结果集缩小到远小于全量的规模，
+ * 不需要三策略回退，只需 as_count 校准总数 + offset 探测翻页。
+ * offset 不被服务端支持时会拿到重复页，按 voc_id 去重后 fresh === 0 自动终止。
+ */
+export async function queryStudyRecordsFiltered(
+  client: MaimemoClient,
+  params: Omit<QueryStudyRecordsParams, 'asCount' | 'offset'> = {},
+  options: Pick<QueryAllStudyRecordsOptions, 'maxPages' | 'onProgress'> = {}
+): Promise<QueryFilteredStudyRecordsResult>
+{
+  const maxPages = options.maxPages ?? 10
+  const pageSize = 1000
+
+  const countResult = await queryStudyRecords(client, { ...params, asCount: true })
+  const total = countResult.count ?? null
+
+  const seen = new Set<string>()
+  const records: MaimemoStudyRecord[] = []
+
+  /** 去重吸收一页，返回新增条数 */
+  function absorb(list: MaimemoStudyRecord[]): number
+  {
+    let fresh = 0
+
+    for (const record of list)
+    {
+      if (seen.has(record.voc_id))
+      {
+        continue
+      }
+
+      seen.add(record.voc_id)
+      records.push(record)
+      fresh++
+    }
+
+    return fresh
+  }
+
+  let offset: number | undefined
+
+  for (let page = 0; page < maxPages; page++)
+  {
+    const result = await queryStudyRecords(client, { ...params, limit: pageSize, offset })
+    const fresh = absorb(result.records)
+    options.onProgress?.(records.length, total)
+
+    if (result.records.length < pageSize || fresh === 0)
+    {
+      break // 不满页即已拉完；fresh === 0 说明 offset 未生效且无新数据
+    }
+
+    offset = (offset ?? 0) + result.records.length
+
+    if (total !== null && records.length >= total)
+    {
+      break
+    }
+  }
+
+  // 拿不到总数时：不满页视为完整，满页则可能被截断
+  const complete = total !== null ? records.length >= total : records.length < pageSize
+
+  return { records, total, complete }
 }
 
 export interface QueryAllStudyRecordsResult
