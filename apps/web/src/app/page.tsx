@@ -8,6 +8,7 @@ import { MaimemoAuthError } from '@momo/maimemo'
 import type { DashboardTrendPointDto } from '@momo/types'
 import { Icon } from '@/components/icons'
 import { ErrorNote, PageHeader, Tile, TileSkeleton } from '@/components/kit'
+import { ReportTeaser } from '@/components/report-teaser'
 import { TodayWordsCard } from '@/components/today-words'
 import { getDashboardHistory, getDashboardToday, MaimemoNotConfiguredError } from '@/lib/maimemo'
 
@@ -423,6 +424,9 @@ export default function DashboardPage()
             </div>
           </Tile>
         )}
+
+        {/* 学情快照入口：仅本地已有词库缓存时出现（只读缓存，不触发拉取） */}
+        <ReportTeaser />
 
         {/* 今日词表明细：全部词逐行展示 + 双筛选（复用看板数据，无额外请求） */}
         <Tile index={data.forgottenWords > 0 ? 5 : 4} hover={false} className="col-span-12">

@@ -199,3 +199,48 @@ export interface LibrarySnapshotDto
   /** ISO 时间戳 */
   fetchedAt: string
 }
+
+/* ============================= 学情快照 ============================= */
+
+/** 学情快照日粒度行 */
+export interface ReportDailyRowDto
+{
+  /** 北京时间 YYYY-MM-DD */
+  date: string
+  /** 当天开始学习的词数（first_study_date 缺失时按 add_date 计） */
+  count: number
+}
+
+/** 学情风险摘要（报告页风险区与看板入口卡共用） */
+export interface ReportRiskDto
+{
+  /** 沉睡词数：距上次学习 >= 30 天的已学词 */
+  sleepingCount: number
+  /** 沉睡分桶（已学词数作分母）：7–13 / 14–29 / 30–59 / 60+ 天未碰 */
+  sleepingBuckets: LibraryBucketDto[]
+  /** 断更区间（连续 >= 3 天零首学），按时间升序 */
+  gaps: { start: string; end: string; days: number }[]
+  /** 最长断得天数；无断更为 0 */
+  maxGapDays: number
+  /** 未来复习峰值日（并列取最早一天）；无未来安排为 null */
+  reviewPeak: { date: string; count: number } | null
+  /** 未来 7 / 14 / 30 天内（含今天到期）待复习词数 */
+  reviewUpcoming: { within7: number; within14: number; within30: number }
+  /** 已开始学习但未安排复习的词数（next_study_date 缺失） */
+  unscheduledCount: number
+}
+
+/** 学情快照聚合（/report 页用；画像基础数字复用 LibraryStatsDto） */
+export interface ReportSnapshotDto
+{
+  /** 数据充分度档位：few = 跨度 < 7 天，some = 7~29 天，rich = >= 30 天 */
+  tier: 'few' | 'some' | 'rich'
+  /** 首学数据跨度（最早开始日到今天的天数）；无日期数据为 0 */
+  spanDays: number
+  /** 最早 / 最晚开始学习日（YYYY-MM-DD）；无日期数据为 null */
+  firstDay: string | null
+  latestDay: string | null
+  /** 日粒度新学曲线（最早开始日 → 今天，含 0 值天与全部历史） */
+  dailyNew: ReportDailyRowDto[]
+  risk: ReportRiskDto
+}

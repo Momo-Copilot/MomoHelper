@@ -212,6 +212,21 @@ function toSnapshot(cached: CachedLibrary): LibrarySnapshotDto
 
 /* ============================ 对外入口 ============================ */
 
+/** 只读缓存（不触发任何拉取）：看板学情入口卡用；无完整缓存返回 null */
+export async function peekLibraryCache(): Promise<LibrarySnapshotDto | null>
+{
+  try
+  {
+    const raw = await readCache()
+
+    return raw && raw.meta.complete ? toSnapshot(raw) : null
+  }
+  catch
+  {
+    return null
+  }
+}
+
 /** 学习记录（snake_case）→ 词库行（camelCase） */
 function toRow(record: MaimemoStudyRecord): LibraryRecordRowDto
 {
