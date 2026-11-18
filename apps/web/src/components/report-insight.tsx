@@ -41,6 +41,8 @@ export function ReportInsightTile({
   const [needKey, setNeedKey] = useState(false)
   /** 生成期间重读到的思考模式（展示用；每次生成都实时重读） */
   const thinkingRef = useRef(false)
+  /** 流式正文的锚点：生成时用它跟随滚动 */
+  const bodyRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(
     () =>
@@ -48,6 +50,35 @@ export function ReportInsightTile({
       setCached(loadReportInsightCache())
     },
     []
+  )
+
+  const shown = streaming !== null ? streaming : cached?.content
+
+  // 流式输出时自动往下滚：正文底边还在视口内（或刚出去一点点）才跟随，
+  // 用户手动上翻超过一屏外就不再抢滚动
+  useEffect(
+    () =>
+    {
+      if (!busy || !shown)
+      {
+        return
+      }
+
+      const el = bodyRef.current
+
+      if (!el)
+      {
+        return
+      }
+
+      const rect = el.getBoundingClientRect()
+
+      if (rect.bottom <= window.innerHeight + 80)
+      {
+        el.scrollIntoView({ block: 'nearest' })
+      }
+    },
+    [busy, shown]
   )
 
   async function run(): Promise<void>
@@ -106,8 +137,6 @@ export function ReportInsightTile({
     }
   }
 
-  const shown = streaming !== null ? streaming : cached?.content
-
   return (
     <Tile index={6} hover={false} className="col-span-12">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -164,7 +193,10 @@ export function ReportInsightTile({
       {/* 解读正文：流式显示与缓存共用一个容器 */}
       {shown ? (
         <>
-          <p className="mt-4 whitespace-pre-wrap text-[var(--text-sm)] leading-relaxed text-[var(--color-text)]">
+          <p
+            ref={bodyRef}
+            className="mt-4 whitespace-pre-wrap text-[var(--text-sm)] leading-relaxed text-[var(--color-text)]"
+          >
             {shown}
             {busy && (
               <span className="ml-0.5 inline-block h-3.5 w-2 animate-pulse bg-[var(--color-accent)] align-middle" />
