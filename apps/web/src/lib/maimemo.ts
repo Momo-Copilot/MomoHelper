@@ -248,76 +248,53 @@ export function getDashboardHistory(days: number): DashboardHistoryDto
 export interface ForgottenResult
 {
   words: FocusWordDto[]
-  /** 公测接口不可用，返回的是空列表 + 降级标注（C2） */
-  degraded: boolean
 }
 
-/** 今日遗忘词：已完成且首次作答为「忘记」（FR-3.1） */
+/**
+ * 今日遗忘词：已完成且首次作答为「忘记」（FR-3.1）。
+ *
+ * 公测接口失败时错误直接上抛（页面显示错误 + 重试），而不是静默降级为
+ * 空列表——本页没有本地备份数据，把「接口失败」伪装成「今天没有遗忘」
+ * 会误导用户（2026-11-18 线上问题：看板有遗忘词、遗忘页却是空）。
+ */
 export async function getTodayForgotten(): Promise<ForgottenResult>
 {
   const client = getMaimemoClient()
+  const items = await getTodayItems(client)
 
-  try
-  {
-    const items = await getTodayItems(client)
-
-    return {
-      words: items
-        .filter((item) => item.is_finished && item.first_response === 'FORGET')
-        .map((item) => ({
-          vocId: item.voc_id,
-          spelling: item.voc_spelling,
-          isNew: item.is_new,
-          firstResponse: item.first_response,
-          tags: []
-        })),
-      degraded: false
-    }
-  }
-  catch (error)
-  {
-    if (error instanceof MaimemoStudyUnavailableError)
-    {
-      return { words: [], degraded: true }
-    }
-
-    throw error
+  return {
+    words: items
+      .filter((item) => item.is_finished && item.first_response === 'FORGET')
+      .map((item) => ({
+        vocId: item.voc_id,
+        spelling: item.voc_spelling,
+        isNew: item.is_new,
+        firstResponse: item.first_response,
+        tags: []
+      }))
   }
 }
 
-/** 顽固词：学习记录标签含 STICKING（FR-3.5） */
+/** 顽固词：学习记录标签含 STICKING（FR-3.5）；接口失败同今日遗忘词，直接上抛 */
 export async function getStickingWords(): Promise<ForgottenResult>
 {
   const client = getMaimemoClient()
 
-  try
-  {
-    // 服务端按 STICKING 标签筛选：此前无过滤拉 1000 条再前端过滤，
-    // 词库超过 1000 词时后面的顽固词会被整体漏掉
-    const result = await queryStudyRecordsFiltered(client, { tags: 'STICKING' })
+  // 服务端按 STICKING 标签筛选：此前无过滤拉 1000 条再前端过滤，
+  // 词库超过 1000 词时后面的顽固词会被整体漏掉
+  const result = await queryStudyRecordsFiltered(client, { tags: 'STICKING' })
 
-    return {
-      words: result.records
-        // 服务端筛选异常失效时兜底：最多退化为「前 1000 条里的顽固词」
-        .filter((item) => item.tags.includes('STICKING'))
-        .map((item) => ({
-          vocId: item.voc_id,
-          spelling: item.voc_spelling,
-          isNew: false,
-          lastResponse: item.last_response,
-          studyCount: item.study_count,
-          tags: item.tags
-        })),
-      degraded: false
-    }
-  }
-  catch (error)
-  {
-    if (error instanceof MaimemoStudyUnavailableError)
-    {
-      return { words: [], degraded: true }
-    }
-
-    throw error
+  return {
+    words: result.records
+      // 服务端筛选异常失效时兜底：最多退化为「前 1000 条里的顽固词」
+      .filter((item) => item.tags.includes('STICKING'))
+      .map((item) => ({
+        vocId: item.voc_id,
+        spelling: item.voc_spelling,
+        isNew: false,
+        lastResponse: item.last_response,
+        studyCount: item.study_count,
+        tags: item.tags
+      }))
   }
 }

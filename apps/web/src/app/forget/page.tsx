@@ -265,11 +265,26 @@ export default function ForgetPage()
       {query.isPending && <TileSkeleton />}
 
       {query.isError && (
-        <ErrorNote
-          message={
-            query.error instanceof Error ? query.error.message : '加载失败，请稍后重试'
-          }
-        />
+        <div className="mb-4 space-y-3">
+          <ErrorNote
+            message={
+              query.error instanceof Error ? query.error.message : '加载失败，请稍后重试'
+            }
+          />
+          {/* 公测接口偶发不可用会在这里报错（而不是伪装成空状态）；提供重试入口 */}
+          <button
+            type="button"
+            onClick={() => void query.refetch()}
+            disabled={query.isFetching}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-4 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
+          >
+            <Icon
+              name="refresh"
+              className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`}
+            />
+            重新加载
+          </button>
+        </div>
       )}
 
       {query.data && (
@@ -278,13 +293,6 @@ export default function ForgetPage()
             <div className="mb-4">
               <ErrorNote message={modeNotice} />
             </div>
-          )}
-
-          {query.data.degraded && (
-            <p className="mb-4 flex items-center gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[var(--text-sm)] text-[var(--color-vague)]">
-              <Icon name="alert" className="h-4 w-4 shrink-0" />
-              墨墨学习数据接口暂不可用，以下可能不是最新数据。
-            </p>
           )}
 
           {words.length === 0 ? (
