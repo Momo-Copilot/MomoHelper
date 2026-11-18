@@ -154,6 +154,10 @@ export default function ReportPage()
   const records = query.data?.records
   const report = useMemo(() => (records ? analyzeReport(records) : null), [records])
   const stats = useMemo(() => (records ? analyzeLibrary(records) : null), [records])
+  /** 数据截断：与词库页同一口径（complete=false 或实取 < 接口总数） */
+  const loaded = records?.length ?? 0
+  const expected = query.data?.total ?? loaded
+  const isComplete = Boolean(query.data?.complete) && loaded >= expected
 
   if (query.isPending)
   {
@@ -238,6 +242,17 @@ export default function ReportPage()
           </Link>
         }
       />
+
+      {!isComplete && (
+        <p className="mb-4 flex items-start gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[var(--text-sm)] text-[var(--color-vague)]">
+          <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            只取到 {loaded.toLocaleString('zh-CN')} 条，接口总数 {expected.toLocaleString('zh-CN')}
+            条。差额多为未安排复习的词（没有 next_study_date），墨墨接口暂不提供按此筛选的查询，
+            以下统计仅覆盖已进入复习计划的词。
+          </span>
+        </p>
+      )}
 
       {report.tier !== 'rich' && (
         <div className={`mb-4 rounded-md border px-4 py-3 text-[var(--text-sm)] ${notice.tone}`}>
