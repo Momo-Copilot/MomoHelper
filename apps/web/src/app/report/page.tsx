@@ -14,7 +14,8 @@ import { useMemo, useState } from 'react'
 
 import { MaimemoAuthError } from '@momo/maimemo'
 import type { ReportSnapshotDto } from '@momo/types'
-import { ErrorNote, PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
+import { Icon } from '@/components/icons'
+import { PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
 import { analyzeLibrary, analyzeReport } from '@/lib/analyze'
 import { loadLibrary } from '@/lib/library'
 import { MaimemoNotConfiguredError } from '@/lib/maimemo'
@@ -172,16 +173,42 @@ export default function ReportPage()
     const error = query.error
     const needSetup = error instanceof MaimemoNotConfiguredError || error instanceof MaimemoAuthError
 
+    // 与词库页错误态同构：居中卡片 + 图标 + 标题 + 去设置/重试
     return (
       <div>
         <PageHeader title="学情快照" />
-        <ErrorNote
-          message={
-            needSetup
-              ? '需要先配置墨墨 Token：到设置页绑定后回来刷新。'
-              : `学习记录读取失败：${error instanceof Error ? error.message : '未知错误'}`
-          }
-        />
+        <Tile hover={false} className="mt-10 text-center">
+          <Icon name="alert" className="mx-auto h-8 w-8 text-[var(--color-vague)]" />
+          <h1 className="mt-3 font-[family-name:var(--font-display)] text-[var(--text-lg)]">
+            {needSetup ? '需要先配置墨墨 Token' : '学情快照加载失败'}
+          </h1>
+          <p className="mx-auto mt-1 max-w-md text-[var(--text-sm)] text-[var(--color-text-muted)]">
+            {error instanceof MaimemoNotConfiguredError
+              ? '尚未绑定墨墨 Token，绑定后即可生成学情快照。'
+              : error instanceof MaimemoAuthError
+                ? '墨墨 Token 已失效或无效，请到设置页重新绑定。'
+                : error.message}
+          </p>
+          <div className="mt-5 flex justify-center gap-3">
+            {needSetup ? (
+              <Link
+                href="/settings"
+                className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
+              >
+                <Icon name="sliders" className="mr-2 h-4 w-4" />
+                去设置
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void query.refetch()}
+                className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
+              >
+                重试
+              </button>
+            )}
+          </div>
+        </Tile>
       </div>
     )
   }
