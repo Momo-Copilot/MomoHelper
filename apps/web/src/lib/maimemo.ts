@@ -176,9 +176,10 @@ export async function getDashboardToday(): Promise<DashboardTodayDto>
     const newWords = items.filter((item) => item.is_new).length
     const reviewWords = items.filter((item) => !item.is_new).length
     const unfinishedWords = items.filter((item) => !item.is_finished).length
-    const forgottenWords = items.filter(
-      (item) => item.is_finished && item.first_response === 'FORGET'
-    ).length
+    // 遗忘口径：首次作答为忘记即算，不要求 is_finished——墨墨对首次答忘记的词
+    // 当天会再安排复习，完成前 is_finished 一直是 false，加上该条件会把
+    // 「点过忘记但还没复习完」的词全部漏掉（与词表明细标记、遗忘页口径一致）
+    const forgottenWords = items.filter((item) => item.first_response === 'FORGET').length
 
     // 词表明细按 order 排序（今日词表卡逐行展示）
     const todayWords: TodayWordRowDto[] = [...items]
@@ -251,11 +252,15 @@ export interface ForgottenResult
 }
 
 /**
- * 今日遗忘词：已完成且首次作答为「忘记」（FR-3.1）。
+ * 今日遗忘词：首次作答为「忘记」即列出（FR-3.1）。
+ *
+ * 不要求 is_finished：墨墨对首次答忘记的词当天会再安排复习，完成前
+ * is_finished 一直是 false——旧条件把「点过忘记但还没复习完」的词全部
+ * 漏掉，遗忘页呈空（2026-11-18 线上问题：看板词表有忘记标记、遗忘页为空）。
  *
  * 公测接口失败时错误直接上抛（页面显示错误 + 重试），而不是静默降级为
  * 空列表——本页没有本地备份数据，把「接口失败」伪装成「今天没有遗忘」
- * 会误导用户（2026-11-18 线上问题：看板有遗忘词、遗忘页却是空）。
+ * 会误导用户。
  */
 export async function getTodayForgotten(): Promise<ForgottenResult>
 {
@@ -264,7 +269,7 @@ export async function getTodayForgotten(): Promise<ForgottenResult>
 
   return {
     words: items
-      .filter((item) => item.is_finished && item.first_response === 'FORGET')
+      .filter((item) => item.first_response === 'FORGET')
       .map((item) => ({
         vocId: item.voc_id,
         spelling: item.voc_spelling,

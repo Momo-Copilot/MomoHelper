@@ -33,8 +33,8 @@ type Tab = 'today' | 'sticking'
 
 const EMPTY_COPY: Record<Tab, { title: string; description: string }> = {
   today: {
-    title: '今天没有遗忘任何单词',
-    description: '完成今日复习后回到这里，遗忘的词会被自动列出并支持 AI 诊断。'
+    title: '今天还没有遗忘的单词',
+    description: '复习时点过「忘记」的词会立即出现在这里并支持 AI 诊断，无需等本轮复习完成。'
   },
   sticking: {
     title: '还没有顽固词',
