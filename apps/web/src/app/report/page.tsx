@@ -16,6 +16,7 @@ import { MaimemoAuthError } from '@momo/maimemo'
 import type { ReportSnapshotDto } from '@momo/types'
 import { Icon } from '@/components/icons'
 import { PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
+import { ReportInsightTile } from '@/components/report-insight'
 import { analyzeLibrary, analyzeReport } from '@/lib/analyze'
 import { loadLibrary } from '@/lib/library'
 import { MaimemoNotConfiguredError } from '@/lib/maimemo'
@@ -399,6 +400,13 @@ export default function ReportPage()
             )}
           </div>
         </Tile>
+
+        {/* AI 解读（第二步）：代码算指标 → AI 只写解读；按天缓存 */}
+        <ReportInsightTile
+          report={report}
+          stats={stats}
+          truncated={isComplete ? undefined : { loaded, expected }}
+        />
       </div>
     </div>
   )
