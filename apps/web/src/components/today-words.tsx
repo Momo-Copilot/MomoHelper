@@ -35,18 +35,19 @@ function WordButton({ spelling }: { spelling: string })
   )
 }
 
+/** 作答标记徽章：认识绿 / 模糊黄 / 忘记红（浅底 + 深字，与全站标签风格一致） */
 const RESPONSE_LABELS: Record<StudyResponse, { label: string; className: string }> = {
   FORGET: {
     label: '忘记',
-    className: 'text-[var(--color-forget)] font-medium'
+    className: 'bg-[var(--color-forget-bg)] text-[var(--color-forget)]'
   },
   VAGUE: {
     label: '模糊',
-    className: 'text-[var(--color-vague)] font-medium'
+    className: 'bg-[var(--color-vague-bg)] text-[var(--color-vague)]'
   },
   FAMILIAR: {
     label: '认识',
-    className: 'text-[var(--color-familiar)] font-medium'
+    className: 'bg-[var(--color-familiar-bg)] text-[var(--color-familiar)]'
   }
 }
 
@@ -150,13 +151,19 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
                     />
                     {word.isFinished ? '已完成' : '未完成'}
                   </span>
-                  <span
-                    className={`hidden w-12 text-right text-[var(--text-xs)] sm:inline ${
-                      response ? response.className : 'text-[var(--color-text-subtle)]'
-                    }`}
-                  >
-                    {response ? response.label : '—'}
-                  </span>
+                  {response ? (
+                    <span
+                      className={`hidden items-center rounded-full px-2 py-0.5 text-[var(--text-xs)] font-medium sm:inline-flex ${
+                        response.className
+                      }`}
+                    >
+                      {response.label}
+                    </span>
+                  ) : (
+                    <span className="hidden w-12 text-right text-[var(--text-xs)] text-[var(--color-text-subtle)] sm:inline">
+                      —
+                    </span>
+                  )}
                 </span>
               </li>
             )
