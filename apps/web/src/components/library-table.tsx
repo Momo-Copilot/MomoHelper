@@ -140,9 +140,16 @@ function PageButton({
   )
 }
 
-export function LibraryTableView({ records }: { records: LibraryRecordRowDto[] })
+export function LibraryTableView({
+  records,
+  initialKeyword = ''
+}: {
+  records: LibraryRecordRowDto[]
+  /** 从词云等入口带过来的定位词：直接填进搜索框 */
+  initialKeyword?: string
+})
 {
-  const [keyword, setKeyword] = useState('')
+  const [keyword, setKeyword] = useState(initialKeyword)
   const [tagFilter, setTagFilter] = useState<TagFilter>('all')
   const [sortKey, setSortKey] = useState<SortKey>('next')
   const [page, setPage] = useState(0)

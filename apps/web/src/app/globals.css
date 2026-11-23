@@ -38,6 +38,13 @@
   --color-info: #2d4b73;
   --color-info-bg: #e9eff6;
 
+  /* 遗忘词云色阶：tier 0 最浅（刚有遗忘信号），tier 4 最深（反复忘） */
+  --cloud-0: #cf9077;
+  --cloud-1: #c1704c;
+  --cloud-2: #ad4622;
+  --cloud-3: #8f2f16;
+  --cloud-4: #6b190c;
+
   /* 阴影：扁平轻弥散，单层 */
   --shadow-tile: 0 1px 2px rgb(31 42 39 / 0.04);
   --shadow-tile-hover: 0 2px 8px rgb(31 42 39 / 0.09);
@@ -91,6 +98,13 @@ html.dark
   --color-familiar-bg: #17301f;
   --color-info: #8fb4dc;
   --color-info-bg: #1b2a3a;
+
+  /* 夜间色阶整体提亮：深红在深底上会糊成一片，越忘反而要越亮越显眼 */
+  --cloud-0: #9b7565;
+  --cloud-1: #bf7d60;
+  --cloud-2: #dd8f66;
+  --cloud-3: #f0a173;
+  --cloud-4: #ffbd93;
 
   --shadow-tile: 0 1px 2px rgb(0 0 0 / 0.3);
   --shadow-tile-hover: 0 2px 8px rgb(0 0 0 / 0.45);

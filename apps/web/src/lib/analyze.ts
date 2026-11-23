@@ -14,7 +14,9 @@ import type {
   ReportDailyRowDto,
   ReportRiskDto,
   ReportSnapshotDto,
-  StudyResponse
+  StudyResponse,
+  WordCloudDto,
+  WordCloudWordDto
 } from '@momo/types'
 
 /** 掌握度分桶：学习次数越多说明见得越多。0 次 = 加入词库但还没学过 */
@@ -461,4 +463,121 @@ export function analyzeReport(
   }
 
   return { tier, spanDays, firstDay: earliest, latestDay: latest, dailyNew, risk }
+}
+
+/* ============================= 遗忘词云 ============================= */
+
+/** 遗忘强度三项权重：最近作答忘记 / 墨墨顽固词标签 / 复习遍数 */
+const CLOUD_WEIGHT_FORGET = 40
+const CLOUD_WEIGHT_STICKING = 30
+const CLOUD_WEIGHT_COUNT = 30
+
+/** 复习遍数归一：学 1 次记 0 分，学满 10 次及以上记满分 */
+const CLOUD_COUNT_FULL = 10
+
+/** 色阶档位阈值（升序）：分数越过一个阈值升一档，共 5 档 */
+const CLOUD_TIER_THRESHOLDS = [40, 55, 70, 85]
+
+/** 词云默认渲染上限：再多就碎成噪点（移动端由调用方传更小值） */
+export const WORD_CLOUD_LIMIT = 160
+
+function cloudTierOf(score: number): number
+{
+  let tier = 0
+
+  for (const threshold of CLOUD_TIER_THRESHOLDS)
+  {
+    if (score >= threshold)
+    {
+      tier++
+    }
+  }
+
+  return tier
+}
+
+/** 字号 14–40：幂次压缩让中间档不至于和最大档差太远，避免一个巨无霸压住版面 */
+function cloudSizeOf(score: number): number
+{
+  const ratio = Math.pow(Math.min(100, Math.max(0, score)) / 100, 0.85)
+
+  return Math.round(14 + ratio * 26)
+}
+
+/**
+ * 遗忘词云数据（纯函数）。
+ *
+ * 口径（墨墨不提供逐次作答历史，「遗忘次数」拿不到，只能代理）：
+ * - 最近作答 = 忘记            → 40 分（最强的「刚忘过」信号）
+ * - 带 STICKING 标签           → 30 分（墨墨自己认定的顽固词）
+ * - 复习遍数归一 (count−1)/9   → 0–30 分（反复学说明之前没记住）
+ *
+ * 两条信号（最近忘记 / STICKING）至少有一条才进词云：两个都没有的词，
+ * 无论复习多少遍都不算遗忘信号。
+ *
+ * 分数只用于排序与视觉映射，不等于真实遗忘次数——UI 文案不要说「忘了 N 次」。
+ */
+export function buildWordCloud(
+  records: LibraryRecordRowDto[],
+  options: { limit?: number } = {}
+): WordCloudDto
+{
+  const limit = options.limit ?? WORD_CLOUD_LIMIT
+  const words: WordCloudWordDto[] = []
+
+  for (const record of records)
+  {
+    const spelling = record.spelling ?? ''
+
+    // 空拼写渲染不出任何东西，直接跳过
+    if (!spelling)
+    {
+      continue
+    }
+
+    const forget = record.lastResponse === 'FORGET'
+    const sticking = record.tags.includes('STICKING')
+
+    if (!forget && !sticking)
+    {
+      continue
+    }
+
+    const count = record.studyCount ?? 0
+    const countRatio = Math.min(1, Math.max(0, (count - 1) / (CLOUD_COUNT_FULL - 1)))
+    const score = Math.round(
+      (forget ? CLOUD_WEIGHT_FORGET : 0) +
+        (sticking ? CLOUD_WEIGHT_STICKING : 0) +
+        CLOUD_WEIGHT_COUNT * countRatio
+    )
+
+    words.push({
+      vocId: record.vocId,
+      spelling,
+      score,
+      tier: cloudTierOf(score),
+      size: cloudSizeOf(score),
+      studyCount: count,
+      lastResponse: record.lastResponse,
+      lastStudyDate: beijingDayOf(record.lastStudyDate) ?? undefined,
+      sticking
+    })
+  }
+
+  // 强度降序；同分再按复习遍数、字母序，保证同一批数据每次排序完全一致
+  words.sort(
+    (a, b) =>
+      b.score - a.score ||
+      b.studyCount - a.studyCount ||
+      a.spelling.localeCompare(b.spelling, 'en')
+  )
+
+  const signalCount = words.length
+
+  return {
+    total: records.length,
+    signalCount,
+    words: words.slice(0, Math.max(0, limit)),
+    hiddenCount: Math.max(0, signalCount - limit)
+  }
 }

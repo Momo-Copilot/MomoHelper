@@ -244,3 +244,39 @@ export interface ReportSnapshotDto
   dailyNew: ReportDailyRowDto[]
   risk: ReportRiskDto
 }
+
+/* ============================= 遗忘词云 ============================= */
+
+/**
+ * 词云单词。墨墨不提供逐次作答历史，「遗忘次数」拿不到，
+ * 这里用综合遗忘强度分代替：颜色档位与字号都来自同一个分数。
+ */
+export interface WordCloudWordDto
+{
+  vocId: string
+  spelling: string
+  /** 综合遗忘强度 0–100（口径见 analyze.ts buildWordCloud 注释） */
+  score: number
+  /** 色阶档位 0–4，越大越深 */
+  tier: number
+  /** 渲染字号（px） */
+  size: number
+  studyCount: number
+  lastResponse?: StudyResponse
+  /** 最近学习日（北京时间 YYYY-MM-DD） */
+  lastStudyDate?: string
+  /** 是否带墨墨 STICKING 标签 */
+  sticking: boolean
+}
+
+export interface WordCloudDto
+{
+  /** 全库词数（分母，用于说明覆盖率） */
+  total: number
+  /** 有遗忘信号的词数（渲染前） */
+  signalCount: number
+  /** 参与渲染的词：按强度降序，已按上限截断 */
+  words: WordCloudWordDto[]
+  /** 因上限未渲染的词数 */
+  hiddenCount: number
+}

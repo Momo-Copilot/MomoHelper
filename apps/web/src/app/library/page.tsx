@@ -11,7 +11,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { MaimemoAuthError } from '@momo/maimemo'
 import { Icon } from '@/components/icons'
@@ -36,8 +36,26 @@ const QUERY_KEY = ['library'] as const
 export default function LibraryPage()
 {
   const [view, setView] = useState<ViewKey>('stats')
+  /** 来自 ?word= 的定位词（词云点击跳进来时用） */
+  const [initialWord, setInitialWord] = useState('')
   const [progress, setProgress] = useState<{ loaded: number; total: number | null } | null>(null)
   const queryClient = useQueryClient()
+
+  // 不用 useSearchParams：那要包 Suspense 边界，这里只需首帧带一次定位词。
+  // 放在 effect 里读，避免服务端无 window 时与客户端首渲染不一致。
+  useEffect(
+    () =>
+    {
+      const word = new URLSearchParams(window.location.search).get('word')?.trim()
+
+      if (word)
+      {
+        setInitialWord(word)
+        setView('table')
+      }
+    },
+    []
+  )
 
   const query = useQuery({
     queryKey: QUERY_KEY,
@@ -190,7 +208,7 @@ export default function LibraryPage()
       {stats && view === 'timeline' && <LibraryTimelineView months={stats.months} />}
       {view === 'table' && (
         <Tile hover={false}>
-          <LibraryTableView records={data.records} />
+          <LibraryTableView records={data.records} initialKeyword={initialWord} />
         </Tile>
       )}
     </div>
