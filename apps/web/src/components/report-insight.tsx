@@ -22,6 +22,56 @@ import { getAiThinkingMode } from '@/lib/settings'
  * 没有就只带全库指标，不因 AI 解读强迫先开看板。
  */
 
+/** 自下而上找实际滚动容器（overflow-y 可滚且有溢出），找不到就是文档本身 */
+function findScrollParent(el: HTMLElement): HTMLElement | null
+{
+  let node = el.parentElement
+
+  while (node)
+  {
+    const overflowY = window.getComputedStyle(node).overflowY
+
+    if (
+      (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') &&
+      node.scrollHeight > node.clientHeight + 1
+    )
+    {
+      return node
+    }
+
+    node = node.parentElement
+  }
+
+  const root = document.scrollingElement
+
+  return root instanceof HTMLElement ? root : document.documentElement
+}
+
+/**
+ * 把元素底边贴到视口底部（留 gap），直接改 scrollTop。
+ * 不走 scrollIntoView：block/behavior 在各浏览器（尤其老 iOS WebView）语义
+ * 不一致，对超过一屏的整段正文也容易判「已可见」而不动。
+ */
+function stickToViewportBottom(el: HTMLElement, gap = 24): void
+{
+  const scroller = findScrollParent(el)
+
+  if (!scroller)
+  {
+    return
+  }
+
+  const delta = el.getBoundingClientRect().bottom + gap - window.innerHeight
+
+  if (Math.abs(delta) < 1)
+  {
+    return
+  }
+
+  const max = scroller.scrollHeight - scroller.clientHeight
+  scroller.scrollTop = Math.min(Math.max(0, scroller.scrollTop + delta), Math.max(0, max))
+}
+
 export function ReportInsightTile({
   report,
   stats,
@@ -54,8 +104,9 @@ export function ReportInsightTile({
     []
   )
 
-  // 跟随开关只由 scroll 事件更新：正文底边距视口底部超过 240px
-  // 视为用户主动上翻（内容自然增长不触发 scroll，不会被误判）
+  // 跟随开关只由滚动手势更新：正文底边距视口底部超过 240px 视为用户
+  // 主动上翻（内容自然增长不触发 scroll，不会被误判）。capture 捕获，
+  // 滚动发生在任何容器上都收得到。
   useEffect(
     () =>
     {
@@ -72,17 +123,16 @@ export function ReportInsightTile({
           el.getBoundingClientRect().bottom <= window.innerHeight + 240
       }
 
-      window.addEventListener('scroll', onScroll, { passive: true })
+      document.addEventListener('scroll', onScroll, { passive: true, capture: true })
 
-      return () => window.removeEventListener('scroll', onScroll)
+      return () => document.removeEventListener('scroll', onScroll, { capture: true })
     },
     []
   )
 
   const shown = streaming !== null ? streaming : cached?.content
 
-  // 流式增量到达：跟随中就把正文底边对齐视口底部。
-  // 不能用 block: 'nearest'——正文超过一屏后横跨视口、恒判「已可见」根本不滚
+  // 流式增量到达：跟随中就把正文底边贴到视口底部
   useEffect(
     () =>
     {
@@ -91,7 +141,14 @@ export function ReportInsightTile({
         return
       }
 
-      bodyRef.current?.scrollIntoView({ block: 'end', behavior: 'instant' })
+      const el = bodyRef.current
+
+      if (!el)
+      {
+        return
+      }
+
+      stickToViewportBottom(el)
     },
     [busy, shown]
   )
@@ -116,6 +173,9 @@ export function ReportInsightTile({
     }
 
     thinkingRef.current = mode === 'on'
+    // 用户主动点了生成 = 想看着它长出来，重置跟随开关：
+    // 上一次留下（或页面滚动误判）的 false 不能带进新一轮生成
+    followRef.current = true
 
     // 今日数据：读看板查询缓存（['dashboard', 'today']），没有就只带全库指标
     const dashboard = queryClient.getQueryData<DashboardTodayDto>(['dashboard', 'today'])
