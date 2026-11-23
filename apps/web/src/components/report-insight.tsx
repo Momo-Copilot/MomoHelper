@@ -47,12 +47,23 @@ function findScrollParent(el: HTMLElement): HTMLElement | null
   return root instanceof HTMLElement ? root : document.documentElement
 }
 
+/** 真实可视区底边：移动端工具栏/手势条不占布局视口（innerHeight） */
+function viewportBottom(): number
+{
+  const vv = window.visualViewport
+
+  return vv ? vv.offsetTop + vv.height : window.innerHeight
+}
+
 /**
- * 把元素底边贴到视口底部（留 gap），直接改 scrollTop。
+ * 把元素底边贴到可视区底部（留白），直接改 scrollTop。
  * 不走 scrollIntoView：block/behavior 在各浏览器（尤其老 iOS WebView）语义
  * 不一致，对超过一屏的整段正文也容易判「已可见」而不动。
+ *
+ * 留白 = max(32, 底部被遮挡高度 + 32)：移动端 innerHeight 包含被工具栏/
+ * 手势条盖住的区域，只按 innerHeight 对齐会把最后一行盖掉半截。
  */
-function stickToViewportBottom(el: HTMLElement, gap = 24): void
+function stickToViewportBottom(el: HTMLElement): void
 {
   const scroller = findScrollParent(el)
 
@@ -61,7 +72,11 @@ function stickToViewportBottom(el: HTMLElement, gap = 24): void
     return
   }
 
-  const delta = el.getBoundingClientRect().bottom + gap - window.innerHeight
+  const bottom = viewportBottom()
+  const occluded = Math.max(0, window.innerHeight - bottom)
+  // 32px 基础留白 + 被遮挡高度；上限 160 防止缩放场景留白过大
+  const reserve = Math.min(160, Math.max(32, occluded + 32))
+  const delta = el.getBoundingClientRect().bottom + reserve - bottom
 
   if (Math.abs(delta) < 1)
   {
@@ -95,6 +110,8 @@ export function ReportInsightTile({
   const bodyRef = useRef<HTMLParagraphElement>(null)
   /** 自动跟随开关：由滚动手势驱动，用户上翻暂停、回到底部附近恢复 */
   const followRef = useRef(true)
+  /** 是否经历过一轮生成：结束补对齐只在生成后触发，页面初次渲染不抢滚动 */
+  const wasBusyRef = useRef(false)
 
   useEffect(
     () =>
@@ -120,7 +137,7 @@ export function ReportInsightTile({
         }
 
         followRef.current =
-          el.getBoundingClientRect().bottom <= window.innerHeight + 240
+          el.getBoundingClientRect().bottom <= viewportBottom() + 240
       }
 
       document.addEventListener('scroll', onScroll, { passive: true, capture: true })
@@ -151,6 +168,36 @@ export function ReportInsightTile({
       stickToViewportBottom(el)
     },
     [busy, shown]
+  )
+
+  // 生成结束：免责声明插入会让下方重新排版，跟随中再对齐一次，
+  // 保证结尾（含免责声明）完整可见
+  useEffect(
+    () =>
+    {
+      if (busy)
+      {
+        wasBusyRef.current = true
+        return
+      }
+
+      if (!wasBusyRef.current)
+      {
+        return
+      }
+
+      wasBusyRef.current = false
+
+      const el = bodyRef.current
+
+      if (!el || !followRef.current)
+      {
+        return
+      }
+
+      stickToViewportBottom(el)
+    },
+    [busy]
   )
 
   async function run(): Promise<void>
@@ -287,6 +334,10 @@ export function ReportInsightTile({
               解读基于上方代码计算的指标生成，数字已核对无超出来源；仅供参考。
             </p>
           )}
+          {/* 底部留白（仅移动端）：页面滚到底时正文下方只剩卡片与页边距，
+              移动端底部工具栏会盖住最后一行；留出空间才能滚过去。
+              不限生成中——结束就移除会让页面收缩，最后一行又被遮住 */}
+          <div aria-hidden className="h-[120px] md:hidden" />
         </>
       ) : (
         !busy && (
