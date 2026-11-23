@@ -43,6 +43,8 @@ export function ReportInsightTile({
   const thinkingRef = useRef(false)
   /** 流式正文的锚点：生成时用它跟随滚动 */
   const bodyRef = useRef<HTMLParagraphElement>(null)
+  /** 自动跟随开关：由滚动手势驱动，用户上翻暂停、回到底部附近恢复 */
+  const followRef = useRef(true)
 
   useEffect(
     () =>
@@ -52,31 +54,44 @@ export function ReportInsightTile({
     []
   )
 
-  const shown = streaming !== null ? streaming : cached?.content
-
-  // 流式输出时自动往下滚：正文底边还在视口内（或刚出去一点点）才跟随，
-  // 用户手动上翻超过一屏外就不再抢滚动
+  // 跟随开关只由 scroll 事件更新：正文底边距视口底部超过 240px
+  // 视为用户主动上翻（内容自然增长不触发 scroll，不会被误判）
   useEffect(
     () =>
     {
-      if (!busy || !shown)
+      const onScroll = () =>
+      {
+        const el = bodyRef.current
+
+        if (!el)
+        {
+          return
+        }
+
+        followRef.current =
+          el.getBoundingClientRect().bottom <= window.innerHeight + 240
+      }
+
+      window.addEventListener('scroll', onScroll, { passive: true })
+
+      return () => window.removeEventListener('scroll', onScroll)
+    },
+    []
+  )
+
+  const shown = streaming !== null ? streaming : cached?.content
+
+  // 流式增量到达：跟随中就把正文底边对齐视口底部。
+  // 不能用 block: 'nearest'——正文超过一屏后横跨视口、恒判「已可见」根本不滚
+  useEffect(
+    () =>
+    {
+      if (!busy || !shown || !followRef.current)
       {
         return
       }
 
-      const el = bodyRef.current
-
-      if (!el)
-      {
-        return
-      }
-
-      const rect = el.getBoundingClientRect()
-
-      if (rect.bottom <= window.innerHeight + 80)
-      {
-        el.scrollIntoView({ block: 'nearest' })
-      }
+      bodyRef.current?.scrollIntoView({ block: 'end', behavior: 'instant' })
     },
     [busy, shown]
   )
