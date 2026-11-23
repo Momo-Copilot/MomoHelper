@@ -55,13 +55,18 @@ function viewportBottom(): number
   return vv ? vv.offsetTop + vv.height : window.innerHeight
 }
 
+/** 可视底到正文底边的基础留白：留一截而不是贴边，
+ *  移动端地址栏/工具栏收缩会二次改变可视高度，贴边对齐常常差最后十几像素 */
+const BASE_RESERVE = 48
+
 /**
- * 把元素底边贴到可视区底部（留白），直接改 scrollTop。
+ * 把元素底边贴到可视区底部上方（留白），直接改 scrollTop。
  * 不走 scrollIntoView：block/behavior 在各浏览器（尤其老 iOS WebView）语义
  * 不一致，对超过一屏的整段正文也容易判「已可见」而不动。
  *
- * 留白 = max(32, 底部被遮挡高度 + 32)：移动端 innerHeight 包含被工具栏/
- * 手势条盖住的区域，只按 innerHeight 对齐会把最后一行盖掉半截。
+ * 留白 = max(BASE_RESERVE, 底部被遮挡高度 + BASE_RESERVE)：移动端 innerHeight
+ * 包含被工具栏/手势条盖住的区域，只按 innerHeight 对齐会把最后一行盖掉半截。
+ * 设置后再用 rAF 校准一帧：地址栏收缩会在同一帧之后才改变可视高度。
  */
 function stickToViewportBottom(el: HTMLElement): void
 {
@@ -72,19 +77,32 @@ function stickToViewportBottom(el: HTMLElement): void
     return
   }
 
-  const bottom = viewportBottom()
-  const occluded = Math.max(0, window.innerHeight - bottom)
-  // 32px 基础留白 + 被遮挡高度；上限 160 防止缩放场景留白过大
-  const reserve = Math.min(160, Math.max(32, occluded + 32))
-  const delta = el.getBoundingClientRect().bottom + reserve - bottom
-
-  if (Math.abs(delta) < 1)
+  const align = () =>
   {
-    return
+    const bottom = viewportBottom()
+    const occluded = Math.max(0, window.innerHeight - bottom)
+    const reserve = Math.min(200, Math.max(BASE_RESERVE, occluded + BASE_RESERVE))
+    const delta = el.getBoundingClientRect().bottom + reserve - bottom
+
+    // 只往下滚（跟随内容增长），已经到位就不再动
+    if (delta <= 0.5)
+    {
+      return
+    }
+
+    const max = scroller.scrollHeight - scroller.clientHeight
+    scroller.scrollTop = Math.min(scroller.scrollTop + delta, Math.max(0, max))
   }
 
-  const max = scroller.scrollHeight - scroller.clientHeight
-  scroller.scrollTop = Math.min(Math.max(0, scroller.scrollTop + delta), Math.max(0, max))
+  align()
+
+  requestAnimationFrame(() =>
+  {
+    if (el.isConnected)
+    {
+      align()
+    }
+  })
 }
 
 export function ReportInsightTile({
@@ -112,6 +130,8 @@ export function ReportInsightTile({
   const followRef = useRef(true)
   /** 是否经历过一轮生成：结束补对齐只在生成后触发，页面初次渲染不抢滚动 */
   const wasBusyRef = useRef(false)
+  /** 底部被工具栏/手势条遮挡的高度：>0 时正文下方要补滚动空间，滚到底才露得出最后一行 */
+  const [occludedBottom, setOccludedBottom] = useState(0)
 
   useEffect(
     () =>
@@ -148,6 +168,29 @@ export function ReportInsightTile({
   )
 
   const shown = streaming !== null ? streaming : cached?.content
+
+  // 记录底部遮挡高度：布局视口（innerHeight）比可视视口多出来的那块，
+  // 就是移动端工具栏/手势条盖住的高度。窗口或可视视口变化时重算。
+  useEffect(
+    () =>
+    {
+      const update = () =>
+      {
+        setOccludedBottom(Math.max(0, Math.round(window.innerHeight - viewportBottom())))
+      }
+
+      update()
+      window.addEventListener('resize', update)
+      window.visualViewport?.addEventListener('resize', update)
+
+      return () =>
+      {
+        window.removeEventListener('resize', update)
+        window.visualViewport?.removeEventListener('resize', update)
+      }
+    },
+    []
+  )
 
   // 流式增量到达：跟随中就把正文底边贴到视口底部
   useEffect(
@@ -334,10 +377,12 @@ export function ReportInsightTile({
               解读基于上方代码计算的指标生成，数字已核对无超出来源；仅供参考。
             </p>
           )}
-          {/* 底部留白（仅移动端）：页面滚到底时正文下方只剩卡片与页边距，
-              移动端底部工具栏会盖住最后一行；留出空间才能滚过去。
-              不限生成中——结束就移除会让页面收缩，最后一行又被遮住 */}
-          <div aria-hidden className="h-[120px] md:hidden" />
+          {/* 正文下方补滚动空间（仅底部真有遮挡时）：滚到底时正文下方
+              只剩卡片与页边距，不够工具栏的遮挡量，最后一行就露不出来。
+              高度随遮挡量自适应，不限生成中——结束移除会让页面收缩又把它遮住 */}
+          {occludedBottom > 0 && (
+            <div aria-hidden style={{ height: Math.min(280, occludedBottom + 140) }} />
+          )}
         </>
       ) : (
         !busy && (
