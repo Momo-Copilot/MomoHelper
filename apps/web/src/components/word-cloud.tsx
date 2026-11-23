@@ -109,7 +109,11 @@ export function WordCloud({
                 fontWeight={500}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fill={`var(--cloud-${word.tier})`}
+                // 颜色必须走 style：presentation attribute 里的 var() 在部分
+                // WebKit 版本不解析，会整片渲染成默认黑；再带一个 fallback，
+                // 变量万一没进样式表也不会退化成无色
+                style={{ fill: `var(--cloud-${word.tier}, #ad4622)` }}
+                transform={word.rotate === 0 ? undefined : `rotate(${word.rotate} ${word.x} ${word.y})`}
                 opacity={dimmed ? 0.4 : 1}
                 className="cursor-pointer transition-opacity duration-150"
                 onMouseEnter={() => setHovered(word)}

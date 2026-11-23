@@ -38,13 +38,6 @@
   --color-info: #2d4b73;
   --color-info-bg: #e9eff6;
 
-  /* 遗忘词云色阶：tier 0 最浅（刚有遗忘信号），tier 4 最深（反复忘） */
-  --cloud-0: #cf9077;
-  --cloud-1: #c1704c;
-  --cloud-2: #ad4622;
-  --cloud-3: #8f2f16;
-  --cloud-4: #6b190c;
-
   /* 阴影：扁平轻弥散，单层 */
   --shadow-tile: 0 1px 2px rgb(31 42 39 / 0.04);
   --shadow-tile-hover: 0 2px 8px rgb(31 42 39 / 0.09);
@@ -70,6 +63,22 @@
   --radius-xl: 20px;
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * 遗忘词云色阶：tier 0 最浅（刚有遗忘信号），tier 4 最深（反复忘）。
+ *
+ * 刻意写在 :root 而不是上面的 @theme：Tailwind 只输出「被 utility 引用」的
+ * 主题变量，而 --cloud-* 只被 SVG 内联 style 里的 var() 用到，扫描器看不见，
+ * 放在 @theme 里会被整组省略——浅色模式下词云就会全部渲染成默认黑色。
+ */
+:root
+{
+  --cloud-0: #cf9077;
+  --cloud-1: #c1704c;
+  --cloud-2: #ad4622;
+  --cloud-3: #8f2f16;
+  --cloud-4: #6b190c;
 }
 
 /* ============ 夜间模式：同名 token 全量覆盖（继承到所有 var() 引用点） ============ */
