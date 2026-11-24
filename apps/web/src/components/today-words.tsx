@@ -2,7 +2,8 @@
 
 import { useMemo, useRef, useState } from 'react'
 
-import type { StudyResponse, TodayWordRowDto } from '@momo/types'
+import type { TodayWordRowDto } from '@momo/types'
+import { ResponseBadge } from '@/components/response-badge'
 import { Segmented } from '@/components/kit'
 import { WordCardPopover } from '@/components/word-card'
 
@@ -41,22 +42,6 @@ function WordButton({ spelling }: { spelling: string })
       )}
     </span>
   )
-}
-
-/** 作答标记徽章：认识绿 / 模糊黄 / 忘记红（浅底 + 深字，与全站标签风格一致） */
-const RESPONSE_LABELS: Record<StudyResponse, { label: string; className: string }> = {
-  FORGET: {
-    label: '忘记',
-    className: 'bg-[var(--color-forget-bg)] text-[var(--color-forget)]'
-  },
-  VAGUE: {
-    label: '模糊',
-    className: 'bg-[var(--color-vague-bg)] text-[var(--color-vague)]'
-  },
-  FAMILIAR: {
-    label: '认识',
-    className: 'bg-[var(--color-familiar-bg)] text-[var(--color-familiar)]'
-  }
 }
 
 export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
@@ -117,10 +102,6 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
         <ul className="mt-4 divide-y divide-[var(--color-border)] rounded-md border border-[var(--color-border)]">
           {filtered.map((word, i) =>
           {
-            const response = word.firstResponse
-              ? RESPONSE_LABELS[word.firstResponse]
-              : undefined
-
             return (
               <li
                 key={word.vocId}
@@ -159,19 +140,9 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
                     />
                     {word.isFinished ? '已完成' : '未完成'}
                   </span>
-                  {response ? (
-                    <span
-                      className={`hidden items-center rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium sm:inline-flex ${
-                        response.className
-                      }`}
-                    >
-                      {response.label}
-                    </span>
-                  ) : (
-                    <span className="hidden w-12 text-right text-[length:var(--text-xs)] text-[var(--color-text-subtle)] sm:inline">
-                      —
-                    </span>
-                  )}
+                  <span className="hidden sm:inline-flex">
+                    <ResponseBadge value={word.firstResponse} />
+                  </span>
                 </span>
               </li>
             )

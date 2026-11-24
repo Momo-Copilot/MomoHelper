@@ -10,9 +10,10 @@
 
 import { useDeferredValue, useMemo, useRef, useState } from 'react'
 
-import type { LibraryRecordRowDto, StudyResponse } from '@momo/types'
+import type { LibraryRecordRowDto } from '@momo/types'
 import { Segmented } from '@/components/kit'
 import { Icon } from '@/components/icons'
+import { ResponseBadge } from '@/components/response-badge'
 import { WordCardPopover } from '@/components/word-card'
 import { beijingDayOf } from '@/lib/analyze'
 
@@ -27,23 +28,6 @@ const SORT_OPTIONS: [SortKey, string][] = [
   ['added', '加入时间'],
   ['alpha', '字母序']
 ]
-
-const RESPONSE_META: Record<StudyResponse, { label: string; className: string }> = {
-  FORGET: { label: '忘记', className: 'text-[var(--color-forget)]' },
-  VAGUE: { label: '模糊', className: 'text-[var(--color-vague)]' },
-  FAMILIAR: { label: '认识', className: 'text-[var(--color-familiar)]' }
-}
-
-/** 接口实测返回过未知枚举值，白名单外一律按未作答展示，避免渲染崩溃 */
-function responseMetaOf(value: LibraryRecordRowDto['lastResponse'])
-{
-  if (!value)
-  {
-    return null
-  }
-
-  return RESPONSE_META[value as StudyResponse] ?? null
-}
 
 const TAG_META: Record<string, { label: string; className: string }> = {
   STICKING: {
@@ -294,16 +278,7 @@ export function LibraryTableView({
                     {row.studyCount}
                   </td>
                   <td className="px-3 py-2 text-center text-[length:var(--text-xs)]">
-                    {(() =>
-                    {
-                      const meta = responseMetaOf(row.lastResponse)
-
-                      return meta ? (
-                        <span className={`font-medium ${meta.className}`}>{meta.label}</span>
-                      ) : (
-                        <span className="text-[var(--color-text-subtle)]">—</span>
-                      )
-                    })()}
+                    <ResponseBadge value={row.lastResponse} />
                   </td>
                   <td className="px-3 py-2">
                     {row.tags.length === 0 ? (
