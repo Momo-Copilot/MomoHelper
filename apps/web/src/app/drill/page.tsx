@@ -73,6 +73,19 @@ const OUTCOME_META: Record<DrillOutcome, { label: string; hint: string; classNam
   }
 }
 
+/**
+ * 写入墨墨时的助记类型。
+ *
+ * spec 里 note_type 是自由字符串（无枚举约束），但示例写的是「谐音.」——
+ * 带一个尾随句点。实测传自定义值（如「墨小墨」）会返回 common_internal_error，
+ * 所以这里按墨墨 APP 里的标准类型「联想」先试，失败再回退带句点的写法。
+ * 两种都失败就该怀疑是别的原因（配额、词 id、服务端故障），不要再猜类型。
+ */
+const NOTE_TYPES = ['联想', '联想.'] as const
+
+/** 助记正文上限：spec 没写 maxLength，但服务端可能有限制，超长直接截断 */
+const NOTE_MAX = 280
+
 export default function DrillPage()
 {
   const [store, setStore] = useState<DrillStore>({ words: {} })
@@ -186,29 +199,49 @@ export default function DrillPage()
     setWriteState('busy')
     setNoteError(null)
 
-    try
+    const raw = `【墨小墨】${currentState.diagnosis.suggestion}`
+    const body = raw.length > NOTE_MAX ? `${raw.slice(0, NOTE_MAX)}…` : raw
+    const client = getMaimemoClient()
+
+    let created: { id: string } | null = null
+    let failure: unknown = null
+
+    // 类型不被接受时墨墨返回的是 500 而不是参数错误，没法从错误码区分，
+    // 只能按顺序试：APP 标准类型 → 带句点的写法
+    for (const noteType of NOTE_TYPES)
     {
-      const note = await createNote(getMaimemoClient(), {
-        vocId: current.vocId,
-        noteType: '墨小墨',
-        note: `【墨小墨】${currentState.diagnosis.suggestion}`
-      })
+      try
+      {
+        created = await createNote(client, { vocId: current.vocId, noteType, note: body })
+        break
+      }
+      catch (error)
+      {
+        failure = error
+      }
+    }
+
+    if (created)
+    {
+      const createdId = created.id
 
       setStore((prev) =>
       {
-        const next = recordNote(prev, current, note.id)
+        const next = recordNote(prev, current, createdId)
         saveDrill(next)
         return next
       })
     }
-    catch (error)
+    else
     {
-      setNoteError(error instanceof Error ? error.message : '写入失败')
+      setNoteError(
+        failure instanceof Error
+          ? `${failure.message}（已试过类型：${NOTE_TYPES.join(' / ')}）`
+          : '写入失败'
+      )
     }
-    finally
-    {
-      setWriteState('idle')
-    }
+
+    setWriteState('idle')
   }
 
   async function undoNote(): Promise<void>
