@@ -455,8 +455,8 @@ export default function SettingsPage()
               <Icon name="link" className="h-5 w-5" />
             </span>
             <div>
-              <h2 className="text-[var(--text-md)] font-semibold">墨墨 Token</h2>
-              <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <h2 className="text-[length:var(--text-md)] font-semibold">墨墨 Token</h2>
+              <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 墨墨 App → 更多设置 → 实验功能 中开启并复制；鉴权失败时重新复制
               </p>
             </div>
@@ -465,7 +465,7 @@ export default function SettingsPage()
             <button
               type="button"
               onClick={() => setShowTokenInput(true)}
-              className="rounded-md border border-[var(--color-border-strong)] px-3.5 py-1.5 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+              className="rounded-md border border-[var(--color-border-strong)] px-3.5 py-1.5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
             >
               重新绑定
             </button>
@@ -475,17 +475,17 @@ export default function SettingsPage()
         {token?.hasToken && !showTokenInput ? (
           <div className="mt-4">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-[var(--color-bg-subtle)] px-4 py-3">
-              <p className="flex items-center gap-2 text-[var(--text-sm)]">
+              <p className="flex items-center gap-2 text-[length:var(--text-sm)]">
                 <Icon name="check" className="h-4 w-4 text-[var(--color-familiar)]" />
                 已绑定 · 鉴权失败时重新复制
               </p>
-              <span className="tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <span className="tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 {token.boundAt
                   ? `绑定于 ${new Date(token.boundAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`
                   : '绑定时间未记录'}
               </span>
             </div>
-            <p className="mt-2 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+            <p className="mt-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
               墨墨未公开 Token 过期时间，也没有刷新接口；是否失效以接口返回的鉴权结果为准。
             </p>
             <div className="mt-3">
@@ -493,7 +493,7 @@ export default function SettingsPage()
                 type="button"
                 disabled={unbindToken.isPending}
                 onClick={() => unbindToken.mutate()}
-                className="text-[var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-forget)] hover:underline"
+                className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-forget)] hover:underline"
               >
                 解除绑定
               </button>
@@ -519,13 +519,13 @@ export default function SettingsPage()
               maxLength={512}
               onChange={(event) => setTokenInput(event.target.value)}
               placeholder="粘贴墨墨个人 Token"
-              className="w-full resize-none rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 py-2.5 font-[family-name:var(--font-mono)] text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+              className="w-full resize-none rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 py-2.5 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
             />
             <div className="mt-3 flex items-center gap-3">
               <button
                 type="submit"
                 disabled={bindToken.isPending || !tokenInput.trim()}
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--color-accent)] px-5 text-[var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
               >
                 {bindToken.isPending ? '验证中…' : '验证并保存'}
               </button>
@@ -538,7 +538,7 @@ export default function SettingsPage()
                     setTokenError(null)
                     setTokenInput('')
                   }}
-                  className="text-[var(--text-sm)] text-[var(--color-text-subtle)] transition-colors hover:text-[var(--color-text)]"
+                  className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] transition-colors hover:text-[var(--color-text)]"
                 >
                   取消
                 </button>
@@ -553,7 +553,7 @@ export default function SettingsPage()
           </div>
         )}
         {tokenOk && (
-          <p className="mt-3 flex items-center gap-1.5 text-[var(--text-sm)] text-[var(--color-familiar)]">
+          <p className="mt-3 flex items-center gap-1.5 text-[length:var(--text-sm)] text-[var(--color-familiar)]">
             <Icon name="check" className="h-4 w-4" />
             Token 已保存，看板与遗忘词可以使用了。
           </p>
@@ -571,8 +571,8 @@ export default function SettingsPage()
               <Icon name="key" className="h-5 w-5" />
             </span>
             <div>
-              <h2 className="text-[var(--text-md)] font-semibold">DeepSeek API Key</h2>
-              <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <h2 className="text-[length:var(--text-md)] font-semibold">DeepSeek API Key</h2>
+              <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 在 platform.deepseek.com 获取；AI 诊断与问词都走它
               </p>
             </div>
@@ -581,7 +581,7 @@ export default function SettingsPage()
             <button
               type="button"
               onClick={() => setShowKeyInput(true)}
-              className="rounded-md border border-[var(--color-border-strong)] px-3.5 py-1.5 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+              className="rounded-md border border-[var(--color-border-strong)] px-3.5 py-1.5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
             >
               重新填写
             </button>
@@ -591,7 +591,7 @@ export default function SettingsPage()
         {hasKey && !showKeyInput ? (
           <div className="mt-4">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-[var(--color-bg-subtle)] px-4 py-3">
-              <p className="flex items-center gap-2 text-[var(--text-sm)]">
+              <p className="flex items-center gap-2 text-[length:var(--text-sm)]">
                 <Icon name="check" className="h-4 w-4 text-[var(--color-familiar)]" />
                 已配置
               </p>
@@ -599,7 +599,7 @@ export default function SettingsPage()
                 type="button"
                 disabled={clearKey.isPending}
                 onClick={() => clearKey.mutate()}
-                className="text-[var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-forget)] hover:underline"
+                className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-forget)] hover:underline"
               >
                 清除
               </button>
@@ -626,13 +626,13 @@ export default function SettingsPage()
               maxLength={300}
               onChange={(event) => setKeyInput(event.target.value)}
               placeholder="sk-..."
-              className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+              className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
             />
             <div className="mt-3 flex items-center gap-3">
               <button
                 type="submit"
                 disabled={saveKey.isPending || !keyInput.trim()}
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--color-accent)] px-5 text-[var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
               >
                 {saveKey.isPending ? '验证中…' : '验证并保存'}
               </button>
@@ -645,7 +645,7 @@ export default function SettingsPage()
                     setKeyError(null)
                     setKeyInput('')
                   }}
-                  className="text-[var(--text-sm)] text-[var(--color-text-subtle)] transition-colors hover:text-[var(--color-text)]"
+                  className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] transition-colors hover:text-[var(--color-text)]"
                 >
                   取消
                 </button>
@@ -660,7 +660,7 @@ export default function SettingsPage()
           </div>
         )}
         {keyOk && (
-          <p className="mt-3 flex items-center gap-1.5 text-[var(--text-sm)] text-[var(--color-familiar)]">
+          <p className="mt-3 flex items-center gap-1.5 text-[length:var(--text-sm)] text-[var(--color-familiar)]">
             <Icon name="check" className="h-4 w-4" />
             Key 已保存，AI 诊断与问词可以使用了。
           </p>
@@ -677,8 +677,8 @@ export default function SettingsPage()
               <Icon name="message" className="h-5 w-5" />
             </span>
             <div>
-              <h2 className="text-[var(--text-md)] font-semibold">AI 思考模式</h2>
-              <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <h2 className="text-[length:var(--text-md)] font-semibold">AI 思考模式</h2>
+              <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 开启回答更深入但更慢，关闭更快；问词与遗忘词诊断共用
               </p>
             </div>
@@ -700,7 +700,7 @@ export default function SettingsPage()
             }}
           />
         </div>
-        <p className="mt-3 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+        <p className="mt-3 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
           {thinking
             ? thinking === 'on'
               ? '当前：开启 —— 诊断与问词会多花一些时间，结论更细致。'
@@ -719,8 +719,8 @@ export default function SettingsPage()
               <Icon name="book" className="h-5 w-5" />
             </span>
             <div>
-              <h2 className="text-[var(--text-md)] font-semibold">数据备份</h2>
-              <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <h2 className="text-[length:var(--text-md)] font-semibold">数据备份</h2>
+              <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 诊断历史、词卡缓存、词库快照备份到你的私有远端；备份包不含登录凭据
               </p>
             </div>
@@ -729,27 +729,27 @@ export default function SettingsPage()
 
         <div className="mt-4 space-y-3">
           {!bindingReady ? (
-            <p className="text-[var(--text-sm)] text-[var(--color-text-subtle)]">读取本机备份配置中…</p>
+            <p className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">读取本机备份配置中…</p>
           ) : binding ? (
             <>
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-[var(--color-bg-subtle)] px-4 py-3">
                 <div>
-                  <p className="text-[var(--text-sm)] font-medium">
+                  <p className="text-[length:var(--text-sm)] font-medium">
                     当前备份方式：{BACKUP_TARGET_LABELS[binding.target]}
                   </p>
-                  <p className="mt-1 break-all font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                  <p className="mt-1 break-all font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                     {binding.target === 'webdav'
                       ? `${binding.remoteUrl} · ${binding.username} · 密码已保存`
                       : `${binding.repo} · Token 已保存`}
                   </p>
                 </div>
-                <span className="flex shrink-0 items-center gap-1.5 text-[var(--text-xs)] text-[var(--color-familiar)]">
+                <span className="flex shrink-0 items-center gap-1.5 text-[length:var(--text-xs)] text-[var(--color-familiar)]">
                   <Icon name="check" className="h-4 w-4" />
                   已启用
                 </span>
               </div>
 
-              <p className="text-[var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+              <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
                 配置（含 WebDAV 密码）只保存在这台设备的浏览器里，刷新后无需重新输入。三种方式一次只启用一个，如需改用其他方式请先重置。
               </p>
 
@@ -758,7 +758,7 @@ export default function SettingsPage()
                   type="button"
                   disabled={backupBusy !== null}
                   onClick={() => void runBackup()}
-                  className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+                  className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
                 >
                   {backupBusy === 'backup' ? '备份中…' : '立即备份'}
                 </button>
@@ -766,7 +766,7 @@ export default function SettingsPage()
                   type="button"
                   disabled={backupBusy !== null}
                   onClick={() => void runRestore()}
-                  className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
+                  className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
                 >
                   {backupBusy === 'restore' ? '恢复中…' : '从云端恢复'}
                 </button>
@@ -774,7 +774,7 @@ export default function SettingsPage()
                   type="button"
                   disabled={backupBusy !== null}
                   onClick={resetBackupBinding}
-                  className="text-[var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-forget)] hover:underline"
+                  className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-forget)] hover:underline"
                 >
                   重置配置
                 </button>
@@ -799,7 +799,7 @@ export default function SettingsPage()
                     value={webdavUrl}
                     onChange={(event) => setWebdavUrl(event.target.value)}
                     placeholder="服务地址（含目录），如 https://dav.example.com/WebDAV/momo"
-                    className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                    className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
                   />
                   <div className="flex gap-3">
                     <input
@@ -807,7 +807,7 @@ export default function SettingsPage()
                       onChange={(event) => setWebdavUser(event.target.value)}
                       placeholder="账号"
                       autoComplete="off"
-                      className="h-10 flex-1 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                      className="h-10 flex-1 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
                     />
                     <input
                       type="password"
@@ -815,7 +815,7 @@ export default function SettingsPage()
                       onChange={(event) => setWebdavPass(event.target.value)}
                       placeholder="密码 / 应用密码"
                       autoComplete="new-password"
-                      className="h-10 flex-1 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                      className="h-10 flex-1 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
                     />
                   </div>
                 </>
@@ -835,7 +835,7 @@ export default function SettingsPage()
                           setBackupError(error instanceof Error ? error.message : 'OAuth 未配置')
                         }
                       }}
-                      className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-4 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+                      className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
                     >
                       <Icon name="link" className="h-4 w-4" />
                       使用 GitHub 授权登录
@@ -847,16 +847,16 @@ export default function SettingsPage()
                     onChange={(event) => setBackupToken(event.target.value)}
                     placeholder={backupTarget === 'github' ? 'GitHub Token（OAuth 登录或手动粘贴，需 Contents 读写权限）' : 'Gitee 私人令牌'}
                     autoComplete="off"
-                    className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                    className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
                   />
                   <input
                     value={backupRepo}
                     onChange={(event) => setBackupRepo(event.target.value)}
                     placeholder="仓库名，如 bonanliu/momohelper-backup（需提前创建，建议私有）"
-                    className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                    className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
                   />
                   {backupTarget === 'gitee' && (
-                    <p className="text-[var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+                    <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
                       Gitee 仓库需至少有一次提交（新建时勾选「使用 Readme 初始化」即可）；备份文件会自动建在 momohelper/ 目录下。
                     </p>
                   )}
@@ -868,7 +868,7 @@ export default function SettingsPage()
                   type="button"
                   disabled={backupBusy !== null}
                   onClick={() => void runBackup()}
-                  className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+                  className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
                 >
                   {backupBusy === 'backup' ? '备份中…' : '立即备份'}
                 </button>
@@ -876,7 +876,7 @@ export default function SettingsPage()
                   type="button"
                   disabled={backupBusy !== null}
                   onClick={() => void runRestore()}
-                  className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
+                  className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
                 >
                   {backupBusy === 'restore' ? '恢复中…' : '从云端恢复'}
                 </button>
@@ -884,13 +884,13 @@ export default function SettingsPage()
                   type="button"
                   disabled={backupBusy !== null}
                   onClick={saveOnly}
-                  className="text-[var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-text)] hover:underline"
+                  className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-text)] hover:underline"
                 >
                   仅保存配置
                 </button>
               </div>
 
-              <p className="text-[var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+              <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
                 填写后点任一操作即保存配置并
                 <span className="font-medium text-[var(--color-text-muted)]">锁定该方式</span>
                 ；刷新无需重新输入（WebDAV 密码也只存本机浏览器）。切换目标会清空当前输入。
@@ -898,7 +898,7 @@ export default function SettingsPage()
             </>
           )}
 
-          <p className="text-[var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+          <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
             备份内容：AI 诊断历史（合并去重）、AI 词卡缓存（只补缺）、词库学习记录快照、思考模式。
             <span className="font-medium text-[var(--color-text-muted)]">不含墨墨 Token 与 DeepSeek Key</span>
             （换设备重新粘贴即可，避免明文凭据上云）。
@@ -912,7 +912,7 @@ export default function SettingsPage()
           </div>
         )}
         {backupNotice && (
-          <p className="mt-3 flex items-start gap-1.5 text-[var(--text-sm)] leading-relaxed text-[var(--color-familiar)]">
+          <p className="mt-3 flex items-start gap-1.5 text-[length:var(--text-sm)] leading-relaxed text-[var(--color-familiar)]">
             <Icon name="check" className="mt-0.5 h-4 w-4 shrink-0" />
             {backupNotice}
           </p>
@@ -920,7 +920,7 @@ export default function SettingsPage()
       </Tile>
 
       <Tile index={4} hover={false} className="mt-4">
-        <p className="text-[var(--text-sm)] text-[var(--color-text-muted)]">
+        <p className="text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
           说明：本工具是纯前端应用，你的墨墨 Token 与 DeepSeek Key
           只保存在这台设备的浏览器里。DeepSeek 由浏览器直连；墨墨请求经本站
           同源代理 /api/memo/* 转发，代理只转发、不存储。清除浏览器站点数据会同时清除凭据、备份配置（含 WebDAV 密码）与学习快照。

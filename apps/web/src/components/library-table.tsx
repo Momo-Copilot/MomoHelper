@@ -98,7 +98,7 @@ function WordButton({ spelling }: { spelling: string })
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         title="点击查看词条释义"
-        className="font-[family-name:var(--font-display)] text-[var(--text-md)] underline decoration-[var(--color-border-strong)] decoration-dotted underline-offset-4 transition-colors hover:decoration-[var(--color-accent)]"
+        className="font-[family-name:var(--font-display)] text-[length:var(--text-md)] underline decoration-[var(--color-border-strong)] decoration-dotted underline-offset-4 transition-colors hover:decoration-[var(--color-accent)]"
       >
         {spelling}
       </button>
@@ -118,11 +118,11 @@ function DayCell({ value }: { value?: string })
   const day = beijingDayOf(value)
 
   return day ? (
-    <span className="whitespace-nowrap tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-muted)]">
+    <span className="whitespace-nowrap tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
       {day}
     </span>
   ) : (
-    <span className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">—</span>
+    <span className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">—</span>
   )
 }
 
@@ -141,7 +141,7 @@ function PageButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex h-8 items-center gap-1 rounded-md border border-[var(--color-border-strong)] px-3 text-[var(--text-xs)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-40 disabled:hover:bg-transparent"
+      className="inline-flex h-8 items-center gap-1 rounded-md border border-[var(--color-border-strong)] px-3 text-[length:var(--text-xs)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-40 disabled:hover:bg-transparent"
     >
       {children}
     </button>
@@ -209,7 +209,7 @@ export function LibraryTableView({
             }}
             placeholder="搜索单词"
             aria-label="搜索单词"
-            className="h-9 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] pl-9 pr-3 text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+            className="h-9 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] pl-9 pr-3 text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
           />
         </label>
 
@@ -244,7 +244,7 @@ export function LibraryTableView({
       <div className="mt-4 overflow-x-auto rounded-md border border-[var(--color-border)]">
         <table className="w-max min-w-full border-collapse text-left">
           <thead>
-            <tr className="whitespace-nowrap bg-[var(--color-bg-subtle)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+            <tr className="whitespace-nowrap bg-[var(--color-bg-subtle)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
               <th className="w-12 px-3 py-2.5 font-normal">#</th>
               <th className="px-3 py-2.5 font-normal">单词</th>
               <th className="w-20 px-3 py-2.5 text-right font-normal" title="study_count">
@@ -273,7 +273,7 @@ export function LibraryTableView({
               <tr>
                 <td
                   colSpan={9}
-                  className="px-3 py-10 text-center text-[var(--text-sm)] text-[var(--color-text-subtle)]"
+                  className="px-3 py-10 text-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]"
                 >
                   没有符合条件的词。
                 </td>
@@ -284,16 +284,16 @@ export function LibraryTableView({
                   key={row.vocId}
                   className="border-t border-[var(--color-border)] transition-colors hover:bg-[var(--color-bg-subtle)]"
                 >
-                  <td className="px-3 py-2 tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                  <td className="px-3 py-2 tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                     {safePage * PAGE_SIZE + i + 1}
                   </td>
                   <td className="px-3 py-2">
                     <WordButton spelling={row.spelling} />
                   </td>
-                  <td className="px-3 py-2 text-right tabular font-[family-name:var(--font-mono)] text-[var(--text-sm)]">
+                  <td className="px-3 py-2 text-right tabular font-[family-name:var(--font-mono)] text-[length:var(--text-sm)]">
                     {row.studyCount}
                   </td>
-                  <td className="px-3 py-2 text-center text-[var(--text-xs)]">
+                  <td className="px-3 py-2 text-center text-[length:var(--text-xs)]">
                     {(() =>
                     {
                       const meta = responseMetaOf(row.lastResponse)
@@ -307,7 +307,7 @@ export function LibraryTableView({
                   </td>
                   <td className="px-3 py-2">
                     {row.tags.length === 0 ? (
-                      <span className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">—</span>
+                      <span className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">—</span>
                     ) : (
                       <span className="flex flex-wrap gap-1">
                         {row.tags.map((tag) =>
@@ -344,11 +344,11 @@ export function LibraryTableView({
                   </td>
                   <td className="px-3 py-2">
                     {row.nextStudyDate ? (
-                      <span className="whitespace-nowrap tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] font-medium text-[var(--color-accent)]">
+                      <span className="whitespace-nowrap tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] font-medium text-[var(--color-accent)]">
                         {beijingDayOf(row.nextStudyDate)}
                       </span>
                     ) : (
-                      <span className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">—</span>
+                      <span className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">—</span>
                     )}
                   </td>
                 </tr>
@@ -359,7 +359,7 @@ export function LibraryTableView({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+        <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
           共 {filtered.length.toLocaleString('zh-CN')} 词 · 第 {safePage + 1} / {totalPages} 页 ·
           每页 {PAGE_SIZE} 条
         </p>

@@ -28,7 +28,7 @@ function WordButton({ spelling }: { spelling: string })
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         title="点击查看词条释义"
-        className="w-full truncate text-left font-[family-name:var(--font-display)] text-[var(--text-md)] underline decoration-[var(--color-border-strong)] decoration-dotted underline-offset-4 transition-colors hover:decoration-[var(--color-accent)]"
+        className="w-full truncate text-left font-[family-name:var(--font-display)] text-[length:var(--text-md)] underline decoration-[var(--color-border-strong)] decoration-dotted underline-offset-4 transition-colors hover:decoration-[var(--color-accent)]"
       >
         {spelling}
       </button>
@@ -85,9 +85,9 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[var(--text-sm)] text-[var(--color-text-muted)]">
+        <p className="text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
           今日词表
-          <span className="ml-2 font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+          <span className="ml-2 font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
             {filtered.length} / {words.length}
           </span>
         </p>
@@ -106,11 +106,11 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
       </div>
 
       {words.length === 0 ? (
-        <p className="mt-6 text-[var(--text-sm)] text-[var(--color-text-subtle)]">
+        <p className="mt-6 text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
           当前为降级快照数据，暂无今日词表明细；数据恢复可靠后自动展示。
         </p>
       ) : filtered.length === 0 ? (
-        <p className="mt-6 text-[var(--text-sm)] text-[var(--color-text-subtle)]">
+        <p className="mt-6 text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
           没有符合当前筛选条件的词。
         </p>
       ) : (
@@ -126,7 +126,7 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
                 key={word.vocId}
                 className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--color-bg-subtle)]"
               >
-                <span className="tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                <span className="tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                   {i + 1}
                 </span>
                 <span className="min-w-0">
@@ -134,7 +134,7 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
                 </span>
                 <span className="flex shrink-0 items-center gap-3">
                   <span
-                    className={`text-[var(--text-xs)] ${
+                    className={`text-[length:var(--text-xs)] ${
                       word.isNew
                         ? 'font-medium text-[var(--color-accent)]'
                         : 'text-[var(--color-text-muted)]'
@@ -143,7 +143,7 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
                     {word.isNew ? '新词' : '复习'}
                   </span>
                   <span
-                    className={`flex items-center gap-1.5 text-[var(--text-xs)] ${
+                    className={`flex items-center gap-1.5 text-[length:var(--text-xs)] ${
                       word.isFinished
                         ? 'text-[var(--color-familiar)]'
                         : 'text-[var(--color-text-subtle)]'
@@ -161,14 +161,14 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
                   </span>
                   {response ? (
                     <span
-                      className={`hidden items-center rounded-full px-2 py-0.5 text-[var(--text-xs)] font-medium sm:inline-flex ${
+                      className={`hidden items-center rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium sm:inline-flex ${
                         response.className
                       }`}
                     >
                       {response.label}
                     </span>
                   ) : (
-                    <span className="hidden w-12 text-right text-[var(--text-xs)] text-[var(--color-text-subtle)] sm:inline">
+                    <span className="hidden w-12 text-right text-[length:var(--text-xs)] text-[var(--color-text-subtle)] sm:inline">
                       —
                     </span>
                   )}

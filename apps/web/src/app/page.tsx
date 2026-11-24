@@ -69,17 +69,17 @@ function ExamCountdownBar()
   return (
     <Link
       href="/plan"
-      className="mb-4 flex items-center justify-between gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-[var(--text-sm)] transition-colors hover:border-[var(--color-border-strong)]"
+      className="mb-4 flex items-center justify-between gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-[length:var(--text-sm)] transition-colors hover:border-[var(--color-border-strong)]"
     >
       <span className="flex items-center gap-1.5">
         <Icon name="calendar" className="h-4 w-4 text-[var(--color-accent)]" />
         <span className="text-[var(--color-text-muted)]">距考试还有</span>
-        <span className="font-[family-name:var(--font-display)] text-[var(--text-md)] font-semibold tabular">
+        <span className="font-[family-name:var(--font-display)] text-[length:var(--text-md)] font-semibold tabular">
           {daysLeft}
         </span>
         <span className="text-[var(--color-text-muted)]">天</span>
       </span>
-      <span className="flex shrink-0 items-center gap-1 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+      <span className="flex shrink-0 items-center gap-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
         冲刺计划
         <Icon name="chevron-right" className="h-3.5 w-3.5" />
       </span>
@@ -233,10 +233,10 @@ export default function DashboardPage()
     return (
       <Tile hover={false} className="mt-16 text-center">
         <Icon name="alert" className="mx-auto h-8 w-8 text-[var(--color-vague)]" />
-        <h1 className="mt-3 font-[family-name:var(--font-display)] text-[var(--text-lg)]">
+        <h1 className="mt-3 font-[family-name:var(--font-display)] text-[length:var(--text-lg)]">
           {needSetup ? '需要先配置墨墨 Token' : '看板加载失败'}
         </h1>
-        <p className="mx-auto mt-1 max-w-md text-[var(--text-sm)] text-[var(--color-text-muted)]">
+        <p className="mx-auto mt-1 max-w-md text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
           {err instanceof MaimemoNotConfiguredError
             ? '尚未绑定墨墨 Token，绑定后即可看到今日学习情况。'
             : err instanceof MaimemoAuthError
@@ -247,7 +247,7 @@ export default function DashboardPage()
           {needSetup ? (
             <Link
               href="/settings"
-              className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
+              className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
             >
               <Icon name="sliders" className="mr-2 h-4 w-4" />
               去设置
@@ -256,7 +256,7 @@ export default function DashboardPage()
             <button
               type="button"
               onClick={() => void query.refetch()}
-              className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
+              className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
             >
               重试
             </button>
@@ -287,7 +287,7 @@ export default function DashboardPage()
             type="button"
             onClick={() => void query.refetch()}
             disabled={query.isFetching}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-[var(--text-sm)] shadow-[var(--shadow-tile)] transition-all hover:-translate-y-px hover:shadow-[var(--shadow-tile-hover)] disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-[length:var(--text-sm)] shadow-[var(--shadow-tile)] transition-all hover:-translate-y-px hover:shadow-[var(--shadow-tile-hover)] disabled:opacity-50"
           >
             <Icon
               name="refresh"
@@ -301,7 +301,7 @@ export default function DashboardPage()
       <ExamCountdownBar />
 
       {!data.dataReliable && (
-        <p className="mb-4 flex items-center gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[var(--text-sm)] text-[var(--color-vague)]">
+        <p className="mb-4 flex items-center gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[length:var(--text-sm)] text-[var(--color-vague)]">
           <Icon name="alert" className="h-4 w-4 shrink-0" />
           墨墨学习数据接口暂不可用，以下为最近一次可靠快照（
           {new Date(data.capturedAt).toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' })}）。
@@ -311,7 +311,7 @@ export default function DashboardPage()
       <div className="grid grid-cols-12 gap-4">
         {/* 进度环大瓷贴 */}
         <Tile index={0} className="col-span-12 lg:col-span-5">
-          <p className="text-[var(--text-sm)] text-[var(--color-text-muted)]">完成进度</p>
+          <p className="text-[length:var(--text-sm)] text-[var(--color-text-muted)]">完成进度</p>
           <div className="mt-4 flex items-center gap-6">
             <div className="relative h-[152px] w-[152px] shrink-0">
               <svg viewBox="0 0 152 152" className="h-full w-full -rotate-90">
@@ -344,24 +344,24 @@ export default function DashboardPage()
                     {' '}/ {data.total}
                   </span>
                 </p>
-                <p className="mt-1.5 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                <p className="mt-1.5 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                   {data.completionRate === null ? '今日暂无计划' : `完成率 ${Math.round(rate * 100)}%`}
                 </p>
               </div>
             </div>
             <dl className="min-w-0 flex-1 space-y-3">
               <div className="rounded-md bg-[var(--color-bg-subtle)] px-3.5 py-2.5">
-                <dt className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">剩余待学</dt>
+                <dt className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">剩余待学</dt>
                 <dd className="num-in tabular font-[family-name:var(--font-mono)] text-lg font-semibold" key={data.remaining}>
                   {data.remaining}
                 </dd>
               </div>
               <div className="rounded-md bg-[var(--color-bg-subtle)] px-3.5 py-2.5">
-                <dt className="flex items-center gap-1.5 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                <dt className="flex items-center gap-1.5 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                   <Icon name="clock" className="h-3.5 w-3.5" />
                   学习时长
                 </dt>
-                <dd className="num-in text-[var(--text-md)] font-semibold" key={data.studyTimeMs}>
+                <dd className="num-in text-[length:var(--text-md)] font-semibold" key={data.studyTimeMs}>
                   {formatDuration(data.studyTimeMs)}
                 </dd>
               </div>
@@ -371,7 +371,7 @@ export default function DashboardPage()
 
         {/* 四分项 2×2 */}
         <Tile index={1} className="col-span-12 lg:col-span-7">
-          <p className="text-[var(--text-sm)] text-[var(--color-text-muted)]">今日概览</p>
+          <p className="text-[length:var(--text-sm)] text-[var(--color-text-muted)]">今日概览</p>
           <dl className="mt-4 grid grid-cols-2 gap-3">
             {METRICS.map((metric) => (
               <div
@@ -386,10 +386,10 @@ export default function DashboardPage()
                   <Icon name={metric.icon} className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
-                  <dd className="num-in tabular font-[family-name:var(--font-mono)] text-[var(--text-xl)] font-semibold leading-tight" key={data[metric.key]}>
+                  <dd className="num-in tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xl)] font-semibold leading-tight" key={data[metric.key]}>
                     {data[metric.key]}
                   </dd>
-                  <dt className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                  <dt className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                     {metric.label}
                   </dt>
                 </div>
@@ -401,10 +401,10 @@ export default function DashboardPage()
         {/* 趋势 */}
         <Tile index={2} className="col-span-12 lg:col-span-8">
           <div className="flex items-baseline justify-between">
-            <p className="text-[var(--text-sm)] text-[var(--color-text-muted)]">
+            <p className="text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
               近 14 天完成趋势
             </p>
-            <p className="font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+            <p className="font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
               {trendDays ? `${trendDays.reduce((sum, d) => sum + d.finished, 0)} 词` : '—'}
             </p>
           </div>
@@ -413,12 +413,12 @@ export default function DashboardPage()
               trendDays.some((d) => d.finished > 0) ? (
                 <TrendChart days={trendDays} />
               ) : (
-                <p className="flex h-40 items-center justify-center text-[var(--text-sm)] text-[var(--color-text-subtle)]">
+                <p className="flex h-40 items-center justify-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
                   快照从今天开始累积，明天回来看趋势。
                 </p>
               )
             ) : (
-              <div className="flex h-40 items-center justify-center text-[var(--text-sm)] text-[var(--color-text-subtle)]">
+              <div className="flex h-40 items-center justify-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
                 载入趋势中…
               </div>
             )}
@@ -427,7 +427,7 @@ export default function DashboardPage()
 
         {/* 快捷入口 */}
         <Tile index={3} className="col-span-12 lg:col-span-4">
-          <p className="text-[var(--text-sm)] text-[var(--color-text-muted)]">快捷入口</p>
+          <p className="text-[length:var(--text-sm)] text-[var(--color-text-muted)]">快捷入口</p>
           <ul className="mt-4 space-y-2">
             {(
               [
@@ -449,8 +449,8 @@ export default function DashboardPage()
                     <Icon name={item.icon} className="h-[18px] w-[18px]" />
                   </span>
                   <span className="min-w-0 flex-1 leading-tight">
-                    <span className="block text-[var(--text-sm)] font-medium">{item.label}</span>
-                    <span className="block text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                    <span className="block text-[length:var(--text-sm)] font-medium">{item.label}</span>
+                    <span className="block text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                       {item.desc}
                     </span>
                   </span>
@@ -468,7 +468,7 @@ export default function DashboardPage()
         {data.forgottenWords > 0 && (
           <Tile index={4} className="col-span-12 border-l-4 !border-l-[var(--color-forget)]">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[var(--text-sm)]">
+              <p className="text-[length:var(--text-sm)]">
                 <span className="tabular font-[family-name:var(--font-mono)] font-semibold text-[var(--color-forget)]">
                   {data.forgottenWords}
                 </span>{' '}
@@ -476,7 +476,7 @@ export default function DashboardPage()
               </p>
               <Link
                 href="/forget"
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-forget-bg)] px-3.5 text-[var(--text-sm)] font-medium text-[var(--color-forget)] transition-colors hover:bg-[var(--color-forget)]/15"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-forget-bg)] px-3.5 text-[length:var(--text-sm)] font-medium text-[var(--color-forget)] transition-colors hover:bg-[var(--color-forget)]/15"
               >
                 遗忘词分析
                 <Icon name="arrow-right" className="h-4 w-4" />

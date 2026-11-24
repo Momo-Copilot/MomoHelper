@@ -61,7 +61,7 @@ export function ForecastCalendar({ forecast }: { forecast: ForecastDto })
   return (
     <div>
       {/* 标题由页面提供，这里只放口径数字，避免两处都写「未来复习负荷」 */}
-      <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+      <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
         共 {forecast.totalInWindow.toLocaleString('zh-CN')} 词待复习 · 有负荷日平均{' '}
         {forecast.busyAverage} 词
       </p>
@@ -73,33 +73,33 @@ export function ForecastCalendar({ forecast }: { forecast: ForecastDto })
       >
         {active ? (
           <>
-            <span className="font-[family-name:var(--font-mono)] text-[var(--text-sm)] tabular">
+            <span className="font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] tabular">
               {Number(active.date.slice(5, 7))} 月 {Number(active.date.slice(8, 10))} 日
             </span>
-            <span className="text-[var(--text-sm)] font-medium">
+            <span className="text-[length:var(--text-sm)] font-medium">
               {active.count === 0 ? '无复习任务' : `${active.count.toLocaleString('zh-CN')} 词`}
             </span>
             {active.count === 0 && (
-              <span className="text-[var(--text-xs)] text-[var(--color-familiar)]">
+              <span className="text-[length:var(--text-xs)] text-[var(--color-familiar)]">
                 空档日，适合加新词
               </span>
             )}
             {active.date === peakDate && active.count > 0 && (
-              <span className="text-[var(--text-xs)] text-[var(--color-forget)]">
+              <span className="text-[length:var(--text-xs)] text-[var(--color-forget)]">
                 窗口内最重的一天
               </span>
             )}
             {active.offset === 0 && (
-              <span className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">今天</span>
+              <span className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">今天</span>
             )}
             {active.offset > 0 && (
-              <span className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <span className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 {active.offset} 天后
               </span>
             )}
           </>
         ) : (
-          <span className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+          <span className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
             点任意一天看当天负荷
           </span>
         )}
@@ -110,7 +110,7 @@ export function ForecastCalendar({ forecast }: { forecast: ForecastDto })
       <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
         {blocks.map((block) => (
           <div key={block.month}>
-            <p className="mb-1.5 text-[var(--text-xs)] text-[var(--color-text-muted)]">
+            <p className="mb-1.5 text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
               {monthLabel(block.month)}
             </p>
             <WeekdayHeader />

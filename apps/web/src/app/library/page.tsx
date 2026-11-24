@@ -108,10 +108,10 @@ export default function LibraryPage()
     return (
       <Tile hover={false} className="mt-16 text-center">
         <Icon name="alert" className="mx-auto h-8 w-8 text-[var(--color-vague)]" />
-        <h1 className="mt-3 font-[family-name:var(--font-display)] text-[var(--text-lg)]">
+        <h1 className="mt-3 font-[family-name:var(--font-display)] text-[length:var(--text-lg)]">
           {needSetup ? '需要先配置墨墨 Token' : '词库加载失败'}
         </h1>
-        <p className="mx-auto mt-1 max-w-md text-[var(--text-sm)] text-[var(--color-text-muted)]">
+        <p className="mx-auto mt-1 max-w-md text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
           {error instanceof MaimemoNotConfiguredError
             ? '尚未绑定墨墨 Token，绑定后即可读取全量学习记录。'
             : error instanceof MaimemoAuthError
@@ -122,7 +122,7 @@ export default function LibraryPage()
           {needSetup ? (
             <Link
               href="/settings"
-              className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
+              className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
             >
               <Icon name="sliders" className="mr-2 h-4 w-4" />
               去设置
@@ -131,7 +131,7 @@ export default function LibraryPage()
             <button
               type="button"
               onClick={() => void query.refetch()}
-              className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
+              className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
             >
               重试
             </button>
@@ -167,7 +167,7 @@ export default function LibraryPage()
             type="button"
             onClick={() => refresh.mutate()}
             disabled={refresh.isPending}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-[var(--text-sm)] shadow-[var(--shadow-tile)] transition-all hover:-translate-y-px hover:shadow-[var(--shadow-tile-hover)] disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-[length:var(--text-sm)] shadow-[var(--shadow-tile)] transition-all hover:-translate-y-px hover:shadow-[var(--shadow-tile-hover)] disabled:opacity-50"
           >
             <Icon
               name="refresh"
@@ -179,7 +179,7 @@ export default function LibraryPage()
       />
 
       {!isComplete && (
-        <p className="mb-4 flex items-start gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[var(--text-sm)] text-[var(--color-vague)]">
+        <p className="mb-4 flex items-start gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[length:var(--text-sm)] text-[var(--color-vague)]">
           <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             只取到 {loaded.toLocaleString('zh-CN')} 条，接口总数 {expected.toLocaleString('zh-CN')}
@@ -190,7 +190,7 @@ export default function LibraryPage()
       )}
 
       {refresh.isError && (
-        <p className="mb-4 rounded-md border border-[var(--color-forget)]/25 bg-[var(--color-forget-bg)] px-4 py-2.5 text-[var(--text-sm)] text-[var(--color-forget)]">
+        <p className="mb-4 rounded-md border border-[var(--color-forget)]/25 bg-[var(--color-forget-bg)] px-4 py-2.5 text-[length:var(--text-sm)] text-[var(--color-forget)]">
           重新拉取失败：{refresh.error.message}
         </p>
       )}

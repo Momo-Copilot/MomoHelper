@@ -97,40 +97,40 @@ export function LibraryTimelineView({ months }: { months: LibraryMonthRowDto[] }
     <div className="grid grid-cols-12 gap-4">
       <Tile index={0} className="col-span-12 lg:col-span-7">
         <div className="flex items-baseline justify-between">
-          <p className="text-[var(--text-sm)]">每月加入 / 首学</p>
-          <p className="font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+          <p className="text-[length:var(--text-sm)]">每月加入 / 首学</p>
+          <p className="font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
             近 {months.length} 个月
           </p>
         </div>
-        <p className="mt-1 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+        <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
           加入 {addedTotal.toLocaleString('zh-CN')} 词 · 首学 {firstTotal.toLocaleString('zh-CN')} 词
           {peak && peak.added > 0 && ` · 峰值 ${peak.month}（${peak.added} 词）`}
         </p>
         <div className="mt-4">
           {addedTotal === 0 && firstTotal === 0 ? (
-            <p className="flex h-40 items-center justify-center text-[var(--text-sm)] text-[var(--color-text-subtle)]">
+            <p className="flex h-40 items-center justify-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
               这段时间没有加入或首学的记录。
             </p>
           ) : (
             <MonthChart months={months} />
           )}
         </div>
-        <div className="mt-3 flex gap-4 text-[var(--text-xs)] text-[var(--color-text-muted)]">
+        <div className="mt-3 flex gap-4 text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
           <Legend color="var(--color-border-strong)" label="加入词库" />
           <Legend color="var(--color-accent)" label="首次学习" />
         </div>
       </Tile>
 
       <Tile index={1} className="col-span-12 lg:col-span-5">
-        <p className="text-[var(--text-sm)]">月度明细</p>
-        <p className="mt-1 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+        <p className="text-[length:var(--text-sm)]">月度明细</p>
+        <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
           留存率 = 当月首学 / 当月加入
         </p>
 
         <div className="mt-4 max-h-[320px] overflow-y-auto">
           <table className="w-full text-left">
             <thead className="sticky top-0 bg-[var(--color-surface)]">
-              <tr className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <tr className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 <th className="py-2 font-normal">月份</th>
                 <th className="py-2 text-right font-normal">加入</th>
                 <th className="py-2 text-right font-normal">首学</th>
@@ -142,9 +142,9 @@ export function LibraryTimelineView({ months }: { months: LibraryMonthRowDto[] }
               {newestFirst.map((month) => (
                 <tr
                   key={month.month}
-                  className="whitespace-nowrap border-t border-[var(--color-border)] text-[var(--text-sm)]"
+                  className="whitespace-nowrap border-t border-[var(--color-border)] text-[length:var(--text-sm)]"
                 >
-                  <td className="py-2 tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-muted)]">
+                  <td className="py-2 tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
                     {month.month}
                   </td>
                   <td className="py-2 text-right tabular">{month.added}</td>
@@ -152,7 +152,7 @@ export function LibraryTimelineView({ months }: { months: LibraryMonthRowDto[] }
                   <td className="py-2 text-right tabular text-[var(--color-text-muted)]">
                     {month.retention === null ? '—' : `${Math.round(month.retention * 100)}%`}
                   </td>
-                  <td className="py-2 text-right tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                  <td className="py-2 text-right tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                     {month.cumulative.toLocaleString('zh-CN')}
                   </td>
                 </tr>

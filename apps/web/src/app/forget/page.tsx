@@ -104,10 +104,10 @@ function DiagnosisBody({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <WordButton
           spelling={record.spelling}
-          className="font-[family-name:var(--font-display)] text-[var(--text-lg)]"
+          className="font-[family-name:var(--font-display)] text-[length:var(--text-lg)]"
         />
         <span className="flex items-center gap-2">
-          <span className="rounded-full bg-[var(--color-vague-bg)] px-2.5 py-0.5 text-[var(--text-xs)] font-medium text-[var(--color-vague)]">
+          <span className="rounded-full bg-[var(--color-vague-bg)] px-2.5 py-0.5 text-[length:var(--text-xs)] font-medium text-[var(--color-vague)]">
             {REASON_LABELS[record.data.reason] ?? record.data.reason}
           </span>
           {onRediagnose && (
@@ -115,7 +115,7 @@ function DiagnosisBody({
               type="button"
               onClick={onRediagnose}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-2.5 py-1 text-[var(--text-xs)] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text)] disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-2.5 py-1 text-[length:var(--text-xs)] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text)] disabled:opacity-50"
             >
               <Icon
                 name="refresh"
@@ -126,14 +126,14 @@ function DiagnosisBody({
           )}
         </span>
       </div>
-      <p className="mt-2.5 text-[var(--text-sm)] leading-relaxed">{record.data.explanation}</p>
-      <p className="mt-3 rounded-md bg-[var(--color-bg-subtle)] px-3.5 py-2.5 text-[var(--text-sm)]">
-        <span className="text-[var(--text-xs)] font-medium text-[var(--color-familiar)]">
+      <p className="mt-2.5 text-[length:var(--text-sm)] leading-relaxed">{record.data.explanation}</p>
+      <p className="mt-3 rounded-md bg-[var(--color-bg-subtle)] px-3.5 py-2.5 text-[length:var(--text-sm)]">
+        <span className="text-[length:var(--text-xs)] font-medium text-[var(--color-familiar)]">
           补救建议
         </span>
         <span className="mt-0.5 block">{record.data.suggestion}</span>
       </p>
-      <p className="mt-2.5 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+      <p className="mt-2.5 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
         {formatTime(record.at)} 诊断{record.thinking ? ' · 深度思考' : ''} · 结果由 AI 推测，仅供参考
       </p>
     </>
@@ -256,7 +256,7 @@ export default function ForgetPage()
                 setTab(next)
               }}
             />
-            <span className="flex items-center gap-2 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+            <span className="flex items-center gap-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
               <Icon name="message" className="h-3.5 w-3.5" />
               思考模式：{thinking ?? '未配置'}
               <Link
@@ -284,7 +284,7 @@ export default function ForgetPage()
             type="button"
             onClick={() => void query.refetch()}
             disabled={query.isFetching}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-4 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
           >
             <Icon
               name="refresh"
@@ -331,17 +331,17 @@ export default function ForgetPage()
                           }`}
                         >
                           <span className="flex min-w-0 items-center gap-2">
-                            <span className="font-[family-name:var(--font-display)] text-[var(--text-md)]">
+                            <span className="font-[family-name:var(--font-display)] text-[length:var(--text-md)]">
                               {word.spelling}
                             </span>
                             {isSticking && (
-                              <span className="rounded-full bg-[var(--color-forget-bg)] px-2 py-0.5 text-[var(--text-xs)] font-medium text-[var(--color-forget)]">
+                              <span className="rounded-full bg-[var(--color-forget-bg)] px-2 py-0.5 text-[length:var(--text-xs)] font-medium text-[var(--color-forget)]">
                                 顽固
                               </span>
                             )}
                           </span>
                           <span className="flex shrink-0 items-center gap-2.5">
-                            <span className="tabular font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                            <span className="tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                               {typeof word.studyCount === 'number' ? `${word.studyCount} 次` : ''}
                             </span>
                             {record ? (
@@ -350,7 +350,7 @@ export default function ForgetPage()
                                 className="h-4 w-4 shrink-0 text-[var(--color-familiar)]"
                               />
                             ) : (
-                              <span className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                              <span className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                                 {isBusy ? '诊断中…' : '诊断 →'}
                               </span>
                             )}
@@ -380,7 +380,7 @@ export default function ForgetPage()
                                 }
                               />
                             ) : (
-                              <p className="text-[var(--text-sm)] text-[var(--color-text-subtle)]">
+                              <p className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
                                 准备诊断…
                               </p>
                             )}
@@ -400,14 +400,14 @@ export default function ForgetPage()
                     <>
                       <WordButton
                         spelling={selected ?? ''}
-                        className="font-[family-name:var(--font-display)] text-[var(--text-lg)]"
+                        className="font-[family-name:var(--font-display)] text-[length:var(--text-lg)]"
                       />
                       {isDiagnosingSelected ? (
                         <div className="mt-3">
                           <div className="h-4 w-full animate-pulse rounded-sm bg-[var(--color-bg-subtle)]" />
                           <div className="mt-2.5 h-4 w-4/5 animate-pulse rounded-sm bg-[var(--color-bg-subtle)]" />
                           <div className="mt-2.5 h-4 w-3/5 animate-pulse rounded-sm bg-[var(--color-bg-subtle)]" />
-                          <p className="mt-3 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                          <p className="mt-3 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                             诊断中{diagnose.variables?.thinking ? '（深度思考，可能较慢）' : ''}…
                           </p>
                         </div>
@@ -424,7 +424,7 @@ export default function ForgetPage()
                             <button
                               type="button"
                               onClick={() => requestDiagnosis(selected)}
-                              className="mt-3 inline-flex h-8 items-center rounded-md border border-[var(--color-border-strong)] px-4 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+                              className="mt-3 inline-flex h-8 items-center rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
                             >
                               重试
                             </button>
@@ -444,9 +444,9 @@ export default function ForgetPage()
                     <>
                       <WordButton
                         spelling={selected}
-                        className="font-[family-name:var(--font-display)] text-[var(--text-lg)]"
+                        className="font-[family-name:var(--font-display)] text-[length:var(--text-lg)]"
                       />
-                      <p className="mt-3 text-[var(--text-sm)] text-[var(--color-text-subtle)]">
+                      <p className="mt-3 text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
                         {history.has(selected.toLowerCase())
                           ? '正在载入历史诊断…'
                           : '尚未诊断，点左侧词触发诊断；上方单词可点开词条'}
@@ -455,10 +455,10 @@ export default function ForgetPage()
                   ) : (
                     <div className="flex h-40 flex-col items-center justify-center text-center">
                       <Icon name="trending-down" className="h-7 w-7 text-[var(--color-text-subtle)]" />
-                      <p className="mt-2.5 text-[var(--text-sm)] text-[var(--color-text-muted)]">
+                      <p className="mt-2.5 text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
                         点击左侧任意词开始诊断
                       </p>
-                      <p className="mt-1 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+                      <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                         已诊断过的词会直接显示历史结果，不再重复请求
                       </p>
                     </div>

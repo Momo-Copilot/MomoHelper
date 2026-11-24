@@ -40,7 +40,7 @@ export function ReportTeaser()
     <Tile index={6} as="div" className="col-span-12 border-l-4 !border-l-[var(--color-accent)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[var(--text-sm)]">
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[length:var(--text-sm)]">
             <span className="font-medium">学情快照</span>
             <span className="text-[var(--color-text-muted)]">
               沉睡词{' '}
@@ -63,13 +63,13 @@ export function ReportTeaser()
               </span>
             )}
           </p>
-          <p className="mt-1 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+          <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
             来自词库缓存 · 全库画像、断更区间与复习压力详见学情页
           </p>
         </div>
         <Link
           href="/report"
-          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-[var(--color-accent-bg)] px-3.5 text-[var(--text-sm)] font-medium text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)]/15"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-[var(--color-accent-bg)] px-3.5 text-[length:var(--text-sm)] font-medium text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)]/15"
         >
           查看学情快照
           <Icon name="arrow-right" className="h-4 w-4" />

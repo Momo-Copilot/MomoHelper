@@ -85,7 +85,7 @@ export function WordCloud({
   return (
     <div ref={wrapRef} className="relative">
       {placed.length === 0 ? (
-        <p className="flex h-40 items-center justify-center text-[var(--text-sm)] text-[var(--color-text-subtle)]">
+        <p className="flex h-40 items-center justify-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
           没有能排进图里的词。
         </p>
       ) : (
@@ -139,15 +139,15 @@ export function WordCloud({
             marginTop: -10
           }}
         >
-          <p className="font-[family-name:var(--font-display)] text-[var(--text-md)] font-medium">
+          <p className="font-[family-name:var(--font-display)] text-[length:var(--text-md)] font-medium">
             {hovered.spelling}
           </p>
-          <p className="mt-0.5 text-[var(--text-xs)] text-[var(--color-text-muted)]">
+          <p className="mt-0.5 text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
             学习 {hovered.studyCount} 次
             {hovered.lastResponse ? ` · 最近${RESPONSE_LABEL[hovered.lastResponse]}` : ''}
             {hovered.sticking ? ' · 顽固词' : ''}
           </p>
-          <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+          <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
             {hovered.lastStudyDate ? `最近学习 ${hovered.lastStudyDate}` : '还没有学习记录'}
           </p>
         </div>

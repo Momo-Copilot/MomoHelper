@@ -21,11 +21,11 @@ function Metric({
 {
   return (
     <div className="rounded-md bg-[var(--color-bg-subtle)] px-4 py-3">
-      <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">{label}</p>
-      <p className="mt-1 whitespace-nowrap tabular font-[family-name:var(--font-mono)] text-[var(--text-xl)] font-semibold leading-none">
+      <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">{label}</p>
+      <p className="mt-1 whitespace-nowrap tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xl)] font-semibold leading-none">
         {value}
         {unit && (
-          <span className="ml-1 text-[var(--text-xs)] font-normal text-[var(--color-text-subtle)]">
+          <span className="ml-1 text-[length:var(--text-xs)] font-normal text-[var(--color-text-subtle)]">
             {unit}
           </span>
         )}
@@ -57,7 +57,7 @@ function BucketRow({
 
   return (
     <div className="flex items-center gap-3">
-      <span className="w-[104px] shrink-0 truncate text-[var(--text-xs)] text-[var(--color-text-muted)]">
+      <span className="w-[104px] shrink-0 truncate text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
         {bucket.label}
       </span>
       <span className="h-3 min-w-0 flex-1 overflow-hidden rounded-sm bg-[var(--color-bg-subtle)]">
@@ -67,7 +67,7 @@ function BucketRow({
         />
       </span>
       {/* 数字与百分比各自定宽右对齐：整列竖向对齐，且不会在窄屏被折成两行 */}
-      <span className="flex shrink-0 items-baseline gap-1.5 whitespace-nowrap font-[family-name:var(--font-mono)] text-[var(--text-xs)]">
+      <span className="flex shrink-0 items-baseline gap-1.5 whitespace-nowrap font-[family-name:var(--font-mono)] text-[length:var(--text-xs)]">
         <span className="tabular w-[56px] text-right text-[var(--color-text)]">
           {bucket.count.toLocaleString('zh-CN')}
         </span>
@@ -101,8 +101,8 @@ function DistributionTile({
 
   return (
     <Tile index={index} className="col-span-12 lg:col-span-6">
-      <p className="text-[var(--text-sm)]">{title}</p>
-      <p className="mt-1 text-[var(--text-xs)] text-[var(--color-text-subtle)]">{description}</p>
+      <p className="text-[length:var(--text-sm)]">{title}</p>
+      <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">{description}</p>
       <div className="mt-4 space-y-2.5">
         {buckets.map((bucket) => (
           <BucketRow key={bucket.key} bucket={bucket} max={max} emphasize={tone(bucket.key)} />
@@ -137,12 +137,12 @@ export function LibraryStatsView({ stats }: { stats: LibraryStatsDto })
 
       <Tile index={1} className="col-span-12">
         <div className="flex items-baseline justify-between">
-          <p className="text-[var(--text-sm)]">学习次数分布</p>
-          <p className="font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+          <p className="text-[length:var(--text-sm)]">学习次数分布</p>
+          <p className="font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
             {familiarRatio.toFixed(1)}% 的词学过 6 次以上
           </p>
         </div>
-        <p className="mt-1 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+        <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
           按学习次数分桶，次数越多说明见得多、复习间隔越长
         </p>
         <div className="mt-5 space-y-3">

@@ -64,11 +64,11 @@ function Stat({
 
   return (
     <div>
-      <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">{label}</p>
+      <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">{label}</p>
       <p className={`mt-1 font-[family-name:var(--font-display)] text-2xl leading-tight ${valueColor}`}>
         {value}
       </p>
-      {hint && <p className="mt-1 text-[var(--text-xs)] text-[var(--color-text-muted)]">{hint}</p>}
+      {hint && <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-muted)]">{hint}</p>}
     </div>
   )
 }
@@ -184,10 +184,10 @@ export default function ReportPage()
         <PageHeader title="学情快照" />
         <Tile hover={false} className="mt-10 text-center">
           <Icon name="alert" className="mx-auto h-8 w-8 text-[var(--color-vague)]" />
-          <h1 className="mt-3 font-[family-name:var(--font-display)] text-[var(--text-lg)]">
+          <h1 className="mt-3 font-[family-name:var(--font-display)] text-[length:var(--text-lg)]">
             {needSetup ? '需要先配置墨墨 Token' : '学情快照加载失败'}
           </h1>
-          <p className="mx-auto mt-1 max-w-md text-[var(--text-sm)] text-[var(--color-text-muted)]">
+          <p className="mx-auto mt-1 max-w-md text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
             {error instanceof MaimemoNotConfiguredError
               ? '尚未绑定墨墨 Token，绑定后即可生成学情快照。'
               : error instanceof MaimemoAuthError
@@ -198,7 +198,7 @@ export default function ReportPage()
             {needSetup ? (
               <Link
                 href="/settings"
-                className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
+                className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
               >
                 <Icon name="sliders" className="mr-2 h-4 w-4" />
                 去设置
@@ -207,7 +207,7 @@ export default function ReportPage()
               <button
                 type="button"
                 onClick={() => void query.refetch()}
-                className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
+                className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
               >
                 重试
               </button>
@@ -237,7 +237,7 @@ export default function ReportPage()
         actions={
           <Link
             href="/library"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-4 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
           >
             看词库明细
           </Link>
@@ -245,7 +245,7 @@ export default function ReportPage()
       />
 
       {!isComplete && (
-        <p className="mb-4 flex items-start gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[var(--text-sm)] text-[var(--color-vague)]">
+        <p className="mb-4 flex items-start gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[length:var(--text-sm)] text-[var(--color-vague)]">
           <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             只取到 {loaded.toLocaleString('zh-CN')} 条，接口总数 {expected.toLocaleString('zh-CN')}
@@ -256,7 +256,7 @@ export default function ReportPage()
       )}
 
       {report.tier !== 'rich' && (
-        <div className={`mb-4 rounded-md border px-4 py-3 text-[var(--text-sm)] ${notice.tone}`}>
+        <div className={`mb-4 rounded-md border px-4 py-3 text-[length:var(--text-sm)] ${notice.tone}`}>
           <span className="font-medium">{notice.title}：</span>
           {notice.text}
         </div>
@@ -273,7 +273,7 @@ export default function ReportPage()
           />
           <div className="mt-4 space-y-1.5">
             {risk.sleepingBuckets.map((bucket) => (
-              <div key={bucket.key} className="flex items-center gap-2 text-[var(--text-xs)]">
+              <div key={bucket.key} className="flex items-center gap-2 text-[length:var(--text-xs)]">
                 <span className="w-16 shrink-0 text-[var(--color-text-subtle)]">{bucket.label}</span>
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-bg-subtle)]">
                   <div
@@ -296,14 +296,14 @@ export default function ReportPage()
           />
           <div className="mt-4 space-y-2">
             {recentGaps.length === 0 ? (
-              <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 没有超过 3 天的断更区间。
               </p>
             ) : (
               recentGaps.map((gap) => (
                 <div
                   key={gap.start}
-                  className="flex items-center justify-between text-[var(--text-xs)] text-[var(--color-text-muted)]"
+                  className="flex items-center justify-between text-[length:var(--text-xs)] text-[var(--color-text-muted)]"
                 >
                   <span className="font-[family-name:var(--font-mono)] tabular">
                     {gap.start.slice(5)} ~ {gap.end.slice(5)}
@@ -322,7 +322,7 @@ export default function ReportPage()
             tone="accent"
             hint={risk.reviewPeak ? `落在 ${risk.reviewPeak.date}` : '没有已安排的复习'}
           />
-          <div className="mt-4 space-y-2 text-[var(--text-xs)] text-[var(--color-text-muted)]">
+          <div className="mt-4 space-y-2 text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
             <div className="flex justify-between">
               <span>未来 7 天待复习</span>
               <span className="tabular">{risk.reviewUpcoming.within7.toLocaleString('zh-CN')}</span>
@@ -347,8 +347,8 @@ export default function ReportPage()
         {/* 画像数字块 */}
         <Tile index={3} className="col-span-12">
           <div className="flex items-baseline justify-between">
-            <p className="text-[var(--text-sm)]">全库画像</p>
-            <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+            <p className="text-[length:var(--text-sm)]">全库画像</p>
+            <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
               共 {stats.total.toLocaleString('zh-CN')} 词 · 平均学习 {stats.avgStudyCount} 次
             </p>
           </div>
@@ -373,8 +373,8 @@ export default function ReportPage()
         <Tile index={4} className="col-span-12">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[var(--text-sm)]">每日新学词数</p>
-              <p className="mt-1 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <p className="text-[length:var(--text-sm)]">每日新学词数</p>
+              <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 {report.firstDay
                   ? `从 ${report.firstDay} 起共 ${report.spanDays} 天，空白段即断更`
                   : '暂无开始学习的日期数据'}
@@ -392,7 +392,7 @@ export default function ReportPage()
           </div>
           <div className="mt-4">
             {report.dailyNew.length === 0 ? (
-              <p className="flex h-32 items-center justify-center text-[var(--text-sm)] text-[var(--color-text-subtle)]">
+              <p className="flex h-32 items-center justify-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
                 记录里没有任何开始学习的日期。
               </p>
             ) : (

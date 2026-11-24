@@ -47,11 +47,11 @@ export function PageHeader({
   return (
     <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="font-[family-name:var(--font-display)] text-[var(--text-xl)] leading-tight">
+        <h1 className="font-[family-name:var(--font-display)] text-[length:var(--text-xl)] leading-tight">
           {title}
         </h1>
         {description && (
-          <p className="mt-1 text-[var(--text-sm)] text-[var(--color-text-muted)]">
+          <p className="mt-1 text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
             {description}
           </p>
         )}
@@ -87,7 +87,7 @@ export function Segmented<T extends string>({
           aria-selected={value === key}
           type="button"
           onClick={() => onChange(key)}
-          className={`rounded-sm px-4 py-1.5 text-[var(--text-sm)] transition-colors ${
+          className={`rounded-sm px-4 py-1.5 text-[length:var(--text-sm)] transition-colors ${
             value === key
               ? 'bg-[var(--color-surface)] font-semibold text-[var(--color-text)] shadow-[var(--shadow-tile)]'
               : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
@@ -113,8 +113,8 @@ export function EmptyTile({
 {
   return (
     <Tile hover={false} index={index} className="py-14 text-center">
-      <p className="font-[family-name:var(--font-display)] text-[var(--text-lg)]">{title}</p>
-      <p className="mx-auto mt-2 max-w-sm text-[var(--text-sm)] text-[var(--color-text-muted)]">
+      <p className="font-[family-name:var(--font-display)] text-[length:var(--text-lg)]">{title}</p>
+      <p className="mx-auto mt-2 max-w-sm text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
         {description}
       </p>
     </Tile>
@@ -127,7 +127,7 @@ export function ErrorNote({ message }: { message: string })
   return (
     <p
       role="alert"
-      className="rounded-md border border-[var(--color-forget)]/25 bg-[var(--color-forget-bg)] px-4 py-3 text-[var(--text-sm)] text-[var(--color-forget)]"
+      className="rounded-md border border-[var(--color-forget)]/25 bg-[var(--color-forget-bg)] px-4 py-3 text-[length:var(--text-sm)] text-[var(--color-forget)]"
     >
       {message}
     </p>

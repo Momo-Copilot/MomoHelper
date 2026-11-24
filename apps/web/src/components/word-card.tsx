@@ -15,7 +15,7 @@ function SectionTag({ text, accent }: { text: string; accent?: boolean })
 {
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-[var(--text-xs)] font-medium ${
+      className={`rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium ${
         accent
           ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
           : 'bg-[var(--color-bg-subtle)] text-[var(--color-text-subtle)]'
@@ -34,14 +34,14 @@ function MineSectionView({ card }: { card: WordCard })
   return (
     <div>
       <div className="flex items-center justify-between">
-        <p className="text-[var(--text-xs)] font-medium text-[var(--color-text-muted)]">
+        <p className="text-[length:var(--text-xs)] font-medium text-[var(--color-text-muted)]">
           我的自建
         </p>
         <SectionTag text={mine.empty ? '暂无数据' : '来自墨墨'} accent={!mine.empty} />
       </div>
 
       {mine.empty ? (
-        <p className="mt-2 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2.5 text-[var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+        <p className="mt-2 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2.5 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
           你还没有为这个词创建自建内容（释义 / 助记 / 例句）。可在墨墨 App 中添加，官方词库释义不在开放接口范围内。
         </p>
       ) : (
@@ -49,7 +49,7 @@ function MineSectionView({ card }: { card: WordCard })
           {mine.definitions.length > 0 && (
             <ul className="space-y-1">
               {mine.definitions.map((definition, i) => (
-                <li key={i} className="text-[var(--text-sm)] leading-relaxed">
+                <li key={i} className="text-[length:var(--text-sm)] leading-relaxed">
                   {definition}
                 </li>
               ))}
@@ -57,8 +57,8 @@ function MineSectionView({ card }: { card: WordCard })
           )}
 
           {mine.notes.map((note, i) => (
-            <p key={`note-${i}`} className="text-[var(--text-sm)] leading-relaxed">
-              <span className="mr-1.5 rounded-sm bg-[var(--color-bg-subtle)] px-1.5 py-0.5 text-[var(--text-xs)] text-[var(--color-text-muted)]">
+            <p key={`note-${i}`} className="text-[length:var(--text-sm)] leading-relaxed">
+              <span className="mr-1.5 rounded-sm bg-[var(--color-bg-subtle)] px-1.5 py-0.5 text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
                 {note.type}
               </span>
               {note.text}
@@ -68,10 +68,10 @@ function MineSectionView({ card }: { card: WordCard })
           {mine.phrases.map((phrase, i) => (
             <p
               key={`phrase-${i}`}
-              className="rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-[var(--text-sm)] leading-relaxed"
+              className="rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-[length:var(--text-sm)] leading-relaxed"
             >
               {phrase.text}
-              <span className="mt-1 block text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <span className="mt-1 block text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 {phrase.translation}
               </span>
             </p>
@@ -95,7 +95,7 @@ function AiSectionView({ card }: { card: WordCard })
   return (
     <div className="border-t border-[var(--color-border)] pt-3">
       <div className="flex items-center justify-between">
-        <p className="text-[var(--text-xs)] font-medium text-[var(--color-text-muted)]">
+        <p className="text-[length:var(--text-xs)] font-medium text-[var(--color-text-muted)]">
           AI 补充
         </p>
         <SectionTag text="AI 生成" />
@@ -103,17 +103,17 @@ function AiSectionView({ card }: { card: WordCard })
 
       <ul className="mt-2 space-y-1">
         {ai.definitions.map((definition, i) => (
-          <li key={i} className="text-[var(--text-sm)] leading-relaxed">
+          <li key={i} className="text-[length:var(--text-sm)] leading-relaxed">
             {definition}
           </li>
         ))}
       </ul>
 
       {ai.example && (
-        <p className="mt-2.5 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-[var(--text-sm)] leading-relaxed">
+        <p className="mt-2.5 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-[length:var(--text-sm)] leading-relaxed">
           {ai.example}
           {ai.exampleTranslation && (
-            <span className="mt-1 block text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+            <span className="mt-1 block text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
               {ai.exampleTranslation}
             </span>
           )}
@@ -265,18 +265,18 @@ export function WordCardPopover({
       style={box ?? { left: POPOVER_GAP, right: POPOVER_GAP, top: 96, maxHeight: 320 }}
     >
       <div className="flex items-baseline gap-2">
-        <span className="font-[family-name:var(--font-display)] text-[var(--text-md)] font-semibold">
+        <span className="font-[family-name:var(--font-display)] text-[length:var(--text-md)] font-semibold">
           {spelling}
         </span>
         {card?.ai?.phonetic && (
-          <span className="font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+          <span className="font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
             {card.ai.phonetic}
           </span>
         )}
       </div>
 
       {error ? (
-        <p className="mt-2 text-[var(--text-sm)] text-[var(--color-forget)]">{error}</p>
+        <p className="mt-2 text-[length:var(--text-sm)] text-[var(--color-forget)]">{error}</p>
       ) : !card ? (
         <div>
           <div className="mt-3 h-4 w-3/4 animate-pulse rounded-sm bg-[var(--color-bg-subtle)]" />

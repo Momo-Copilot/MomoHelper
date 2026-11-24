@@ -131,7 +131,7 @@ export default function AskPage()
             void submit()
           }}
         >
-          <label htmlFor="spelling" className="block text-[var(--text-sm)]">
+          <label htmlFor="spelling" className="block text-[length:var(--text-sm)]">
             涉及单词（可选）
           </label>
           <input
@@ -140,10 +140,10 @@ export default function AskPage()
             maxLength={64}
             onChange={(event) => setSpelling(event.target.value)}
             placeholder="例如：affect"
-            className="mt-2 h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+            className="mt-2 h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
           />
 
-          <label htmlFor="question" className="mt-4 block text-[var(--text-sm)]">
+          <label htmlFor="question" className="mt-4 block text-[length:var(--text-sm)]">
             你的问题
           </label>
           <textarea
@@ -154,9 +154,9 @@ export default function AskPage()
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             placeholder="例如：affect 和 effect 怎么区分？"
-            className="mt-2 w-full resize-none rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 py-2.5 text-[var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+            className="mt-2 w-full resize-none rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 py-2.5 text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
           />
-          <p className="mt-1 text-right font-[family-name:var(--font-mono)] text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+          <p className="mt-1 text-right font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
             {question.length} / 500
           </p>
 
@@ -164,7 +164,7 @@ export default function AskPage()
             <button
               type="submit"
               disabled={busy || !question.trim()}
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--color-accent)] px-6 text-[var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--color-accent)] px-6 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
             >
               <Icon name="message" className="h-4 w-4" />
               {busy ? '回答中…' : '发送'}
@@ -173,7 +173,7 @@ export default function AskPage()
               <button
                 type="button"
                 onClick={stop}
-                className="inline-flex h-10 items-center rounded-md border border-[var(--color-border-strong)] px-4 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+                className="inline-flex h-10 items-center rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
               >
                 停止
               </button>

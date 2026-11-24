@@ -305,11 +305,11 @@ export function ReportInsightTile({
   return (
     <Tile index={6} hover={false} className="col-span-12">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-[var(--text-sm)] font-medium text-[var(--color-text-muted)]">
+        <p className="flex items-center gap-2 text-[length:var(--text-sm)] font-medium text-[var(--color-text-muted)]">
           <Icon name="zap" className="h-4 w-4 text-[var(--color-accent)]" />
           AI 解读
           {cached && !busy && (
-            <span className="font-[family-name:var(--font-mono)] text-[var(--text-xs)] font-normal text-[var(--color-text-subtle)]">
+            <span className="font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] font-normal text-[var(--color-text-subtle)]">
               {new Date(cached.at).toLocaleString('zh-CN', {
                 month: 'numeric',
                 day: 'numeric',
@@ -325,7 +325,7 @@ export function ReportInsightTile({
           type="button"
           onClick={() => void run()}
           disabled={busy}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-3.5 text-[var(--text-xs)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-3.5 text-[length:var(--text-xs)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
         >
           <Icon
             name="refresh"
@@ -337,7 +337,7 @@ export function ReportInsightTile({
 
       {/* 引导：未配置 Key / 思考模式 */}
       {needKey && (
-        <p className="mt-3 text-[var(--text-sm)] text-[var(--color-text-muted)]">
+        <p className="mt-3 text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
           尚未配置 DeepSeek API Key，
           <Link
             href="/settings"
@@ -350,7 +350,7 @@ export function ReportInsightTile({
       )}
 
       {error && !needKey && (
-        <p className="mt-3 rounded-md border border-[var(--color-forget)]/25 bg-[var(--color-forget-bg)] px-3 py-2 text-[var(--text-sm)] text-[var(--color-forget)]">
+        <p className="mt-3 rounded-md border border-[var(--color-forget)]/25 bg-[var(--color-forget-bg)] px-3 py-2 text-[length:var(--text-sm)] text-[var(--color-forget)]">
           {error}
         </p>
       )}
@@ -360,7 +360,7 @@ export function ReportInsightTile({
         <>
           <p
             ref={bodyRef}
-            className="mt-4 whitespace-pre-wrap text-[var(--text-sm)] leading-relaxed text-[var(--color-text)]"
+            className="mt-4 whitespace-pre-wrap text-[length:var(--text-sm)] leading-relaxed text-[var(--color-text)]"
           >
             {shown}
             {busy && (
@@ -368,12 +368,12 @@ export function ReportInsightTile({
             )}
           </p>
           {!busy && cached && cached.unverifiedCount > 0 && (
-            <p className="mt-3 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+            <p className="mt-3 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
               含 {cached.unverifiedCount} 处摘要外数字，已自动标注供核对；解读仅供参考。
             </p>
           )}
           {!busy && cached && cached.unverifiedCount === 0 && (
-            <p className="mt-3 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+            <p className="mt-3 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
               解读基于上方代码计算的指标生成，数字已核对无超出来源；仅供参考。
             </p>
           )}
@@ -386,7 +386,7 @@ export function ReportInsightTile({
         </>
       ) : (
         !busy && (
-          <p className="mt-4 text-[var(--text-sm)] text-[var(--color-text-muted)]">
+          <p className="mt-4 text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
             指标已由代码算好，AI 只负责把数字翻译成判断和行动——生成内容按天缓存，当天可反复查看。
           </p>
         )

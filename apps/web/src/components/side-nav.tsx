@@ -46,7 +46,7 @@ function Brand()
         墨
       </span>
       <div className="leading-tight">
-        <p className="font-[family-name:var(--font-display)] text-[var(--text-md)] font-semibold">
+        <p className="font-[family-name:var(--font-display)] text-[length:var(--text-md)] font-semibold">
           墨墨 AI 副驾
         </p>
         <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--color-text-subtle)]">
@@ -63,7 +63,7 @@ function NavLink({ item, active }: { item: (typeof ITEMS)[number]; active: boole
     <Link
       href={item.href}
       aria-current={active ? 'page' : undefined}
-      className={`flex items-center gap-3 rounded-md px-3 py-2 text-[var(--text-sm)] transition-colors ${
+      className={`flex items-center gap-3 rounded-md px-3 py-2 text-[length:var(--text-sm)] transition-colors ${
         active
           ? 'bg-[var(--color-accent-bg)] font-semibold text-[var(--color-accent)]'
           : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text)]'
@@ -93,8 +93,8 @@ function StatusCard()
         <Icon name="user" className="h-4 w-4" />
       </span>
       <div className="min-w-0 flex-1 leading-tight">
-        <p className="text-[var(--text-sm)] font-medium">本机凭据</p>
-        <p className="mt-1 flex items-center gap-1.5 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+        <p className="text-[length:var(--text-sm)] font-medium">本机凭据</p>
+        <p className="mt-1 flex items-center gap-1.5 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
           <span
             aria-hidden
             className={`h-1.5 w-1.5 shrink-0 rounded-full ${
@@ -103,7 +103,7 @@ function StatusCard()
           />
           {connected ? '墨墨已连接' : '墨墨未配置'}
         </p>
-        <p className="mt-0.5 flex items-center gap-1.5 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+        <p className="mt-0.5 flex items-center gap-1.5 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
           <span
             aria-hidden
             className={`h-1.5 w-1.5 shrink-0 rounded-full ${
@@ -213,7 +213,7 @@ export function MobileNav()
               <Link
                 href={item.href}
                 aria-current={pathname === item.href ? 'page' : undefined}
-                className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[var(--text-sm)] ${
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[length:var(--text-sm)] ${
                   pathname === item.href
                     ? 'bg-[var(--color-accent-bg)] font-semibold text-[var(--color-accent)]'
                     : 'text-[var(--color-text-muted)]'

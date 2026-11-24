@@ -70,9 +70,9 @@ function Metric({ label, value, hint, tone }: { label: string; value: string; hi
 {
   return (
     <div>
-      <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">{label}</p>
+      <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">{label}</p>
       <p
-        className={`mt-0.5 font-[family-name:var(--font-display)] text-[var(--text-lg)] leading-tight tabular ${
+        className={`mt-0.5 font-[family-name:var(--font-display)] text-[length:var(--text-lg)] leading-tight tabular ${
           tone ?? 'text-[var(--color-text)]'
         }`}
       >
@@ -99,13 +99,13 @@ function ExamDateField({
         value={value ?? ''}
         onChange={(event) => onChange(event.target.value || null)}
         aria-label="考试日期"
-        className="h-9 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2 text-[var(--text-sm)] tabular"
+        className="h-9 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2 text-[length:var(--text-sm)] tabular"
       />
       {value && (
         <button
           type="button"
           onClick={() => onChange(null)}
-          className="text-[var(--text-xs)] text-[var(--color-text-subtle)] underline underline-offset-2 hover:text-[var(--color-text)]"
+          className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)] underline underline-offset-2 hover:text-[var(--color-text)]"
         >
           清除
         </button>
@@ -181,10 +181,10 @@ export default function PlanPage()
         <PageHeader title="冲刺计划" />
         <Tile hover={false} className="mt-10 text-center">
           <Icon name="alert" className="mx-auto h-8 w-8 text-[var(--color-vague)]" />
-          <h1 className="mt-3 font-[family-name:var(--font-display)] text-[var(--text-lg)]">
+          <h1 className="mt-3 font-[family-name:var(--font-display)] text-[length:var(--text-lg)]">
             {needSetup ? '需要先配置墨墨 Token' : '冲刺计划加载失败'}
           </h1>
-          <p className="mx-auto mt-1 max-w-md text-[var(--text-sm)] text-[var(--color-text-muted)]">
+          <p className="mx-auto mt-1 max-w-md text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
             {error instanceof MaimemoNotConfiguredError
               ? '尚未绑定墨墨 Token，绑定后才能算出剩余词数与复习负荷。'
               : error instanceof MaimemoAuthError
@@ -195,7 +195,7 @@ export default function PlanPage()
             {needSetup ? (
               <Link
                 href="/settings"
-                className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
+                className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
               >
                 <Icon name="sliders" className="mr-2 h-4 w-4" />
                 去设置
@@ -204,7 +204,7 @@ export default function PlanPage()
               <button
                 type="button"
                 onClick={() => void query.refetch()}
-                className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
+                className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
               >
                 重试
               </button>
@@ -234,7 +234,7 @@ export default function PlanPage()
         actions={
           <Link
             href="/report"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-4 text-[var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
           >
             看学情
           </Link>
@@ -242,7 +242,7 @@ export default function PlanPage()
       />
 
       {!isComplete && (
-        <p className="mb-4 flex items-start gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[var(--text-sm)] text-[var(--color-vague)]">
+        <p className="mb-4 flex items-start gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[length:var(--text-sm)] text-[var(--color-vague)]">
           <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             只取到 {loaded.toLocaleString('zh-CN')} 条，接口总数 {expected.toLocaleString('zh-CN')}
@@ -256,28 +256,28 @@ export default function PlanPage()
         <Tile index={0} hover={false} className="col-span-12">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="min-w-[150px]">
-              <p className="text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 {hasExam ? '距考试' : past ? '考试日期已过' : '考试日期'}
               </p>
               <p className="mt-1 flex items-baseline gap-1.5">
-                <span className="font-[family-name:var(--font-display)] text-[var(--text-3xl)] leading-none tabular">
+                <span className="font-[family-name:var(--font-display)] text-[length:var(--text-3xl)] leading-none tabular">
                   {hasExam ? daysLeft : past ? Math.abs(daysLeft!) : '—'}
                 </span>
-                <span className="text-[var(--text-sm)] text-[var(--color-text-muted)]">
+                <span className="text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
                   {hasExam || past ? '天' : ''}
                 </span>
               </p>
-              <div className={`mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[var(--text-xs)] ${status.tone}`}>
+              <div className={`mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[length:var(--text-xs)] ${status.tone}`}>
                 {status.label}
               </div>
             </div>
 
             <div className="min-w-[220px] flex-1">
               <div className="flex items-baseline justify-between gap-3">
-                <p className="text-[var(--text-sm)]">
+                <p className="text-[length:var(--text-sm)]">
                   已学 {plan.studiedWords.toLocaleString('zh-CN')} / {plan.totalWords.toLocaleString('zh-CN')} 词
                 </p>
-                <p className="font-[family-name:var(--font-mono)] text-[var(--text-sm)] tabular">{percent}%</p>
+                <p className="font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] tabular">{percent}%</p>
               </div>
               <div
                 className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--color-bg-subtle)]"
@@ -292,7 +292,7 @@ export default function PlanPage()
                   style={{ width: `${percent}%` }}
                 />
               </div>
-              <p className="mt-2 text-[var(--text-xs)] text-[var(--color-text-muted)]">
+              <p className="mt-2 text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
                 还剩 {plan.remainingWords.toLocaleString('zh-CN')} 词没开始学
               </p>
 
@@ -328,7 +328,7 @@ export default function PlanPage()
             </div>
 
             <div className="w-full shrink-0 md:w-auto">
-              <p className="mb-1.5 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+              <p className="mb-1.5 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 考试日期
               </p>
               <ExamDateField value={examDate} onChange={updateExamDate} />
@@ -344,7 +344,7 @@ export default function PlanPage()
         {/* 负荷日历 */}
         <Tile index={1} hover={false} className="col-span-12">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[var(--text-sm)]">未来复习负荷</p>
+            <p className="text-[length:var(--text-sm)]">未来复习负荷</p>
             <Segmented
               ariaLabel="负荷窗口"
               value={window}
@@ -361,9 +361,9 @@ export default function PlanPage()
 
         {/* 风险与建议 */}
         <Tile index={2} hover={false} className="col-span-12">
-          <p className="text-[var(--text-sm)]">要注意的</p>
+          <p className="text-[length:var(--text-sm)]">要注意的</p>
           {alerts.length === 0 ? (
-            <p className="mt-3 text-[var(--text-sm)] text-[var(--color-text-muted)]">
+            <p className="mt-3 text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
               没有明显的风险信号：未来负荷平稳，也没有积压的复习。
             </p>
           ) : (
@@ -371,12 +371,12 @@ export default function PlanPage()
               {alerts.map((alert) => (
                 <li
                   key={alert.kind}
-                  className={`flex items-start gap-2.5 rounded-md border px-3 py-2.5 text-[var(--text-sm)] ${ALERT_TONE[alert.tone]}`}
+                  className={`flex items-start gap-2.5 rounded-md border px-3 py-2.5 text-[length:var(--text-sm)] ${ALERT_TONE[alert.tone]}`}
                 >
                   <Icon name={ALERT_ICON[alert.tone]} className="mt-0.5 h-4 w-4 shrink-0" />
                   <div>
                     <p className="font-medium">{alert.title}</p>
-                    <p className="mt-0.5 text-[var(--text-xs)] opacity-90">{alert.detail}</p>
+                    <p className="mt-0.5 text-[length:var(--text-xs)] opacity-90">{alert.detail}</p>
                   </div>
                 </li>
               ))}
@@ -385,7 +385,7 @@ export default function PlanPage()
         </Tile>
       </div>
 
-      <p className="mt-4 text-[var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+      <p className="mt-4 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
         负荷 = 墨墨为该词排的下一次复习日期落在当天。「还没开始学」按学习次数为 0 计；
         「近期每天」用近 14 天首次学习的词数除以 14。未安排复习的词不会出现在负荷曲线里。
       </p>
