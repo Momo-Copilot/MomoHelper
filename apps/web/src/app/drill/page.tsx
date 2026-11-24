@@ -10,7 +10,7 @@
  * 否则正在看的词会突然跳走。
  */
 
-import { MaimemoAuthError } from '@momo/maimemo'
+import { MaimemoAuthError, createNote, deleteNote } from '@momo/maimemo'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
@@ -22,6 +22,7 @@ import { diagnoseWord } from '@/lib/ai'
 import {
   DAILY_GOAL,
   GRADUATE_STREAK,
+  clearNote,
   countOutcome,
   dayCounts,
   drillSummary,
@@ -29,6 +30,7 @@ import {
   loadDrill,
   pickTodayWords,
   recordDiagnosis,
+  recordNote,
   recordOutcome,
   saveDrill,
   streakToGo,
@@ -36,7 +38,12 @@ import {
   type DrillStore
 } from '@/lib/drill'
 import { forgetReasonLabel } from '@/lib/forget-reason'
-import { getStickingWords, getTodayForgotten, MaimemoNotConfiguredError } from '@/lib/maimemo'
+import {
+  getMaimemoClient,
+  getStickingWords,
+  getTodayForgotten,
+  MaimemoNotConfiguredError
+} from '@/lib/maimemo'
 import { getAiThinkingMode } from '@/lib/settings'
 
 const RESPONSE_LABEL: Record<string, string> = {
@@ -73,6 +80,9 @@ export default function DrillPage()
   const [batch, setBatch] = useState<FocusWordDto[]>([])
   const [index, setIndex] = useState(0)
   const [diagError, setDiagError] = useState<string | null>(null)
+  /** idle = 未操作，confirm = 等二次确认，busy = 请求中 */
+  const [writeState, setWriteState] = useState<'idle' | 'confirm' | 'busy'>('idle')
+  const [noteError, setNoteError] = useState<string | null>(null)
 
   // 与遗忘词页共用 queryKey，从那边切过来零请求
   const sticking = useQuery({ queryKey: ['forget', 'sticking'], queryFn: getStickingWords })
@@ -160,6 +170,76 @@ export default function DrillPage()
 
     setIndex((value) => value + 1)
     setDiagError(null)
+  }
+
+  /**
+   * 写入墨墨助记——全站唯一会改动用户墨墨数据的操作，所以：
+   * 只写建议这一句、走二次确认、写完记住 note id 以便随时撤回。
+   */
+  async function writeNote(): Promise<void>
+  {
+    if (!current || !currentState?.diagnosis || writeState === 'busy')
+    {
+      return
+    }
+
+    setWriteState('busy')
+    setNoteError(null)
+
+    try
+    {
+      const note = await createNote(getMaimemoClient(), {
+        vocId: current.vocId,
+        noteType: '墨小墨',
+        note: `【墨小墨】${currentState.diagnosis.suggestion}`
+      })
+
+      setStore((prev) =>
+      {
+        const next = recordNote(prev, current, note.id)
+        saveDrill(next)
+        return next
+      })
+    }
+    catch (error)
+    {
+      setNoteError(error instanceof Error ? error.message : '写入失败')
+    }
+    finally
+    {
+      setWriteState('idle')
+    }
+  }
+
+  async function undoNote(): Promise<void>
+  {
+    if (!current || !currentState?.noteId || writeState === 'busy')
+    {
+      return
+    }
+
+    setWriteState('busy')
+    setNoteError(null)
+
+    try
+    {
+      await deleteNote(getMaimemoClient(), currentState.noteId)
+
+      setStore((prev) =>
+      {
+        const next = clearNote(prev, current.vocId)
+        saveDrill(next)
+        return next
+      })
+    }
+    catch (error)
+    {
+      setNoteError(error instanceof Error ? error.message : '撤回失败')
+    }
+    finally
+    {
+      setWriteState('idle')
+    }
   }
 
   const loading = sticking.isPending || forgotten.isPending || !ready
@@ -394,6 +474,62 @@ export default function DrillPage()
                       {diagMutation.isPending ? '分析中…' : '分析原因'}
                     </button>
                   </div>
+                )}
+                {currentState?.diagnosis && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-[var(--color-border)] pt-2">
+                    {currentState.noteId ? (
+                      <>
+                        <span className="flex items-center gap-1 text-[length:var(--text-xs)] text-[var(--color-familiar)]">
+                          <Icon name="check" className="h-3.5 w-3.5" />
+                          已写入墨墨助记
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void undoNote()}
+                          disabled={writeState === 'busy'}
+                          className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)] underline underline-offset-2 hover:text-[var(--color-text)] disabled:opacity-50"
+                        >
+                          撤回
+                        </button>
+                      </>
+                    ) : writeState === 'confirm' ? (
+                      <>
+                        <span className="text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
+                          写进墨墨的助记，手机 APP 同步可见，之后能撤回
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void writeNote()}
+                          className="rounded-sm bg-[var(--color-accent)] px-2 py-1 text-[length:var(--text-xs)] font-medium text-white"
+                        >
+                          确认写入
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWriteState('idle')}
+                          className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)] hover:text-[var(--color-text)]"
+                        >
+                          取消
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setWriteState('confirm')}
+                        className="text-[length:var(--text-xs)] text-[var(--color-accent)] underline underline-offset-2 hover:text-[var(--color-accent-hover)]"
+                      >
+                        写入墨墨助记
+                      </button>
+                    )}
+                    {writeState === 'busy' && (
+                      <span className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                        处理中…
+                      </span>
+                    )}
+                  </div>
+                )}
+                {noteError && (
+                  <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-forget)]">{noteError}</p>
                 )}
                 {diagError && (
                   <p className="mt-2 text-[length:var(--text-xs)] text-[var(--color-forget)]">{diagError}</p>

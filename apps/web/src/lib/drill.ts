@@ -47,6 +47,8 @@ export interface DrillWordState
   /** 最新在前，最多 MAX_RESULTS 条 */
   results: DrillResult[]
   diagnosis?: DrillDiagnosis
+  /** 已写入墨墨的助记 id：有值说明写过了，也意味着可以撤回 */
+  noteId?: string
 }
 
 export interface DrillStore
@@ -114,7 +116,8 @@ export function recordOutcome(
         spelling: word.spelling,
         results: [{ at, outcome }, ...(prev?.results ?? [])].slice(0, MAX_RESULTS),
         // 诊断结果跨天保留：词还是那个词，为什么难记不会天天变
-        diagnosis: prev?.diagnosis
+        diagnosis: prev?.diagnosis,
+        noteId: prev?.noteId
       }
     }
   }
@@ -137,8 +140,52 @@ export function recordDiagnosis(
         vocId: word.vocId,
         spelling: word.spelling,
         results: prev?.results ?? [],
-        diagnosis
+        diagnosis,
+        noteId: prev?.noteId
       }
+    }
+  }
+}
+
+/** 记录写入墨墨后拿到的助记 id —— 有它才谈得上「撤回」 */
+export function recordNote(
+  store: DrillStore,
+  word: { vocId: string; spelling: string },
+  noteId: string
+): DrillStore
+{
+  const prev = store.words[word.vocId]
+
+  return {
+    ...store,
+    words: {
+      ...store.words,
+      [word.vocId]: {
+        vocId: word.vocId,
+        spelling: word.spelling,
+        results: prev?.results ?? [],
+        diagnosis: prev?.diagnosis,
+        noteId
+      }
+    }
+  }
+}
+
+/** 撤回成功后清掉本地记录，避免下次又显示「已写入」 */
+export function clearNote(store: DrillStore, vocId: string): DrillStore
+{
+  const prev = store.words[vocId]
+
+  if (!prev)
+  {
+    return store
+  }
+
+  return {
+    ...store,
+    words: {
+      ...store.words,
+      [vocId]: { ...prev, noteId: undefined }
     }
   }
 }
