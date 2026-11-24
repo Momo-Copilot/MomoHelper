@@ -101,6 +101,13 @@
   --load-ink-2: #1c2a26;
   --load-ink-3: #1c2a26;
   --load-ink-4: #1c2a26;
+
+  /* 学习热力图色阶：绿色代表积累，和琥珀色的负荷分开 */
+  --heat-0: #eef4f1;
+  --heat-1: #cfe9e0;
+  --heat-2: #9ad6c3;
+  --heat-3: #5cbfa4;
+  --heat-4: #1e9c82;
 }
 
 /* ============ 夜间模式：同名 token 全量覆盖（继承到所有 var() 引用点） ============ */
@@ -147,6 +154,12 @@ html.dark
   --load-ink-2: #ece0c4;
   --load-ink-3: #1a1206;
   --load-ink-4: #1a1206;
+
+  --heat-0: #18211e;
+  --heat-1: #17362f;
+  --heat-2: #1f5a4b;
+  --heat-3: #2a8a72;
+  --heat-4: #36cfae;
 
   --shadow-tile: 0 1px 2px rgb(0 0 0 / 0.3);
   --shadow-tile-hover: 0 2px 8px rgb(0 0 0 / 0.45);

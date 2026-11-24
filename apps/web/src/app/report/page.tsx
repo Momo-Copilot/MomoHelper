@@ -12,12 +12,15 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 
-import { MaimemoAuthError } from '@momo/maimemo'
+import { MaimemoAuthError, beijingToday } from '@momo/maimemo'
 import type { ReportSnapshotDto } from '@momo/types'
 import { Icon } from '@/components/icons'
 import { PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
+import { ReportHeatmap } from '@/components/report-heatmap'
 import { ReportInsightTile } from '@/components/report-insight'
 import { analyzeLibrary, analyzeReport } from '@/lib/analyze'
+import { downloadReportCard } from '@/lib/export-card'
+import { buildHeatmap } from '@/lib/heatmap'
 import { loadLibrary } from '@/lib/library'
 import { MaimemoNotConfiguredError } from '@/lib/maimemo'
 
@@ -150,11 +153,14 @@ function DailyChart({ rows, days }: { rows: ReportSnapshotDto['dailyNew']; days:
 export default function ReportPage()
 {
   const [window, setWindow] = useState<'30' | '90'>('30')
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
   const query = useQuery({ queryKey: QUERY_KEY, queryFn: () => loadLibrary() })
 
   const records = query.data?.records
   const report = useMemo(() => (records ? analyzeReport(records) : null), [records])
   const stats = useMemo(() => (records ? analyzeLibrary(records) : null), [records])
+  const heat = useMemo(() => (report ? buildHeatmap(report.dailyNew) : null), [report])
   /** 数据截断：与词库页同一口径（complete=false 或实取 < 接口总数） */
   const loaded = records?.length ?? 0
   const expected = query.data?.total ?? loaded
@@ -229,20 +235,69 @@ export default function ReportPage()
   const notice = TIER_NOTICE[report.tier]
   const recentGaps = [...risk.gaps].reverse().slice(0, 5)
 
+  async function handleExport(): Promise<void>
+  {
+    if (exporting || !heat)
+    {
+      return
+    }
+
+    setExporting(true)
+    setExportError(null)
+
+    try
+    {
+      await downloadReportCard({
+        date: report!.latestDay ?? beijingToday(),
+        totalWords: stats!.total,
+        studiedWords: started,
+        newWordsTotal: heat.total,
+        stickingCount: stats!.stickingCount,
+        maxGapDays: risk.maxGapDays,
+        streak: heat.currentStreak
+      })
+    }
+    catch (error)
+    {
+      setExportError(error instanceof Error ? error.message : '导出失败')
+    }
+    finally
+    {
+      setExporting(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="学情快照"
         description={`全库复盘 · 数据截至 ${report.latestDay ?? '今天'} · 与词库页共享同一次拉取`}
         actions={
-          <Link
-            href="/library"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
-          >
-            看词库明细
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              disabled={exporting}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
+            >
+              <Icon name="file-text" className="h-4 w-4" />
+              {exporting ? '生成中…' : '导出卡片'}
+            </button>
+            <Link
+              href="/library"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+            >
+              看词库明细
+            </Link>
+          </div>
         }
       />
+
+      {exportError && (
+        <p className="mb-4 rounded-md border border-[var(--color-forget)]/25 bg-[var(--color-forget-bg)] px-4 py-2.5 text-[length:var(--text-sm)] text-[var(--color-forget)]">
+          导出失败：{exportError}
+        </p>
+      )}
 
       {!isComplete && (
         <p className="mb-4 flex items-start gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[length:var(--text-sm)] text-[var(--color-vague)]">
@@ -398,6 +453,19 @@ export default function ReportPage()
             ) : (
               <DailyChart rows={report.dailyNew} days={Number(window)} />
             )}
+          </div>
+        </Tile>
+
+        {/* 全年热力图：看积累，和上面的日曲线互补（那张看节奏） */}
+        <Tile index={5} className="col-span-12">
+          <div>
+            <p className="text-[length:var(--text-sm)]">学习热力图</p>
+            <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+              每一格是一天，颜色越深当天新学越多；断更的日子会留成空白
+            </p>
+          </div>
+          <div className="mt-4">
+            <ReportHeatmap rows={report.dailyNew} />
           </div>
         </Tile>
 
