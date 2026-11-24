@@ -113,9 +113,11 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
                 <span className="min-w-0">
                   <WordButton spelling={word.spelling} />
                 </span>
+                {/* 三列都定宽：内容宽度随行变化（已完成/未完成、徽章/短横线）
+                    会让每行的列起点漂移，看着就是「没对齐」 */}
                 <span className="flex shrink-0 items-center gap-3">
                   <span
-                    className={`text-[length:var(--text-xs)] ${
+                    className={`w-8 text-[length:var(--text-xs)] ${
                       word.isNew
                         ? 'font-medium text-[var(--color-accent)]'
                         : 'text-[var(--color-text-muted)]'
@@ -124,7 +126,7 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
                     {word.isNew ? '新词' : '复习'}
                   </span>
                   <span
-                    className={`flex items-center gap-1.5 text-[length:var(--text-xs)] ${
+                    className={`flex w-[4.5rem] items-center gap-1.5 text-[length:var(--text-xs)] ${
                       word.isFinished
                         ? 'text-[var(--color-familiar)]'
                         : 'text-[var(--color-text-subtle)]'
@@ -132,7 +134,7 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
                   >
                     <span
                       aria-hidden
-                      className={`h-1.5 w-1.5 rounded-full ${
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                         word.isFinished
                           ? 'bg-[var(--color-familiar)]'
                           : 'bg-[var(--color-border-strong)]'
@@ -140,7 +142,7 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
                     />
                     {word.isFinished ? '已完成' : '未完成'}
                   </span>
-                  <span className="hidden sm:inline-flex">
+                  <span className="hidden w-12 justify-center sm:inline-flex">
                     <ResponseBadge value={word.firstResponse} />
                   </span>
                 </span>
