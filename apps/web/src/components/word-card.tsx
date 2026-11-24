@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
+import { POPOVER_GAP, computePopoverBox, type PopoverBox } from '@/lib/popover-position'
 import type { WordCard } from '@/lib/word-card'
 
 /**
@@ -121,33 +123,101 @@ function AiSectionView({ card }: { card: WordCard })
   )
 }
 
+/** 读当前锚点位置算弹层坐标（定位算法本身在 lib/popover-position，可单测） */
+function measure(anchor: HTMLElement): PopoverBox
+{
+  return computePopoverBox(anchor.getBoundingClientRect(), {
+    width: window.innerWidth,
+    height: window.innerHeight
+  })
+}
+
 export function WordCardPopover({
   spelling,
+  anchor,
   onClose
 }: {
   spelling: string
+  /** 触发按钮：定位基准，且点它不当作「点外部」 */
+  anchor?: HTMLElement | null
   onClose: () => void
 })
 {
   const [card, setCard] = useState<WordCard | null>(null)
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  // 挂载时就有 anchor（组件由点击触发），首帧即可算好位置，不会闪一下再跳
+  const [box, setBox] = useState<PopoverBox | null>(() => (anchor ? measure(anchor) : null))
 
-  // 点击卡片外任意位置关闭
+  // 跟随锚点：页面滚动、表格横向滚动、窗口缩放都重新定位
+  useEffect(
+    () =>
+    {
+      if (!anchor)
+      {
+        return
+      }
+
+      let frame = 0
+
+      const place = () =>
+      {
+        cancelAnimationFrame(frame)
+        frame = requestAnimationFrame(() => setBox(measure(anchor)))
+      }
+
+      place()
+      // capture：表格自身的横向滚动不冒泡到 window，必须捕获阶段监听
+      window.addEventListener('scroll', place, { passive: true, capture: true })
+      window.addEventListener('resize', place)
+
+      return () =>
+      {
+        cancelAnimationFrame(frame)
+        window.removeEventListener('scroll', place, { capture: true })
+        window.removeEventListener('resize', place)
+      }
+    },
+    [anchor]
+  )
+
+  // 点击卡片外任意位置关闭；点锚点交给按钮自己 toggle，否则会「关了又开」
   useEffect(
     () =>
     {
       function onDown(event: MouseEvent): void
       {
-        if (ref.current && !ref.current.contains(event.target as Node))
+        const target = event.target as Node
+
+        if (ref.current?.contains(target) || anchor?.contains(target))
         {
-          onClose()
+          return
         }
+
+        onClose()
       }
 
       // mousedown 先于 click，避免触发按钮的 click 冒泡误关
       document.addEventListener('mousedown', onDown)
       return () => document.removeEventListener('mousedown', onDown)
+    },
+    [onClose, anchor]
+  )
+
+  // Esc 关闭（键盘操作时的基本预期）
+  useEffect(
+    () =>
+    {
+      function onKey(event: KeyboardEvent): void
+      {
+        if (event.key === 'Escape')
+        {
+          onClose()
+        }
+      }
+
+      document.addEventListener('keydown', onKey)
+      return () => document.removeEventListener('keydown', onKey)
     },
     [onClose]
   )
@@ -180,12 +250,19 @@ export function WordCardPopover({
     [spelling]
   )
 
-  return (
+  // 只在浏览器渲染：portal 需要 document（组件本身由点击触发，SSR 不会挂载）
+  if (typeof document === 'undefined')
+  {
+    return null
+  }
+
+  return createPortal(
     <div
       ref={ref}
       role="dialog"
       aria-label={`${spelling} 词条`}
-      className="absolute left-0 top-full z-20 mt-2 w-[min(420px,calc(100vw-80px))] rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-pop)]"
+      className="fixed z-50 overflow-y-auto overscroll-contain rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-pop)]"
+      style={box ?? { left: POPOVER_GAP, right: POPOVER_GAP, top: 96, maxHeight: 320 }}
     >
       <div className="flex items-baseline gap-2">
         <span className="font-[family-name:var(--font-display)] text-[var(--text-md)] font-semibold">
@@ -212,6 +289,7 @@ export function WordCardPopover({
           <AiSectionView card={card} />
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   )
 }

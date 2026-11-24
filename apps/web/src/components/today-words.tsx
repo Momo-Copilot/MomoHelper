@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import type { StudyResponse, TodayWordRowDto } from '@momo/types'
 import { Segmented } from '@/components/kit'
@@ -18,10 +18,12 @@ type FinishFilter = 'all' | 'finished' | 'unfinished'
 function WordButton({ spelling }: { spelling: string })
 {
   const [open, setOpen] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   return (
     <span className="relative inline-block">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
@@ -30,7 +32,13 @@ function WordButton({ spelling }: { spelling: string })
       >
         {spelling}
       </button>
-      {open && <WordCardPopover spelling={spelling} onClose={() => setOpen(false)} />}
+      {open && (
+        <WordCardPopover
+          spelling={spelling}
+          anchor={buttonRef.current}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </span>
   )
 }

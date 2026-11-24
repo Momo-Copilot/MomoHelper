@@ -8,7 +8,7 @@
  * 字段覆盖接口返回的全部 9 项，列多时横向滚动，voc_id 放最后。
  */
 
-import { useDeferredValue, useMemo, useState } from 'react'
+import { useDeferredValue, useMemo, useRef, useState } from 'react'
 
 import type { LibraryRecordRowDto, StudyResponse } from '@momo/types'
 import { Segmented } from '@/components/kit'
@@ -88,10 +88,12 @@ const SORTERS: Record<SortKey, (a: LibraryRecordRowDto, b: LibraryRecordRowDto) 
 function WordButton({ spelling }: { spelling: string })
 {
   const [open, setOpen] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   return (
     <span className="relative inline-block">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
@@ -100,7 +102,13 @@ function WordButton({ spelling }: { spelling: string })
       >
         {spelling}
       </button>
-      {open && <WordCardPopover spelling={spelling} onClose={() => setOpen(false)} />}
+      {open && (
+        <WordCardPopover
+          spelling={spelling}
+          anchor={buttonRef.current}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </span>
   )
 }

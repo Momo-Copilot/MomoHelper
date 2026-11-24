@@ -3,7 +3,7 @@
 import Link from 'next/link'
 
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type { ForgetDiagnosis } from '@momo/ai'
 import type { FocusWordDto } from '@momo/types'
@@ -63,10 +63,12 @@ function WordButton({
 })
 {
   const [open, setOpen] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   return (
     <span className="relative inline-block">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
@@ -75,7 +77,13 @@ function WordButton({
       >
         {spelling}
       </button>
-      {open && <WordCardPopover spelling={spelling} onClose={() => setOpen(false)} />}
+      {open && (
+        <WordCardPopover
+          spelling={spelling}
+          anchor={buttonRef.current}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </span>
   )
 }
