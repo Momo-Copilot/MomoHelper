@@ -38,11 +38,11 @@
 </tr>
 <tr>
 <td><img src="docs/screenshots/heatmap.png" alt="学习热力图"></td>
-<td><img src="docs/screenshots/settings-mobile.png" alt="设置页"></td>
+<td><img src="docs/screenshots/settings.png" alt="设置页"></td>
 </tr>
 <tr>
 <td><b>学习热力图</b><br>365 天的积累，鼠标扫过任意一格看当天学了多少。</td>
-<td><b>设置</b><br>墨墨 Token 与 AI Key 都只存在本机，不经过任何服务器。</td>
+<td><b>设置</b><br>绑定墨墨 Token 与 AI Key，两者都只存在本机。左侧是完整的十个页面。</td>
 </tr>
 </table>
 
