@@ -9,9 +9,10 @@ import { getLocalStatus } from '@/lib/settings'
 import { applyTheme, currentTheme, storeTheme, type ThemeMode } from '@/lib/theme'
 import { Icon, type IconName } from './icons'
 
-/** 纯前端方案只保留核心三件套 + 词库 + 设置 */
+/** 导航顺序按使用频率：先看今天，再看未来，然后才是复盘与词库 */
 const ITEMS: { href: string; label: string; icon: IconName }[] = [
   { href: '/', label: '今日', icon: 'gauge' },
+  { href: '/plan', label: '计划', icon: 'calendar' },
   { href: '/forget', label: '遗忘词', icon: 'trending-down' },
   { href: '/cloud', label: '词云', icon: 'cloud' },
   { href: '/ask', label: '问词', icon: 'message' },

@@ -7,10 +7,14 @@
 
 import { beijingToday, toBeijingDate } from '@momo/maimemo'
 import type {
+  ExamPlanDto,
+  ForecastDayDto,
+  ForecastDto,
   LibraryBucketDto,
   LibraryMonthRowDto,
   LibraryRecordRowDto,
   LibraryStatsDto,
+  PlanAlertDto,
   ReportDailyRowDto,
   ReportRiskDto,
   ReportSnapshotDto,
@@ -580,4 +584,323 @@ export function buildWordCloud(
     words: words.slice(0, Math.max(0, limit)),
     hiddenCount: Math.max(0, signalCount - limit)
   }
+}
+
+/* ============================= 冲刺计划 ============================= */
+
+/** 近期速度的统计窗口（天）：14 天够平滑，又不至于被上个月的状态拖太久 */
+const PACE_DAYS = 14
+
+/** 负荷分位切点：窗口内非零日升序取 33% / 66% / 90% */
+function loadThresholds(sorted: number[]): [number, number, number]
+{
+  if (sorted.length === 0)
+  {
+    return [0, 0, 0]
+  }
+
+  const at = (ratio: number): number => sorted[Math.floor((sorted.length - 1) * ratio)]!
+
+  return [at(0.33), at(0.66), at(0.9)]
+}
+
+function loadLevelOf(count: number, [t1, t2, t3]: [number, number, number]): 0 | 1 | 2 | 3 | 4
+{
+  if (count <= 0)
+  {
+    return 0
+  }
+
+  if (count <= t1)
+  {
+    return 1
+  }
+
+  if (count <= t2)
+  {
+    return 2
+  }
+
+  if (count <= t3)
+  {
+    return 3
+  }
+
+  return 4
+}
+
+/**
+ * 未来复习负荷（纯函数）。
+ *
+ * 数据来自 next_study_date：墨墨给每个词排的下一次复习日。未安排复习的词
+ * 没有这个字段，所以本曲线只覆盖「已进入复习计划」的词——和 /report 的
+ * 复习压力同口径，页面上必须说明。
+ *
+ * 分档用窗口内相对分位而不是绝对阈值：词库规模从每天几十到几百都有，
+ * 写死阈值会让小词库永远只有最浅一档、大词库永远爆红。
+ */
+export function analyzeForecast(
+  records: LibraryRecordRowDto[],
+  options: { days?: number; today?: string } = {}
+): ForecastDto
+{
+  const today = options.today ?? beijingToday()
+  const window = Math.max(1, options.days ?? 30)
+  const byDay = new Map<string, number>()
+
+  let overdueCount = 0
+  let scheduledCount = 0
+
+  for (const record of records)
+  {
+    const nextDay = beijingDayOf(record.nextStudyDate)
+
+    if (!nextDay)
+    {
+      continue
+    }
+
+    scheduledCount++
+
+    const ahead = dayDiff(today, nextDay)
+
+    if (ahead === null)
+    {
+      continue
+    }
+
+    // 过期日期不算未来负荷，但单独计数：积压本身就是信号
+    if (ahead < 0)
+    {
+      overdueCount++
+      continue
+    }
+
+    byDay.set(nextDay, (byDay.get(nextDay) ?? 0) + 1)
+  }
+
+  // 逐日补 0：今天 → 今天 + window - 1，空档日也占位（日历要能看出来）
+  const days: ForecastDayDto[] = []
+
+  for (let offset = 0; offset < window; offset++)
+  {
+    const date = addDays(today, offset)
+
+    days.push({ date, offset, count: byDay.get(date) ?? 0, level: 0 })
+  }
+
+  const sorted = days
+    .filter((day) => day.count > 0)
+    .map((day) => day.count)
+    .sort((a, b) => a - b)
+
+  const thresholds = loadThresholds(sorted)
+  /** 窗口内负荷全都一样时没有层次可分，统一给中间档，避免整片最浅色 */
+  const flat = sorted.length > 0 && thresholds[0] === thresholds[2]
+
+  let totalInWindow = 0
+  let peak: { date: string; count: number } | null = null
+
+  for (const day of days)
+  {
+    totalInWindow += day.count
+    day.level = flat ? (day.count > 0 ? 2 : 0) : loadLevelOf(day.count, thresholds)
+
+    // 并列取最早：按日期升序遍历，严格大于才替换
+    if (day.count > 0 && (peak === null || day.count > peak.count))
+    {
+      peak = { date: day.date, count: day.count }
+    }
+  }
+
+  return {
+    days,
+    totalInWindow,
+    peak,
+    busyAverage: sorted.length === 0 ? 0 : Math.round(totalInWindow / sorted.length),
+    idleDays: days.filter((day) => day.count === 0).length,
+    overdueCount,
+    scheduledCount
+  }
+}
+
+/**
+ * 考前推演（纯函数）：把「还剩多少词」和「还剩多少天」摆在一起。
+ *
+ * 「已学」沿用词库页口径 study_count > 0，与掌握度 0 次桶互补；
+ * 「当前速度」取近 14 天日均新学，用 first_study_date（缺失回退 add_date）
+ * 定位，和 /report 的每日新学曲线同源。
+ */
+export function analyzeExamPlan(
+  records: LibraryRecordRowDto[],
+  options: { examDate?: string | null; today?: string; paceDays?: number } = {}
+): ExamPlanDto
+{
+  const today = options.today ?? beijingToday()
+  const examDate = options.examDate ?? null
+  const paceDays = Math.max(1, options.paceDays ?? PACE_DAYS)
+
+  const totalWords = records.length
+  let studiedWords = 0
+  let recentNew = 0
+
+  for (const record of records)
+  {
+    if ((record.studyCount ?? 0) > 0)
+    {
+      studiedWords++
+    }
+
+    const started = startedDayOf(record)
+
+    if (!started)
+    {
+      continue
+    }
+
+    const age = dayDiff(started, today)
+
+    // 只数最近 paceDays 天内开始的词；今天开始的也算（age = 0）
+    if (age !== null && age >= 0 && age < paceDays)
+    {
+      recentNew++
+    }
+  }
+
+  const remainingWords = Math.max(0, totalWords - studiedWords)
+  const recentPace = recentNew / paceDays
+
+  const daysLeft = examDate ? dayDiff(today, examDate) : null
+
+  let dailyNeeded: number | null = null
+
+  if (daysLeft !== null && daysLeft >= 0)
+  {
+    // 考试当天还有剩余词就来不及了，不给出一个假的「每天 N 个」
+    dailyNeeded = daysLeft === 0 ? (remainingWords === 0 ? 0 : null) : remainingWords / daysLeft
+  }
+
+  const gap = dailyNeeded === null ? null : dailyNeeded - recentPace
+  const daysToFinish = recentPace > 0 ? remainingWords / recentPace : remainingWords === 0 ? 0 : null
+  const projectedFinish = daysToFinish === null ? null : addDays(today, Math.ceil(daysToFinish))
+
+  let status: ExamPlanDto['status'] = 'unknown'
+
+  if (daysLeft !== null && dailyNeeded !== null)
+  {
+    if (remainingWords === 0 || recentPace >= dailyNeeded)
+    {
+      status = 'ahead'
+    }
+    else if (recentPace >= dailyNeeded * 0.85)
+    {
+      status = 'on-track'
+    }
+    else
+    {
+      status = 'behind'
+    }
+  }
+
+  return {
+    examDate,
+    daysLeft,
+    totalWords,
+    studiedWords,
+    remainingWords,
+    recentPace,
+    dailyNeeded,
+    gap,
+    daysToFinish,
+    projectedFinish,
+    status
+  }
+}
+
+/**
+ * 计划页的风险与建议（纯函数，返回已排好序的文案）。
+ *
+ * 阈值写在这里而不是页面里：这些判断是业务口径，需要能被单独测。
+ * 「考前 7 天有峰値」排最前——那是唯一还来得及干预的情况。
+ */
+export function buildPlanAlerts(
+  forecast: ForecastDto,
+  plan: ExamPlanDto,
+  options: { nearExamDays?: number } = {}
+): PlanAlertDto[]
+{
+  const nearDays = options.nearExamDays ?? 7
+  const alerts: PlanAlertDto[] = []
+  const { peak } = forecast
+  const peakDate = peak
+
+  let peakHandled = false
+
+  if (peakDate && plan.examDate && plan.daysLeft !== null && plan.daysLeft >= 0)
+  {
+    const gapToExam = dayDiff(peakDate.date, plan.examDate)
+
+    if (gapToExam !== null && gapToExam >= 0 && gapToExam < nearDays)
+    {
+      peakHandled = true
+      alerts.push({
+        kind: 'peak-near-exam',
+        tone: 'risk',
+        title: `考前几天是复习高峰：${peakDate.date} 要复习 ${peakDate.count} 词`,
+        detail: `距考试只剩 ${gapToExam} 天，这天却是未来 ${forecast.days.length} 天里最重的一天。现在就别再往里加新词了，能提前清掉的先清掉。`
+      })
+    }
+  }
+
+  if (peakDate && !peakHandled && forecast.busyAverage > 0 && peakDate.count >= forecast.busyAverage * 2)
+  {
+    alerts.push({
+      kind: 'peak',
+      tone: 'warn',
+      title: `${peakDate.date} 有 ${peakDate.count} 词待复习`,
+      detail: `是有负荷日均值（${forecast.busyAverage} 词）的 ${(peakDate.count / forecast.busyAverage).toFixed(1)} 倍。前一天尽量别加新词。`
+    })
+  }
+
+  if (plan.status === 'behind' && plan.gap !== null && plan.dailyNeeded !== null && plan.daysLeft !== null)
+  {
+    alerts.push({
+      kind: 'behind',
+      tone: 'warn',
+      title: '按现在的速度，考前过不完',
+      detail: `还剩 ${plan.remainingWords.toLocaleString('zh-CN')} 词、${plan.daysLeft} 天，每天要 ${Math.ceil(plan.dailyNeeded)} 个；近期实际每天 ${Math.round(plan.recentPace)} 个，差 ${Math.ceil(plan.gap)} 个。`
+    })
+  }
+
+  if (forecast.overdueCount > 0)
+  {
+    alerts.push({
+      kind: 'overdue',
+      tone: 'info',
+      title: `${forecast.overdueCount.toLocaleString('zh-CN')} 个词的复习日期已经过了`,
+      detail: '墨墨下次打开会把它们并回当天计划，所以实际负荷可能比上面更高。'
+    })
+  }
+
+  if (forecast.idleDays >= 3)
+  {
+    alerts.push({
+      kind: 'idle',
+      tone: 'info',
+      title: `未来 ${forecast.days.length} 天里有 ${forecast.idleDays} 天空档`,
+      detail: '这些日子没有复习任务，是加新词最安全的时候。'
+    })
+  }
+
+  if (plan.status === 'ahead' && plan.remainingWords > 0 && plan.projectedFinish)
+  {
+    alerts.push({
+      kind: 'ahead',
+      tone: 'ok',
+      title: '照现在的速度，能提前过完',
+      detail: `按每天约 ${Math.round(plan.recentPace)} 个算，${plan.projectedFinish} 前后能学完剩下的 ${plan.remainingWords.toLocaleString('zh-CN')} 词。`
+    })
+  }
+
+  return alerts
 }

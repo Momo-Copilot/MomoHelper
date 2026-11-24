@@ -245,6 +245,82 @@ export interface ReportSnapshotDto
   risk: ReportRiskDto
 }
 
+/* ============================= 冲刺计划 ============================= */
+
+/**
+ * 未来单日复习负荷。
+ *
+ * level 是窗口内相对分档（不是绝对阈值）：词库规模从每天几十到几百都有，
+ * 绝对阈值会让小词库永远是最浅一档。空档单独为 0，不参与分位计算。
+ */
+export interface ForecastDayDto
+{
+  /** 北京时间 YYYY-MM-DD */
+  date: string
+  /** 当日待复习词数（next_study_date 落在这一天） */
+  count: number
+  /** 0 = 空档；1~4 由窗口内非零日的分位决定 */
+  level: 0 | 1 | 2 | 3 | 4
+  /** 相对今天第几天（0 = 今天），用于日历定位 */
+  offset: number
+}
+
+/** 未来复习负荷（/plan 负荷日历） */
+export interface ForecastDto
+{
+  /** 窗口内逐日，含今天与 0 值天，按日期升序 */
+  days: ForecastDayDto[]
+  /** 窗口内待复习总数 */
+  totalInWindow: number
+  /** 峰值日（并列取最早）；窗口全空为 null */
+  peak: { date: string; count: number } | null
+  /** 有负荷日的均值（不含空档，避免被空档摊薄） */
+  busyAverage: number
+  /** 空档日数（count === 0） */
+  idleDays: number
+  /** 复习日期已过（早于今天）的词数：积压量 */
+  overdueCount: number
+  /** 带下一次复习日期的词总数（含已过期），口径说明用 */
+  scheduledCount: number
+}
+
+/** 冲刺推演：考试日期与词库进度的对照 */
+export interface ExamPlanDto
+{
+  /** 考试日期 YYYY-MM-DD；未设置为 null */
+  examDate: string | null
+  /** 今天到考试日的天数；考试当天为 0，已过期为负数；未设置为 null */
+  daysLeft: number | null
+  /** 词库总词数 */
+  totalWords: number
+  /** 已开始学习（study_count > 0） */
+  studiedWords: number
+  /** 还没开始学习 */
+  remainingWords: number
+  /** 近 14 天日均新学词数 */
+  recentPace: number
+  /** 考前过完需要每天新学多少；无考试日期或已过期 null */
+  dailyNeeded: number | null
+  /** 缺口 = dailyNeeded − recentPace，> 0 表示当前速度不够 */
+  gap: number | null
+  /** 按当前速度学完剩余词需要多少天；速度为 0 为 null */
+  daysToFinish: number | null
+  /** 按当前速度预计全部学完的日期；无法估算 null */
+  projectedFinish: string | null
+  /** ahead = 能提前过完，on-track = 差 15% 以内，behind = 明显落后，unknown = 缺数据 */
+  status: 'ahead' | 'on-track' | 'behind' | 'unknown'
+}
+
+/** 计划页的风险 / 建议条目 */
+export interface PlanAlertDto
+{
+  /** 用于去重与 React key */
+  kind: 'peak-near-exam' | 'peak' | 'behind' | 'overdue' | 'idle' | 'ahead'
+  tone: 'risk' | 'warn' | 'info' | 'ok'
+  title: string
+  detail: string
+}
+
 /* ============================= 遗忘词云 ============================= */
 
 /**

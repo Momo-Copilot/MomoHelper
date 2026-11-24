@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { MaimemoAuthError } from '@momo/maimemo'
 import type { DashboardTrendPointDto } from '@momo/types'
@@ -11,6 +11,7 @@ import { ErrorNote, PageHeader, Tile, TileSkeleton } from '@/components/kit'
 import { ReportTeaser } from '@/components/report-teaser'
 import { TodayWordsCard } from '@/components/today-words'
 import { getDashboardHistory, getDashboardToday, MaimemoNotConfiguredError } from '@/lib/maimemo'
+import { getExamDate } from '@/lib/settings'
 
 function beijingDate(d: Date): string
 {
@@ -27,6 +28,63 @@ function formatDuration(ms: number): string
   }
 
   return `${minutes} 分钟`
+}
+
+/**
+ * 考试倒计时条：只在设置过考试日期后出现。
+ *
+ * 刻意只显示天数、不显示剩余词数——后者要全量拉词库，今日页不该为一条
+ * 提示多付一次请求。具体数字留给 /plan。
+ */
+function ExamCountdownBar()
+{
+  const [daysLeft, setDaysLeft] = useState<number | null>(null)
+
+  useEffect(
+    () =>
+    {
+      const examDate = getExamDate()
+
+      if (!examDate)
+      {
+        return
+      }
+
+      // 两个日期都取 UTC 零点，差值直接是天数，不受浏览器时区影响
+      const diff = Math.round(
+        (Date.parse(`${examDate}T00:00:00Z`) - Date.parse(`${beijingDate(new Date())}T00:00:00Z`)) /
+          86_400_000
+      )
+
+      setDaysLeft(diff)
+    },
+    []
+  )
+
+  if (daysLeft === null || daysLeft < 0)
+  {
+    return null
+  }
+
+  return (
+    <Link
+      href="/plan"
+      className="mb-4 flex items-center justify-between gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-[var(--text-sm)] transition-colors hover:border-[var(--color-border-strong)]"
+    >
+      <span className="flex items-center gap-1.5">
+        <Icon name="calendar" className="h-4 w-4 text-[var(--color-accent)]" />
+        <span className="text-[var(--color-text-muted)]">距考试还有</span>
+        <span className="font-[family-name:var(--font-display)] text-[var(--text-md)] font-semibold tabular">
+          {daysLeft}
+        </span>
+        <span className="text-[var(--color-text-muted)]">天</span>
+      </span>
+      <span className="flex shrink-0 items-center gap-1 text-[var(--text-xs)] text-[var(--color-text-subtle)]">
+        冲刺计划
+        <Icon name="chevron-right" className="h-3.5 w-3.5" />
+      </span>
+    </Link>
+  )
 }
 
 /** 把接口返回的稀疏快照补齐成连续 N 天（缺的日子记 0） */
@@ -239,6 +297,8 @@ export default function DashboardPage()
           </button>
         }
       />
+
+      <ExamCountdownBar />
 
       {!data.dataReliable && (
         <p className="mb-4 flex items-center gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[var(--text-sm)] text-[var(--color-vague)]">

@@ -79,6 +79,23 @@
   --cloud-2: #ad4622;
   --cloud-3: #8f2f16;
   --cloud-4: #6b190c;
+
+  /*
+   * 复习负荷色阶：0 = 空档，4 = 窗口内最重的一天。用琥珀而非遗忘红——
+   * 「那天要背很多」是工作量大，不是「你忘了」。同样写在 :root：内联
+   * style 里的 var() 扫描器看不见，放 @theme 会被整组裁掉。
+   * 五档都保持「浅底深字」，格内日期数字才读得清。
+   */
+  --load-0: #eef4f1;
+  --load-1: #fceded;
+  --load-2: #f4cd8d;
+  --load-3: #e5b354;
+  --load-4: #d18c22;
+  /* 格内文字与底色反着来：浅色主题全档深字 */
+  --load-ink-1: #1c2a26;
+  --load-ink-2: #1c2a26;
+  --load-ink-3: #1c2a26;
+  --load-ink-4: #1c2a26;
 }
 
 /* ============ 夜间模式：同名 token 全量覆盖（继承到所有 var() 引用点） ============ */
@@ -114,6 +131,17 @@ html.dark
   --cloud-2: #dd8f66;
   --cloud-3: #f0a173;
   --cloud-4: #ffbd93;
+
+  /* 负荷色阶同理：低档压暗、高档提亮，格内文字与底色反向保证对比度 */
+  --load-0: #1e2825;
+  --load-1: #4f3d1c;
+  --load-2: #76591f;
+  --load-3: #9c7628;
+  --load-4: #cca04a;
+  --load-ink-1: #dbe4e0;
+  --load-ink-2: #ece0c4;
+  --load-ink-3: #1a1206;
+  --load-ink-4: #1a1206;
 
   --shadow-tile: 0 1px 2px rgb(0 0 0 / 0.3);
   --shadow-tile-hover: 0 2px 8px rgb(0 0 0 / 0.45);

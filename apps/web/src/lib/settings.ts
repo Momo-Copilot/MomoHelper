@@ -18,7 +18,8 @@ const STORAGE_KEYS = {
   tokenBoundAt: 'momo.tokenBoundAt',
   deepseekKey: 'momo.deepseekKey',
   aiThinking: 'momo.aiThinking',
-  backupBinding: 'momo.backupBinding'
+  backupBinding: 'momo.backupBinding',
+  examDate: 'momo.examDate'
 } as const
 
 /** 旧版把配置拆在多个 key 里且不存密码，读取时迁移一次 */
@@ -320,4 +321,29 @@ export function getLocalStatus(): LocalStatus
     token: getMaimemoTokenStatus(),
     hasAiKey: getDeepSeekKey() !== null
   }
+}
+
+/**
+ * 考试日期：纯本地配置，只用于冲刺推演。
+ *
+ * 不参与云端备份——备份的是学习数据，换设备重新设一次即可；
+ * 也不写进 LocalStatus，避免每次读凭据状态都多解析一个字段。
+ */
+export function getExamDate(): string | null
+{
+  const value = read(STORAGE_KEYS.examDate)
+
+  // 只认 YYYY-MM-DD，脏数据当未设置处理（推演依赖它做日期差）
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null
+}
+
+export function setExamDate(date: string | null): void
+{
+  if (!date)
+  {
+    remove(STORAGE_KEYS.examDate)
+    return
+  }
+
+  write(STORAGE_KEYS.examDate, date)
 }
