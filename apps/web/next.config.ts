@@ -6,30 +6,59 @@ import type { NextConfig } from 'next'
  * 静态导出：产物 apps/web/out 交由 EdgeOne Pages 托管；
  * 同源 /api/memo/* 由 edge-functions 下的代理函数处理。
  *
- * 版本号方案：默认用「构建日期」（北京时间 YYYY.MM.DD），配合 git 短 SHA。
- * 每次部署自动更新，不需要手动 bump 任何字段。
+ * 版本号方案：0.<次>.<patch>，patch 取 git 提交总数，每次推送自动 +1。
+ * 想升主次版本（里程碑）改下面的 BASE_VERSION，其余不用管。
  *
- * 想发正式语义版本（比如 1.0.0）时，在 CI 里设 NEXT_PUBLIC_APP_VERSION
- * 即可覆盖，不必改代码。
+ * 为什么不用 package.json 的 version：那要靠人记得去 bump，而 EdgeOne 是
+ * Git 集成自动部署，提交数天然单调递增，比「记得改」可靠。
  *
- * 注意：apps/web/package.json 的 version 不再参与显示——那个字段只留给
- * 包管理器用。以前它被当成版本号来源，结果是「注释说读 package.json，
- * 代码里其实硬编码」，一直显示同一个值。
+ * 发正式版本时可在 CI 里设 NEXT_PUBLIC_APP_VERSION 直接覆盖整个版本号。
  */
 
-/** 构建日期，固定按北京时间算，不依赖 CI 机器的时区 */
-function buildDateVersion(): string
-{
-  const beijing = new Date(Date.now() + 8 * 60 * 60 * 1000)
-  const pad = (value: number): string => String(value).padStart(2, '0')
+/** 主次版本号：功能成型时手动改这里（如 0.1 → 0.2） */
+const BASE_VERSION = '0.1'
 
-  return `${beijing.getUTCFullYear()}.${pad(beijing.getUTCMonth() + 1)}.${pad(beijing.getUTCDate())}`
+/**
+ * 解析版本号。
+ *
+ * 浅克隆（depth=1）会让提交数恒为 1，那样每次部署都显示同一个号——所以
+ * 检测到 ≤1 时退回「月日」编码（如 1125），至少每天不同。
+ */
+function resolveVersion(): string
+{
+  const explicit = process.env.NEXT_PUBLIC_APP_VERSION
+
+  if (explicit)
+  {
+    return explicit
+  }
+
+  try
+  {
+    const raw = execSync('git rev-list --count HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim()
+    const count = Number.parseInt(raw, 10)
+
+    if (Number.isFinite(count) && count > 1)
+    {
+      return `${BASE_VERSION}.${count}`
+    }
+  }
+  catch
+  {
+    // 无 git 环境（CI 检出无 .git），走下面的兜底
+  }
+
+  const beijing = new Date(Date.now() + 8 * 60 * 60 * 1000)
+  const monthDay = (beijing.getUTCMonth() + 1) * 100 + beijing.getUTCDate()
+
+  return `${BASE_VERSION}.${monthDay}`
 }
 
 function readBuildInfo(): { version: string; commit: string }
 {
-  // 环境变量优先（发正式版本时用），否则用构建日期
-  const version = process.env.NEXT_PUBLIC_APP_VERSION ?? buildDateVersion()
+  const version = resolveVersion()
 
   let commit = process.env.NEXT_PUBLIC_COMMIT_SHA ?? ''
 
