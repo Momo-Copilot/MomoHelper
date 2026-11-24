@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 340" width="100%" role="img" aria-label="墨小墨功能全景">
+<title>墨小墨功能全景</title>
+<desc>按使用场景把十个页面分成四组：每天扫一眼、练、查、复盘。</desc>
+
+<rect width="680" height="340" fill="#FFFFFF"/>
+
+<!-- 每天扫一眼 -->
+<rect x="24" y="34" width="148" height="234" rx="10" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="13" font-weight="500" x="40" y="60" fill="#085041">每天扫一眼</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12" x="40" y="90" fill="#0F6E56">今日</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="40" y="108" fill="#444441">进度环 · 今日词表</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="40" y="126" fill="#444441">学习趋势 · 倒计时条</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12" x="40" y="172" fill="#0F6E56">计划</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="40" y="190" fill="#444441">倒计时 · 负荷日历</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="40" y="208" fill="#444441">考前推演</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="40" y="248" fill="#748781">← 每天先看这两页</text>
+
+<!-- 练 -->
+<rect x="184" y="34" width="148" height="234" rx="10" fill="#FAEEDA" stroke="#FAC775" stroke-width="0.5"/>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="13" font-weight="500" x="200" y="60" fill="#633806">练</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12" x="200" y="88" fill="#854F0B">遗忘词</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="200" y="106" fill="#444441">今日忘记 · 顽固词</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12" x="200" y="136" fill="#854F0B">攻坚</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="200" y="154" fill="#444441">每天 6 词 · 三键自测</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="200" y="172" fill="#444441">连续 3 次毕业</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12" x="200" y="202" fill="#854F0B">僻义</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="200" y="220" fill="#444441">熟词僻义雷达</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="200" y="248" fill="#748781">← 诊断可写回墨墨</text>
+
+<!-- 查 -->
+<rect x="344" y="34" width="148" height="234" rx="10" fill="#E6F1FB" stroke="#B5D4F4" stroke-width="0.5"/>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="13" font-weight="500" x="360" y="60" fill="#0C447C">查</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12" x="360" y="88" fill="#185FA5">词云</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="360" y="106" fill="#444441">遗忘强度可视化</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12" x="360" y="136" fill="#185FA5">问词</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="360" y="154" fill="#444441">AI 讲解 + 追问</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12" x="360" y="184" fill="#185FA5">词库</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="360" y="202" fill="#444441">8000+ 词筛选排序</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="360" y="248" fill="#748781">← 想深挖某个词时用</text>
+
+<!-- 复盘 -->
+<rect x="504" y="34" width="152" height="234" rx="10" fill="#F1EFE8" stroke="#D3D1C7" stroke-width="0.5"/>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="13" font-weight="500" x="520" y="60" fill="#2C2C2A">复盘</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12" x="520" y="88" fill="#444441">学情快照</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="520" y="106" fill="#444441">沉睡词 · 断更 · 画像</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12" x="520" y="136" fill="#444441">热力图</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="520" y="154" fill="#444441">365 天，看积累</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="12" x="520" y="184" fill="#444441">导出卡片</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="520" y="202" fill="#444441">1080×1440 竖版图</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="520" y="248" fill="#5F5E5A">← 每周看一次就够</text>
+
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="24" y="306" fill="#5F5E5A">所有页面共享同一次数据拉取，切换零请求；数字全部由代码计算，AI 只负责写解读。</text>
+<text font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="11" x="24" y="324" fill="#5F5E5A">纯前端，Token 与学习快照只存在你自己的浏览器里。</text>
+</svg>
