@@ -1,6 +1,4 @@
 import { execSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 
 import type { NextConfig } from 'next'
 
@@ -8,51 +6,30 @@ import type { NextConfig } from 'next'
  * 静态导出：产物 apps/web/out 交由 EdgeOne Pages 托管；
  * 同源 /api/memo/* 由 edge-functions 下的代理函数处理。
  *
- * 版本号方案：semver 来自 package.json（发版手动 bump），
- * 构建时注入当前 git commit 短 SHA，线上可核对代码版本。
- * NEXT_PUBLIC_ 前缀让客户端组件可直接读取。
- */
-
-/**
- * 读应用包的 version。
+ * 版本号方案：默认用「构建日期」（北京时间 YYYY.MM.DD），配合 git 短 SHA。
+ * 每次部署自动更新，不需要手动 bump 任何字段。
  *
- * 不能假设构建命令在哪个目录执行：EdgeOne Pages 可能从仓库根跑 `pnpm build`，
- * 也可能先 `cd apps/web`。前者如果直接读 `cwd/package.json`，拿到的是根包
- * （version 0.0.0），版本号就会静默变成 0.0.0。所以两个路径都试，并且用
- * name 字段确认读到的是应用包本身，而不是根包或别的 workspace 包。
+ * 想发正式语义版本（比如 1.0.0）时，在 CI 里设 NEXT_PUBLIC_APP_VERSION
+ * 即可覆盖，不必改代码。
+ *
+ * 注意：apps/web/package.json 的 version 不再参与显示——那个字段只留给
+ * 包管理器用。以前它被当成版本号来源，结果是「注释说读 package.json，
+ * 代码里其实硬编码」，一直显示同一个值。
  */
-function readPackageVersion(): string
+
+/** 构建日期，固定按北京时间算，不依赖 CI 机器的时区 */
+function buildDateVersion(): string
 {
-  const candidates = [
-    join(process.cwd(), 'package.json'),
-    join(process.cwd(), 'apps', 'web', 'package.json')
-  ]
+  const beijing = new Date(Date.now() + 8 * 60 * 60 * 1000)
+  const pad = (value: number): string => String(value).padStart(2, '0')
 
-  for (const file of candidates)
-  {
-    try
-    {
-      const pkg = JSON.parse(readFileSync(file, 'utf8')) as { name?: string; version?: string }
-
-      if (pkg.name === '@momo/web')
-      {
-        return pkg.version ?? '0.0.0'
-      }
-    }
-    catch
-    {
-      // 文件不存在或不是合法 JSON，试下一个
-    }
-  }
-
-  // 读不到就退回占位值，不要让构建因此失败
-  return '0.0.0'
+  return `${beijing.getUTCFullYear()}.${pad(beijing.getUTCMonth() + 1)}.${pad(beijing.getUTCDate())}`
 }
 
 function readBuildInfo(): { version: string; commit: string }
 {
-  // 优先用 CI 注入的环境变量，否则读 package.json
-  const version = process.env.NEXT_PUBLIC_APP_VERSION ?? readPackageVersion()
+  // 环境变量优先（发正式版本时用），否则用构建日期
+  const version = process.env.NEXT_PUBLIC_APP_VERSION ?? buildDateVersion()
 
   let commit = process.env.NEXT_PUBLIC_COMMIT_SHA ?? ''
 
