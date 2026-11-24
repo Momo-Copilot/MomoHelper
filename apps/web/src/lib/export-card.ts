@@ -15,7 +15,7 @@ export interface ReportCardInput
   totalWords: number
   /** 已开始学习 */
   studiedWords: number
-  /** 累计新学（窗口内） */
+  /** 累计学习词次（含复习；早期无快照的日子只算新学） */
   newWordsTotal: number
   /** 顽固词 */
   stickingCount: number
@@ -176,9 +176,9 @@ export async function downloadReportCard(input: ReportCardInput): Promise<void>
     ctx,
     left + colWidth + colGap,
     row1,
-    '累计新学',
+    '累计学习',
     input.newWordsTotal.toLocaleString('zh-CN'),
-    '近一年',
+    '近一年，含复习',
     colors
   )
   drawMetric(

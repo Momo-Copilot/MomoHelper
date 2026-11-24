@@ -10,7 +10,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { MaimemoAuthError, beijingToday } from '@momo/maimemo'
 import type { ReportSnapshotDto } from '@momo/types'
@@ -22,7 +22,7 @@ import { analyzeLibrary, analyzeReport } from '@/lib/analyze'
 import { downloadReportCard } from '@/lib/export-card'
 import { buildHeatmap } from '@/lib/heatmap'
 import { loadLibrary } from '@/lib/library'
-import { MaimemoNotConfiguredError } from '@/lib/maimemo'
+import { getDashboardHistory, MaimemoNotConfiguredError } from '@/lib/maimemo'
 
 const QUERY_KEY = ['library'] as const
 
@@ -155,12 +155,49 @@ export default function ReportPage()
   const [window, setWindow] = useState<'30' | '90'>('30')
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  /** 本地每日快照：日期 → 当天完成词数（含复习），只在打开过今日页的日子有 */
+  const [snapshots, setSnapshots] = useState<Record<string, number>>({})
   const query = useQuery({ queryKey: QUERY_KEY, queryFn: () => loadLibrary() })
+
+  useEffect(
+    () =>
+    {
+      const history = getDashboardHistory(366)
+      const map: Record<string, number> = {}
+
+      for (const day of history.days)
+      {
+        map[day.date] = day.finished
+      }
+
+      setSnapshots(map)
+    },
+    []
+  )
 
   const records = query.data?.records
   const report = useMemo(() => (records ? analyzeReport(records) : null), [records])
   const stats = useMemo(() => (records ? analyzeLibrary(records) : null), [records])
-  const heat = useMemo(() => (report ? buildHeatmap(report.dailyNew) : null), [report])
+
+  /**
+   * 热力图口径：
+   * - 「新学」来自 first_study_date，能完整回溯全年
+   * - 「复习」墨墨没有逐日接口，只能用本地快照的 finished 补
+   * - 两者取较大值：有快照的日子显示当天学习总量（含复习），
+   *   没打开过本站的日子退回新学数（可能偏小）
+   */
+  const heatRows = useMemo(
+    () =>
+      report
+        ? report.dailyNew.map((row) => ({
+            date: row.date,
+            count: Math.max(row.count, snapshots[row.date] ?? 0)
+          }))
+        : [],
+    [report, snapshots]
+  )
+
+  const heat = useMemo(() => buildHeatmap(heatRows), [heatRows])
   /** 数据截断：与词库页同一口径（complete=false 或实取 < 接口总数） */
   const loaded = records?.length ?? 0
   const expected = query.data?.total ?? loaded
@@ -460,13 +497,13 @@ export default function ReportPage()
         <Tile index={5} className="col-span-12">
           <div>
             <p className="text-[length:var(--text-sm)]">学习热力图</p>
-            <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-              每一格是一天，颜色越深当天新学越多；断更的日子会留成空白
-            </p>
-          </div>
-          <div className="mt-4">
-            <ReportHeatmap rows={report.dailyNew} />
-          </div>
+              <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                每一格是一天，颜色越深当天学的词越多（含复习）；没有快照的早期日子只统计新学
+              </p>
+            </div>
+            <div className="mt-4">
+              <ReportHeatmap rows={heatRows} />
+            </div>
         </Tile>
 
         {/* AI 解读（第二步）：代码算指标 → AI 只写解读；按天缓存 */}

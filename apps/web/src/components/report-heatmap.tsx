@@ -45,7 +45,7 @@ export function ReportHeatmap({ rows }: { rows: ReportDailyRowDto[] })
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
           <span>
-            累计 <b className="text-[var(--color-text)]">{map.total.toLocaleString('zh-CN')}</b> 词
+            累计学习 <b className="text-[var(--color-text)]">{map.total.toLocaleString('zh-CN')}</b> 词
           </span>
           <span>
             学习 <b className="text-[var(--color-text)]">{map.activeDays}</b> 天

@@ -79,6 +79,9 @@ interface LocalSnapshot
   total: number
   studyTimeMs: number
   capturedAt: string
+  /** 当日新学 / 复习词数：后加的字段，旧快照没有，读取时按可选处理 */
+  newWords?: number
+  reviewWords?: number
 }
 
 const SNAPSHOT_KEY = 'momo.dailySnapshots'
@@ -198,7 +201,11 @@ export async function getDashboardToday(): Promise<DashboardTodayDto>
       finished: progress.finished,
       total: progress.total,
       studyTimeMs: progress.study_time,
-      capturedAt: new Date().toISOString()
+      capturedAt: new Date().toISOString(),
+      // 存下新学/复习拆分：现在只用来算「当天学了多少」，将来要区分两者时
+      // 旧快照补不回来，所以从今天起就开始留
+      newWords,
+      reviewWords
     })
 
     return {
