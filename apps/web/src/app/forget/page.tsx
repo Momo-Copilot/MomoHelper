@@ -18,16 +18,7 @@ import {
 } from '@/lib/diagnose-history'
 import { getStickingWords, getTodayForgotten } from '@/lib/maimemo'
 import { getAiThinkingMode, type AiThinkingMode } from '@/lib/settings'
-
-const REASON_LABELS: Record<string, string> = {
-  SPELLING_SIMILAR: '拼写相似',
-  ABSTRACT_MEANING: '词义抽象',
-  RARE_SENSE: '熟词僻义',
-  CN_MEANING_CONFLICT: '中文释义混淆',
-  COLLOCATION_WEAK: '搭配不熟',
-  ROOT_DIVERGENCE: '词根分叉',
-  LACK_CONTEXT: '缺少语境'
-}
+import { FORGET_REASON_LABELS as REASON_LABELS } from '@/lib/forget-reason'
 
 type Tab = 'today' | 'sticking'
 
