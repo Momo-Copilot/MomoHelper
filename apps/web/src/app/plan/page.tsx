@@ -116,7 +116,9 @@ function ExamDateField({
 
 export default function PlanPage()
 {
-  const [window, setWindow] = useState<'30' | '60' | '90'>('30')
+  // 默认 60 天：考研冲刺期真正要看的是「考前那两周会不会爆」，
+  // 30 天往往看不到峰值落在考试附近
+  const [window, setWindow] = useState<'30' | '60' | '90'>('60')
   const [examDate, setDate] = useState<string | null>(null)
   const [dateReady, setDateReady] = useState(false)
   const query = useQuery({ queryKey: QUERY_KEY, queryFn: () => loadLibrary() })
