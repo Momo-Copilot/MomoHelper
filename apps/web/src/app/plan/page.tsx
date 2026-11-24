@@ -78,7 +78,7 @@ function Metric({ label, value, hint, tone }: { label: string; value: string; hi
       >
         {value}
       </p>
-      {hint && <p className="mt-0.5 text-[10px] text-[var(--color-text-subtle)]">{hint}</p>}
+      {hint && <p className="mt-0.5 text-[11px] text-[var(--color-text-subtle)]">{hint}</p>}
     </div>
   )
 }
@@ -333,7 +333,7 @@ export default function PlanPage()
               </p>
               <ExamDateField value={examDate} onChange={updateExamDate} />
               {!hasExam && !past && (
-                <p className="mt-1.5 max-w-[220px] text-[10px] leading-relaxed text-[var(--color-text-subtle)]">
+                <p className="mt-1.5 max-w-[220px] text-[11px] leading-relaxed text-[var(--color-text-subtle)]">
                   设一个日期就能算出每天该学多少、来不来得及。
                 </p>
               )}

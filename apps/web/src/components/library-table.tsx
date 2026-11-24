@@ -317,14 +317,14 @@ export function LibraryTableView({
                           return meta ? (
                             <span
                               key={tag}
-                              className={`rounded-sm px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[10px] font-medium ${meta.className}`}
+                              className={`rounded-sm px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[11px] font-medium ${meta.className}`}
                             >
                               {meta.label}
                             </span>
                           ) : (
                             <span
                               key={tag}
-                              className="rounded-sm bg-[var(--color-bg-subtle)] px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-muted)]"
+                              className="rounded-sm bg-[var(--color-bg-subtle)] px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-muted)]"
                             >
                               {tag}
                             </span>

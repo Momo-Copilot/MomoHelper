@@ -28,7 +28,7 @@ function WeekdayHeader()
       {WEEKDAYS.map((label) => (
         <div
           key={label}
-          className="pb-1 text-center text-[10px] text-[var(--color-text-subtle)]"
+          className="pb-1 text-center text-[11px] text-[var(--color-text-subtle)]"
           aria-hidden
         >
           {label}
@@ -125,7 +125,7 @@ export function ForecastCalendar({ forecast }: { forecast: ForecastDto })
                     onClick={() => setSelected(cell.date)}
                     aria-pressed={selected === cell.date}
                     aria-label={`${cell.date}，${cell.count} 词待复习`}
-                    className={`flex aspect-square items-center justify-center rounded-sm text-[11px] transition-[box-shadow,transform] tabular ${
+                    className={`flex aspect-square items-center justify-center rounded-sm text-[12px] transition-[box-shadow,transform] tabular ${
                       selected === cell.date
                         ? 'ring-2 ring-[var(--color-accent)] ring-offset-1 ring-offset-[var(--color-surface)]'
                         : 'hover:brightness-95'
@@ -154,7 +154,7 @@ export function ForecastCalendar({ forecast }: { forecast: ForecastDto })
       </div>
 
       {/* 图例：只有颜色编码，必须说明方向 */}
-      <div className="mt-4 flex items-center gap-2 text-[10px] text-[var(--color-text-subtle)]">
+      <div className="mt-4 flex items-center gap-2 text-[11px] text-[var(--color-text-subtle)]">
         <span>轻</span>
         {[0, 1, 2, 3, 4].map((level) => (
           <span

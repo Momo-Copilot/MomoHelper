@@ -48,13 +48,18 @@
   --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
 
-  --text-xs: clamp(0.75rem, 0.73rem + 0.1vw, 0.8125rem);
-  --text-sm: clamp(0.8125rem, 0.79rem + 0.15vw, 0.875rem);
-  --text-base: clamp(0.9375rem, 0.91rem + 0.2vw, 1rem);
-  --text-md: clamp(1.0625rem, 1.03rem + 0.25vw, 1.125rem);
-  --text-lg: clamp(1.25rem, 1.19rem + 0.45vw, 1.4375rem);
-  --text-xl: clamp(1.5625rem, 1.45rem + 0.8vw, 1.875rem);
-  --text-3xl: clamp(2.4375rem, 2.1rem + 1.8vw, 3.25rem);
+  /*
+   * 字号阶梯：中文比拉丁需要更大才读得舒服，这一组在原值上整体上浮——
+   * 小字 +1px、标题 +2~5px（标题多给一点，视觉层级才拉得开）。
+   * 改这里一处，全站生效；不要再在组件里写死 px。
+   */
+  --text-xs: clamp(0.84375rem, 0.82rem + 0.12vw, 0.90625rem); /* 13.5 → 14.5 */
+  --text-sm: clamp(0.9375rem, 0.91rem + 0.15vw, 1rem); /* 15 → 16 */
+  --text-base: clamp(1rem, 0.97rem + 0.2vw, 1.0625rem); /* 16 → 17 */
+  --text-md: clamp(1.125rem, 1.09rem + 0.25vw, 1.1875rem); /* 18 → 19 */
+  --text-lg: clamp(1.375rem, 1.25rem + 0.45vw, 1.5625rem); /* 22 → 25 */
+  --text-xl: clamp(1.6875rem, 1.53rem + 0.8vw, 2.0625rem); /* 27 → 33 */
+  --text-3xl: clamp(2.6875rem, 2.35rem + 1.8vw, 3.5625rem); /* 43 → 57 */
 
   /* 圆角：墨墨式友好圆润 */
   --radius-sm: 8px;

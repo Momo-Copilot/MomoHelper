@@ -49,7 +49,7 @@ function Brand()
         <p className="font-[family-name:var(--font-display)] text-[length:var(--text-md)] font-semibold">
           墨小墨
         </p>
-        <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--color-text-subtle)]">
+        <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.22em] text-[var(--color-text-subtle)]">
           Copilot
         </p>
       </div>
@@ -158,7 +158,7 @@ function VersionTag()
   const commit = process.env.NEXT_PUBLIC_COMMIT_SHA ?? ''
 
   return (
-    <p className="px-2 font-[family-name:var(--font-mono)] text-[10px] tracking-wide text-[var(--color-text-subtle)]">
+    <p className="px-2 font-[family-name:var(--font-mono)] text-[11px] tracking-wide text-[var(--color-text-subtle)]">
       {commit ? `v${version} · ${commit}` : `v${version}`}
     </p>
   )
