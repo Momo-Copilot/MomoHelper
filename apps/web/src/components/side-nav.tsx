@@ -47,7 +47,7 @@ function Brand()
       </span>
       <div className="leading-tight">
         <p className="font-[family-name:var(--font-display)] text-[length:var(--text-md)] font-semibold">
-          墨墨 AI 副驾
+          墨小墨
         </p>
         <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.22em] text-[var(--color-text-subtle)]">
           Copilot
