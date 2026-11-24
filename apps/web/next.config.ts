@@ -1,4 +1,6 @@
 import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 import type { NextConfig } from 'next'
 
@@ -10,10 +12,33 @@ import type { NextConfig } from 'next'
  * 构建时注入当前 git commit 短 SHA，线上可核对代码版本。
  * NEXT_PUBLIC_ 前缀让客户端组件可直接读取。
  */
+
+/**
+ * 读本包 package.json 的 version。
+ *
+ * 这里原本直接写死 '0.1.0'，注释却说「来自 package.json」——于是无论发多少版，
+ * 侧栏永远显示 v0.1.0。改成真读，bump package.json 才生效。
+ */
+function readPackageVersion(): string
+{
+  try
+  {
+    const raw = readFileSync(join(process.cwd(), 'package.json'), 'utf8')
+    const pkg = JSON.parse(raw) as { version?: string }
+
+    return pkg.version ?? '0.0.0'
+  }
+  catch
+  {
+    // 读不到就退回占位值，不要让构建因此失败
+    return '0.0.0'
+  }
+}
+
 function readBuildInfo(): { version: string; commit: string }
 {
-  // 优先用 CI 注入的环境变量，本地构建时取 git 实际值
-  const version = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.1.0'
+  // 优先用 CI 注入的环境变量，否则读 package.json
+  const version = process.env.NEXT_PUBLIC_APP_VERSION ?? readPackageVersion()
 
   let commit = process.env.NEXT_PUBLIC_COMMIT_SHA ?? ''
 
