@@ -14,25 +14,39 @@ import type { NextConfig } from 'next'
  */
 
 /**
- * 读本包 package.json 的 version。
+ * 读应用包的 version。
  *
- * 这里原本直接写死 '0.1.0'，注释却说「来自 package.json」——于是无论发多少版，
- * 侧栏永远显示 v0.1.0。改成真读，bump package.json 才生效。
+ * 不能假设构建命令在哪个目录执行：EdgeOne Pages 可能从仓库根跑 `pnpm build`，
+ * 也可能先 `cd apps/web`。前者如果直接读 `cwd/package.json`，拿到的是根包
+ * （version 0.0.0），版本号就会静默变成 0.0.0。所以两个路径都试，并且用
+ * name 字段确认读到的是应用包本身，而不是根包或别的 workspace 包。
  */
 function readPackageVersion(): string
 {
-  try
-  {
-    const raw = readFileSync(join(process.cwd(), 'package.json'), 'utf8')
-    const pkg = JSON.parse(raw) as { version?: string }
+  const candidates = [
+    join(process.cwd(), 'package.json'),
+    join(process.cwd(), 'apps', 'web', 'package.json')
+  ]
 
-    return pkg.version ?? '0.0.0'
-  }
-  catch
+  for (const file of candidates)
   {
-    // 读不到就退回占位值，不要让构建因此失败
-    return '0.0.0'
+    try
+    {
+      const pkg = JSON.parse(readFileSync(file, 'utf8')) as { name?: string; version?: string }
+
+      if (pkg.name === '@momo/web')
+      {
+        return pkg.version ?? '0.0.0'
+      }
+    }
+    catch
+    {
+      // 文件不存在或不是合法 JSON，试下一个
+    }
   }
+
+  // 读不到就退回占位值，不要让构建因此失败
+  return '0.0.0'
 }
 
 function readBuildInfo(): { version: string; commit: string }
