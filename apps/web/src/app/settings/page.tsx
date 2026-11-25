@@ -13,7 +13,7 @@ import {
 import { Icon } from '@/components/icons'
 import { ErrorNote, PageHeader, Segmented, Tile } from '@/components/kit'
 import { verifyDeepSeekKey } from '@/lib/ai'
-import { BackupError, createBackup, fetchBackup, type BackupTarget } from '@/lib/backup'
+import { BackupError, createBackup, fetchBackup, type BackupTarget, type RestoreSource } from '@/lib/backup'
 import { restoreBackup } from '@/lib/backup-restore'
 import { handleGithubCallback, startGithubLogin } from '@/lib/github-oauth'
 import { verifyMaimemoToken } from '@/lib/maimemo'
@@ -93,6 +93,8 @@ export default function SettingsPage()
   const [backupBusy, setBackupBusy] = useState<'backup' | 'restore' | null>(null)
   const [backupNotice, setBackupNotice] = useState<string | null>(null)
   const [backupError, setBackupError] = useState<string | null>(null)
+  /** 已拉回、等待用户确认的远端备份 */
+  const [restorePending, setRestorePending] = useState<RestoreSource | null>(null)
   /** OAuth 登录是否可用（前端配置了 client_id） */
   const oauthClientId = process.env.NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID ?? ''
 
@@ -274,10 +276,17 @@ export default function SettingsPage()
     }
   }
 
-  async function runRestore(): Promise<void>
+  /**
+   * 恢复分两步：先只读远端、把「会写什么」摆出来，用户确认后才动本机。
+   *
+   * 词库快照是这里唯一会被整体替换的数据，点一下就执行太草率；
+   * 先把备份时间与各类数据的规模亮出来，用户才知道自己在恢复哪一份。
+   */
+  async function prepareRestore(): Promise<void>
   {
     setBackupError(null)
     setBackupNotice(null)
+    setRestorePending(null)
 
     const active = activeBinding()
 
@@ -290,14 +299,45 @@ export default function SettingsPage()
 
     try
     {
-      const source = await fetchBackup(backupBindingToConfig(active))
-      const result = await restoreBackup(source)
+      setRestorePending(await fetchBackup(backupBindingToConfig(active)))
+    }
+    catch (error)
+    {
+      setBackupError(
+        error instanceof BackupError
+          ? error.message
+          : `读取远端备份失败：${error instanceof Error ? error.message : '未知错误'}`
+      )
+    }
+    finally
+    {
+      setBackupBusy(null)
+    }
+  }
+
+  async function confirmRestore(): Promise<void>
+  {
+    if (!restorePending)
+    {
+      return
+    }
+
+    setBackupError(null)
+    setBackupNotice(null)
+    setBackupBusy('restore')
+
+    try
+    {
+      const result = await restoreBackup(restorePending)
 
       setBackupNotice(
-        `恢复完成（远端备份时间 ${new Date(source.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}）：` +
+        `恢复完成（远端备份时间 ${new Date(restorePending.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}）：` +
         `诊断合并 ${result.diagnoseMerged} 条 · 词卡补入 ${result.wordCardsMerged} 条` +
-        `${result.libraryRestored ? ' · 词库快照已写回' : ''}${result.settingsApplied ? ' · 已采纳远端思考模式' : ''}。刷新页面生效。`
+        `${result.libraryRestored ? ' · 词库快照已写回' : ''}` +
+        `${result.librarySkipped ? ' · 词库快照保留本机（本机数据更新）' : ''}` +
+        `${result.settingsApplied ? ' · 已采纳远端思考模式' : ''}。刷新页面生效。`
       )
+      setRestorePending(null)
     }
     catch (error)
     {
@@ -765,7 +805,7 @@ export default function SettingsPage()
                 <button
                   type="button"
                   disabled={backupBusy !== null}
-                  onClick={() => void runRestore()}
+                  onClick={() => void prepareRestore()}
                   className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
                 >
                   {backupBusy === 'restore' ? '恢复中…' : '从云端恢复'}
@@ -875,7 +915,7 @@ export default function SettingsPage()
                 <button
                   type="button"
                   disabled={backupBusy !== null}
-                  onClick={() => void runRestore()}
+                  onClick={() => void prepareRestore()}
                   className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
                 >
                   {backupBusy === 'restore' ? '恢复中…' : '从云端恢复'}
@@ -904,6 +944,42 @@ export default function SettingsPage()
             （换设备重新粘贴即可，避免明文凭据上云）。
             {(binding?.target ?? backupTarget) === 'webdav' && ' 若服务不支持跨域，上传会被浏览器拦截，需配置代理后重试。'}
           </p>
+
+          {restorePending && (
+            <div className="mt-4 rounded-md border border-[var(--color-info)]/30 bg-[var(--color-info-bg)] p-4">
+              <p className="text-[length:var(--text-sm)] font-medium text-[var(--color-info)]">确认从云端恢复？</p>
+              <p className="mt-1 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-muted)]">
+                远端备份时间 {new Date(restorePending.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}
+                {' · '}词库快照 {(restorePending.payload.librarySnapshot?.records.length ?? 0).toLocaleString('zh-CN')} 词
+                {' · '}诊断历史 {restorePending.payload.diagnoseHistory.length} 条
+                {' · '}词卡 {Object.keys(restorePending.payload.wordCards ?? {}).length} 张
+              </p>
+              <ul className="mt-2 list-disc space-y-0.5 pl-5 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-muted)]">
+                <li>诊断历史：按时间合并，同一词取更新的一条，不丢本机记录</li>
+                <li>词卡缓存：只补本机没有的词</li>
+                <li>词库快照：仅当远端更新时覆盖，本机更新则保留本机</li>
+                <li>思考模式：本机已配置时不改动</li>
+              </ul>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={backupBusy !== null}
+                  onClick={() => void confirmRestore()}
+                  className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+                >
+                  {backupBusy === 'restore' ? '恢复中…' : '确认恢复'}
+                </button>
+                <button
+                  type="button"
+                  disabled={backupBusy !== null}
+                  onClick={() => setRestorePending(null)}
+                  className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-text)] hover:underline"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {backupError && (

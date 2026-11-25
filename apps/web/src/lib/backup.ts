@@ -4,7 +4,8 @@
  * 备份包（JSON）内容与默认取舍：
  *   - diagnoseHistory：AI 诊断历史（最贵的数据，重生成要再花 AI 调用）
  *   - wordCards：AI 词卡缓存（省重新生成的等待与费用）
- *   - librarySnapshot：词库学习记录快照（丢了也能重拉，但 9 个请求换秒回值得备）
+ *   - librarySnapshot：词库学习记录快照（丢了也能重拉；恢复时仅当远端
+ *     fetchedAt 更新才写回，本机更新则保留本机，避免把当前数据退回去）
  *   - settings：思考模式等非敏感偏好
  *   - 凭据（墨墨 Token / DeepSeek Key）默认不备份：换设备重粘一次即可，
  *     且把明文凭据放进远端仓库的收益远小于泄露风险

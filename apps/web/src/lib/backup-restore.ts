@@ -1,11 +1,10 @@
 /**
  * 备份恢复：把远端拉回的备份包写回本机各存储。
  *
- * 与 backup.ts（打包上传）对应，恢复策略：
+ * 与 backup.ts（打包上传）对应，恢复策略（四类数据一律「不倒退」）：
  *   - diagnoseHistory / wordCards：远端与本机按时间合并（各取最新），
  *     避免覆盖掉本机新产生的记录
- *   - librarySnapshot：仅当本机 IndexedDB 为空或远端更新时整体覆盖
- *     （词库快照内部有时间戳，可比较）
+ *   - librarySnapshot：远端 fetchedAt 更新才整体覆盖，本机更新则跳过
  *   - settings：仅当本机未配置时采纳远端值，本机已配置优先
  */
 
@@ -19,11 +18,16 @@ export interface RestoreResult
   diagnoseMerged: number
   wordCardsMerged: number
   libraryRestored: boolean
+  /** 远端快照比本机旧，主动保留本机数据（不是失败） */
+  librarySkipped: boolean
   settingsApplied: boolean
 }
 
+/** 词库快照写回结果：写回 / 本机更新跳过 / 数据不可用 */
+export type LibraryRestoreAction = 'restored' | 'skipped' | 'failed'
+
 /** 把词库快照写回 IndexedDB；由 library.ts 注册写入器 */
-type LibraryWriter = (payload: NonNullable<BackupPayload['librarySnapshot']>) => Promise<boolean>
+type LibraryWriter = (payload: NonNullable<BackupPayload['librarySnapshot']>) => Promise<LibraryRestoreAction>
 
 let libraryWriter: LibraryWriter | null = null
 
@@ -73,6 +77,7 @@ export async function restoreBackup(source: RestoreSource): Promise<RestoreResul
     diagnoseMerged: 0,
     wordCardsMerged: 0,
     libraryRestored: false,
+    librarySkipped: false,
     settingsApplied: false
   }
 
@@ -117,10 +122,13 @@ export async function restoreBackup(source: RestoreSource): Promise<RestoreResul
     setWordCardsCache(table)
   }
 
-  // 词库快照：写入器可用且远端有数据才恢复
+  // 词库快照：写入器可用且远端有数据才恢复；远端更旧时由写入器返回 skipped
   if (payload.librarySnapshot?.records && libraryWriter)
   {
-    result.libraryRestored = await libraryWriter(payload.librarySnapshot)
+    const action = await libraryWriter(payload.librarySnapshot)
+
+    result.libraryRestored = action === 'restored'
+    result.librarySkipped = action === 'skipped'
   }
 
   // 思考模式：仅本机未配置时采纳远端

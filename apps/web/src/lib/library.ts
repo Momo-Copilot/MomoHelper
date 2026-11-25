@@ -319,11 +319,17 @@ async function readSnapshotForBackup(): Promise<{
   return cached ? { records: cached.records, meta: cached.meta } : null
 }
 
-/** 供 backup-restore.ts 写回快照；IndexedDB 不可用返回 false */
+/**
+ * 供 backup-restore.ts 写回快照。
+ *
+ * 本机快照比远端新时保留本机：恢复是「把云端数据补回来」，不该把当前数据
+ * 退回去。比较用 meta.fetchedAt —— 它是上一次真实拉取的时间，能代表数据新旧。
+ * 返回三态而不是布尔，是为了让 UI 能说清「到底写回了没有」。
+ */
 async function writeSnapshotFromBackup(snapshot: {
   records: unknown[]
   meta: unknown
-}): Promise<boolean>
+}): Promise<'restored' | 'skipped' | 'failed'>
 {
   try
   {
@@ -332,17 +338,31 @@ async function writeSnapshotFromBackup(snapshot: {
 
     if (!Array.isArray(records) || !meta?.fetchedAt)
     {
-      return false
+      return 'failed'
+    }
+
+    const current = await readCache()
+
+    if (current)
+    {
+      const localAt = Date.parse(current.meta.fetchedAt)
+      const remoteAt = Date.parse(meta.fetchedAt)
+
+      // 解析失败（脏数据）时按「本机优先」保守处理，不覆盖
+      if (Number.isNaN(remoteAt) || (!Number.isNaN(localAt) && localAt >= remoteAt))
+      {
+        return 'skipped'
+      }
     }
 
     await replaceRecords(records)
     await putMeta({ ...meta, key: META_KEY })
 
-    return true
+    return 'restored'
   }
   catch
   {
-    return false
+    return 'failed'
   }
 }
 
