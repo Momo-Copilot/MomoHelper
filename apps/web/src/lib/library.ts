@@ -184,6 +184,11 @@ async function writeCache(records: LibraryRecordRowDto[], meta: LibraryMeta): Pr
 {
   try
   {
+    // 先把 meta 落成「不完整」：replaceRecords 要分 16 批写 8000 条，
+    // 中途失败（关页面、配额、被回收）会留下半截记录。若此时旧 meta 还写着
+    // complete=true，页面会把缺了词的快照当成完整数据展示，而且 fetchedAt
+    // 也被沿用，能一直撑到缓存自然过期。先置 false，失败即作废重拉。
+    await putMeta({ ...meta, complete: false })
     await replaceRecords(records)
     await putMeta(meta)
   }
@@ -308,7 +313,10 @@ export async function loadLibrary(
 
 /* ============================ 备份集成 ============================ */
 
-/** 供 backup.ts 读取快照（records + meta），无缓存返回 null */
+/**
+ * 供 backup.ts 读取快照（records + meta），无缓存返回 null。
+ * 只备「完整」快照：半截数据备上去，换设备恢复后统计会偏小。
+ */
 async function readSnapshotForBackup(): Promise<{
   records: unknown[]
   meta: unknown
@@ -316,7 +324,7 @@ async function readSnapshotForBackup(): Promise<{
 {
   const cached = await readCache()
 
-  return cached ? { records: cached.records, meta: cached.meta } : null
+  return cached && cached.meta.complete ? { records: cached.records, meta: cached.meta } : null
 }
 
 /**
@@ -355,6 +363,9 @@ async function writeSnapshotFromBackup(snapshot: {
       }
     }
 
+    // 与 writeCache 同样的顺序：先落「不完整」标记，中途失败就让缓存作废，
+    // 而不是留下半截记录配一份写着 complete=true 的 meta。
+    await putMeta({ ...meta, key: META_KEY, complete: false })
     await replaceRecords(records)
     await putMeta({ ...meta, key: META_KEY })
 
