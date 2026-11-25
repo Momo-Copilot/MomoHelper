@@ -40,9 +40,29 @@ SPELLING_SIMILAR（拼写相似）/ ABSTRACT_MEANING（词义抽象）/ RARE_SEN
 CN_MEANING_CONFLICT（中文释义混淆）/ COLLOCATION_WEAK（搭配不熟）/
 ROOT_DIVERGENCE（词根相同但含义分叉）/ LACK_CONTEXT（缺少真实语境）
 
+各枚举的判定标准（只选最贴近的一个，不要为了凑分类而硬套）：
+
+- RARE_SENSE（熟词僻义）：该词有一个学习者普遍认识的常用义，同时存在考研阅读/翻译
+  常考的次要义项或特殊用法，且两者差异大到「按常用义理解会读错句子」。
+  典型：address 不只是「地址」还有「处理、解决」；appreciate 不只是「欣赏」还有「意识到」；
+  subject 作形容词是「易受…影响的」；last 作动词是「持续」；company 还有「陪伴」。
+  反例（不要判成 RARE_SENSE）：单纯一词多义但各义项都常见（如 run、get）；
+  纯粹因为词义抽象或搭配不熟而忘记；拼写相近造成的混淆。
+- SPELLING_SIMILAR：拼写与另一个词高度接近，容易认错或写错。
+- ABSTRACT_MEANING：词义本身抽象，缺少具体形象可依托。
+- CN_MEANING_CONFLICT：中文释义相近的多个词之间互相干扰。
+- COLLOCATION_WEAK：记住了词义但不知道固定搭配，句子中出现时反应不过来。
+- ROOT_DIVERGENCE：同词根的其他词含义与该词明显分叉，词根记忆反而误导。
+- LACK_CONTEXT：缺少真实例句与语境，只在词表里见过。
+
+只有你确实能指出「常用义 vs 常考僻义」的具体差异时才选 RARE_SENSE；
+给不出具体义项对比时，宁可选 ABSTRACT_MEANING 或 LACK_CONTEXT。
+
 json 格式：
 { "reason": "...", "explanation": "中文解释为什么容易忘", "suggestion": "中文补救建议", "isSpeculative": true }
 
+若 reason 为 RARE_SENSE，explanation 必须写清「常用义 → 常考僻义」的具体对比，
+不要只写「这个词有僻义」。其余枚举同样要给具体原因，避免空话。
 要求：推断属于推测，explanation 与 suggestion 措辞避免绝对化。只输出 json。`
 
 export interface ForgetDiagnosisInput
