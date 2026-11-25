@@ -86,10 +86,16 @@ function PairSide({
           )
         )}
       </button>
-      <span className="tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-        {row.studyCount}
+      {/*
+       * 次数与圆点绑成一个 nowrap 整体：分开时圆点会被单独挤到第二行
+       * （commodity 63 ● 恰好比一列宽几个像素，flex-wrap 就把它拆了）。
+       */}
+      <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+        <span className="tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+          {row.studyCount}
+        </span>
+        <ResponseDot value={row.lastResponse} />
       </span>
-      <ResponseMark value={row.lastResponse} />
       {open && (
         <WordCardPopover
           spelling={row.spelling}
@@ -139,21 +145,20 @@ function KindLabel({ pair }: { pair: ConfusablePair })
 }
 
 /**
- * 作答状态标记：单字 + 语义色。
+ * 作答状态圆点：纯色小点，含义由列表顶部的图例说明。
  *
- * 原先是纯色圆点，没有文字也没有图例 —— 绿点代表什么、红点代表什么，
- * 用户完全无从判断，等于没显示。改成单字（认/模/忘）后自解释，
- * 宽度只比圆点多 8px 左右，不影响两列密度。
+ * 列表里不写字，避免每张卡被「认/模/忘」撑宽或挤到第二行；
+ * 图例承担解释职责，所以这里必须保证颜色与图例完全一致。
  */
-function ResponseMark({ value }: { value?: string | null })
+function ResponseDot({ value }: { value?: string | null })
 {
   const meta =
     value === 'FORGET'
-      ? { label: '忘', title: '最近一次作答：忘记', className: 'bg-[var(--color-forget-bg)] text-[var(--color-forget)]' }
+      ? { color: 'var(--color-forget)', label: '忘记' }
       : value === 'VAGUE'
-        ? { label: '模', title: '最近一次作答：模糊', className: 'bg-[var(--color-vague-bg)] text-[var(--color-vague)]' }
+        ? { color: 'var(--color-vague)', label: '模糊' }
         : value === 'FAMILIAR'
-          ? { label: '认', title: '最近一次作答：认识', className: 'bg-[var(--color-familiar-bg)] text-[var(--color-familiar)]' }
+          ? { color: 'var(--color-familiar)', label: '认识' }
           : null
 
   if (!meta)
@@ -163,11 +168,11 @@ function ResponseMark({ value }: { value?: string | null })
 
   return (
     <span
-      title={meta.title}
-      className={`shrink-0 rounded-sm px-1 py-0.5 text-[10px] font-medium leading-none ${meta.className}`}
-    >
-      {meta.label}
-    </span>
+      title={meta.label}
+      aria-label={meta.label}
+      className="h-1.5 w-1.5 shrink-0 rounded-full"
+      style={{ background: meta.color }}
+    />
   )
 }
 
@@ -396,19 +401,31 @@ export default function ConfusablePage()
               <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 当前显示 {visible.length.toLocaleString('zh-CN')} / {ranked.length.toLocaleString('zh-CN')} 对
               </p>
-              {/* 图例：没有图例的彩色标记等于没说明 */}
+              {/* 图例：列表里只有圆点，含义全靠这里说明 */}
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 <span className="text-[var(--color-text-muted)]">词后数字=学习次数</span>
                 <span className="flex items-center gap-1">
-                  <span className="rounded-sm bg-[var(--color-familiar-bg)] px-1 py-0.5 text-[10px] font-medium leading-none text-[var(--color-familiar)]">认</span>
+                  <span
+                    aria-hidden
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ background: 'var(--color-familiar)' }}
+                  />
                   认识
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="rounded-sm bg-[var(--color-vague-bg)] px-1 py-0.5 text-[10px] font-medium leading-none text-[var(--color-vague)]">模</span>
+                  <span
+                    aria-hidden
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ background: 'var(--color-vague)' }}
+                  />
                   模糊
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="rounded-sm bg-[var(--color-forget-bg)] px-1 py-0.5 text-[10px] font-medium leading-none text-[var(--color-forget)]">忘</span>
+                  <span
+                    aria-hidden
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ background: 'var(--color-forget)' }}
+                  />
                   忘记
                 </span>
               </p>
@@ -419,8 +436,11 @@ export default function ConfusablePage()
              * 按视口写的 xl:grid-cols-2 在 1280 屏下内容区只有 ~950px，
              * 容易出现「明明够宽却还是单列」。auto-fill 直接按真实可用宽度决定列数，
              * 宽屏自动两列、窄屏自动回落单列，不需要维护断点。
+             *
+             * 下限 360px：标记改回圆点后单侧只需约 130px，比 400px 更省横向空间，
+             * 1280 屏下仍稳定两列。
              */}
-            <ul className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-2">
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-2">
               {visible.map((item, index) =>
               {
                 const segments = alignDiff(item.pair.a, item.pair.b)
