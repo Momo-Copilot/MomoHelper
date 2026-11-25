@@ -333,6 +333,7 @@ export default function SettingsPage()
       setBackupNotice(
         `恢复完成（远端备份时间 ${new Date(restorePending.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}）：` +
         `诊断合并 ${result.diagnoseMerged} 条 · 词卡补入 ${result.wordCardsMerged} 条` +
+        `${result.drillMerged > 0 ? ` · 攻坚合并 ${result.drillMerged} 词` : ''}` +
         `${result.libraryRestored ? ' · 词库快照已写回' : ''}` +
         `${result.librarySkipped ? ' · 词库快照保留本机（本机数据更新）' : ''}` +
         `${result.settingsApplied ? ' · 已采纳远端思考模式' : ''}。刷新页面生效。`
@@ -939,7 +940,7 @@ export default function SettingsPage()
           )}
 
           <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
-            备份内容：AI 诊断历史（合并去重）、AI 词卡缓存（只补缺）、词库学习记录快照、思考模式。
+            备份内容：AI 诊断历史（合并去重）、AI 词卡缓存（只补缺）、顽固词攻坚记录（按词取更新）、词库学习记录快照、思考模式。
             <span className="font-medium text-[var(--color-text-muted)]">不含墨墨 Token 与 DeepSeek Key</span>
             （换设备重新粘贴即可，避免明文凭据上云）。
             {(binding?.target ?? backupTarget) === 'webdav' && ' 若服务不支持跨域，上传会被浏览器拦截，需配置代理后重试。'}
@@ -957,6 +958,7 @@ export default function SettingsPage()
               <ul className="mt-2 list-disc space-y-0.5 pl-5 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-muted)]">
                 <li>诊断历史：按时间合并，同一词取更新的一条，不丢本机记录</li>
                 <li>词卡缓存：只补本机没有的词</li>
+                <li>攻坚记录：同一词取作答更新的一方，助记撤回凭据不会丢</li>
                 <li>词库快照：仅当远端更新时覆盖，本机更新则保留本机</li>
                 <li>思考模式：本机已配置时不改动</li>
               </ul>

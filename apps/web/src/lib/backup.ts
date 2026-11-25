@@ -6,6 +6,8 @@
  *   - wordCards：AI 词卡缓存（省重新生成的等待与费用）
  *   - librarySnapshot：词库学习记录快照（丢了也能重拉；恢复时仅当远端
  *     fetchedAt 更新才写回，本机更新则保留本机，避免把当前数据退回去）
+ *   - drill：顽固词攻坚记录（作答历史 / 毕业状态 / 诊断缓存 / 助记 noteId）。
+ *     纯本地数据，丢了等于练过的全白练，所以必须备
  *   - settings：思考模式等非敏感偏好
  *   - 凭据（墨墨 Token / DeepSeek Key）默认不备份：换设备重粘一次即可，
  *     且把明文凭据放进远端仓库的收益远小于泄露风险
@@ -17,6 +19,7 @@
  */
 
 import { getDiagnoseHistory } from './diagnose-history'
+import { loadDrill, type DrillStore } from './drill'
 import { getAiThinkingMode } from './settings'
 import { getWordCardsCache } from './word-card-cache'
 
@@ -34,6 +37,11 @@ export interface BackupPayload
     records: unknown[]
     meta: unknown
   } | null
+  /**
+   * 顽固词攻坚记录（作答历史 / 毕业状态 / 诊断缓存 / 已写入的助记 id）。
+   * 可选：旧备份没有这个字段，恢复时按「无远端记录」处理。
+   */
+  drill?: DrillStore
   settings: {
     aiThinking: 'on' | 'off' | null
   }
@@ -88,6 +96,7 @@ async function buildPayload(): Promise<BackupPayload>
     diagnoseHistory: getDiagnoseHistory(),
     wordCards: getWordCardsCache(),
     librarySnapshot: library,
+    drill: loadDrill(),
     settings: {
       aiThinking: getAiThinkingMode()
     }
