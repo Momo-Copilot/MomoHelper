@@ -85,8 +85,13 @@ interface LocalSnapshot
 }
 
 const SNAPSHOT_KEY = 'momo.dailySnapshots'
-/** 最多保留一年，localStorage 体积可控（每条约 90 字节） */
-const SNAPSHOT_MAX = 366
+/**
+ * 保留上限按「不截断有效数据」定，不按一年卡：
+ * 每条约 90~120 字节，1200 天也不到 150KB；而考研从起手到上考场约 400 天，
+ * 原来的 366 天会在临考前把最早那批记录静默挤掉（slice(-366) 不报错）。
+ * 留这个上限只为防御异常数据，不是为了省空间。
+ */
+const SNAPSHOT_MAX = 1200
 
 function loadSnapshots(): LocalSnapshot[]
 {
