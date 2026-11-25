@@ -81,8 +81,9 @@ export async function diagnoseForget(
 ): Promise<GenerationOutput<ForgetDiagnosis>>
 {
   const result = await client.complete({
-    // V4-Pro 定位深度推理；思考模式由用户选择后经 thinking 透传
-    model: 'deepseek-v4-pro',
+    // 全站统一 deepseek-flash：遗忘诊断是「7 选 1 分类 + 一段解释」，
+    // 不需要深度推理链；批量筛查（熟词僻义页一次 25 个）用 pro 成本差一个量级
+    model: 'deepseek-flash',
     thinking: input.thinking,
     messages: [
       { role: 'system', content: FORGET_SYSTEM_PROMPT },

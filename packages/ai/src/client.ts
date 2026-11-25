@@ -3,15 +3,17 @@
  *
  * 不引入 openai SDK，保持依赖体积精简。
  * 模型分配（deepseek-chat / deepseek-reasoner 已于 2026-07-24 停止使用）：
- *   - 遗忘原因推测 → deepseek-v4-pro
- *   - AI 问词（交互式流式）→ deepseek-flash
+ *   - 全站统一 deepseek-flash（含遗忘诊断、问词、学情解读、词卡补充）
+ *
+ * 曾经把遗忘诊断单独指向 deepseek-v4-pro（定位深度推理），但熟词僻义页要批量
+ * 跑 250+ 个词，pro 的量级成本换不来相应质量提升，已统一回 flash。
  *
  * 思考模式不做代码默认：是否开启由用户在页面上选择后经调用方显式传入
  * （thinking: true / false）；未传时请求不带 thinking 字段，走服务端默认。
  * 开启思考时 temperature 不生效（官方限制，但不会报错）。
  */
 
-export type AiModel = 'deepseek-flash' | 'deepseek-v4-pro'
+export type AiModel = 'deepseek-flash'
 
 /** Key 无效 / 无权限：设置页保存前校验失败走这里，与「接口不可用」区分开 */
 export class AiAuthError extends Error

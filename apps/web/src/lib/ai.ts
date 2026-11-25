@@ -117,7 +117,7 @@ export async function askStream(
   )
 }
 
-/** 遗忘原因诊断：deepseek-v4-pro + 固定七枚举，结合真实学习记录；思考模式由用户选择（FR-3.6） */
+/** 遗忘原因诊断：deepseek-flash + 固定七枚举，结合真实学习记录；思考模式由用户选择（FR-3.6） */
 export async function diagnoseWord(spelling: string, thinking: boolean): Promise<ForgetDiagnosis>
 {
   const ai = getAiClient()
