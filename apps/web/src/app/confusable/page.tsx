@@ -15,7 +15,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useDeferredValue, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 
 import type { LibraryRecordRowDto } from '@momo/types'
 import { MaimemoAuthError } from '@momo/maimemo'
@@ -32,8 +32,13 @@ const QUERY_KEY = ['library'] as const
 
 type SortKey = 'risk' | 'alpha'
 
-/** 显示多少对：词库越大噪音越多，截断到一个页面能看完的量 */
-const DISPLAY_LIMIT = 120
+/**
+ * 首次渲染多少对、每次「显示更多」追加多少对。
+ *
+ * 只控制渲染量，不参与统计：顶部数字始终反映真实检测结果，
+ * 否则会出现「说找到 400 对、列表只有 120 条」的自相矛盾。
+ */
+const DISPLAY_STEP = 120
 
 /** 两词差异高亮：不同处标红，相同处淡化 */
 function DiffPair({ pair }: { pair: ConfusablePair })
@@ -137,8 +142,16 @@ export default function ConfusablePage()
   const [sortKey, setSortKey] = useState<SortKey>('risk')
   const [minStudy, setMinStudy] = useState(0)
   const [keyword, setKeyword] = useState('')
+  /** 当前渲染多少对：切换筛选条件时回到首屏量，避免一次刷出几千条 */
+  const [visibleCount, setVisibleCount] = useState(DISPLAY_STEP)
 
   const deferredKeyword = useDeferredValue(keyword)
+
+  /** 筛选条件变化时重置分页，避免沿用上一次「显示更多」累积的条数 */
+  useEffect(() =>
+  {
+    setVisibleCount(DISPLAY_STEP)
+  }, [sortKey, minStudy, deferredKeyword])
 
   const records = query.data?.records ?? []
 
@@ -163,6 +176,10 @@ export default function ConfusablePage()
    *
    * 用 useMemo 缓存：词库不变就不重算。实测 8000 词约几十毫秒，
    * 首次进页面能感觉到一点点延迟，但比每次过滤都重算好得多。
+   *
+   * limit 设为 Infinity：这里要的是「真实有多少对」，先截断再统计会
+   * 让顶部数字永远卡在上限（曾经写成 400，于是词库再大也只显示 400）。
+   * 渲染量由下面的 visibleCount 单独控制。
    */
   const pairs = useMemo(() =>
   {
@@ -173,10 +190,10 @@ export default function ConfusablePage()
 
     const spellings = records.map((row) => row.spelling).filter((item): item is string => Boolean(item))
 
-    return buildConfusablePairs(spellings, { minLength: 5, limit: 400 })
+    return buildConfusablePairs(spellings, { minLength: 5, limit: Number.POSITIVE_INFINITY })
   }, [records])
 
-  /** 按「两边都练得多/都容易忘」加权后的清单 */
+  /** 按「两边都练得多/都容易忘」加权后的全量清单（不截断，供统计与分页共用） */
   const ranked = useMemo(() =>
   {
     const needle = deferredKeyword.trim().toLowerCase()
@@ -204,8 +221,10 @@ export default function ConfusablePage()
       .sort((a, b) =>
         sortKey === 'risk' ? b.risk - a.risk : a.pair.a.localeCompare(b.pair.a)
       )
-      .slice(0, DISPLAY_LIMIT)
   }, [pairs, bySpelling, minStudy, deferredKeyword, sortKey])
+
+  /** 实际渲染的子集：只在渲染层截断，统计始终走全量 ranked */
+  const visible = ranked.slice(0, visibleCount)
 
   if (query.isPending)
   {
@@ -236,6 +255,7 @@ export default function ConfusablePage()
   }
 
   const riskyCount = ranked.filter((item) => item.study >= 4).length
+  const hasFilter = minStudy > 0 || deferredKeyword.trim().length > 0
 
   return (
     <div>
@@ -258,10 +278,17 @@ export default function ConfusablePage()
             <div>
               <p className="text-[length:var(--text-sm)]">
                 全库 <b className="tabular">{records.length.toLocaleString('zh-CN')}</b> 词中，找到{' '}
-                <b className="tabular text-[var(--color-forget)]">{pairs.length}</b> 对高危混淆
+                <b className="tabular text-[var(--color-forget)]">{ranked.length.toLocaleString('zh-CN')}</b>{' '}
+                对高危混淆
+                {hasFilter && (
+                  <span className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                    （已按当前筛选条件统计）
+                  </span>
+                )}
               </p>
               <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-                其中 {riskyCount} 对你已经反复练过 —— 练得多还像，说明一直在混着记
+                其中 <b className="tabular">{riskyCount.toLocaleString('zh-CN')}</b> 对你已经反复练过（两边合计 ≥ 4 次）
+                —— 练得多还像，说明一直在混着记
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -309,8 +336,11 @@ export default function ConfusablePage()
           />
         ) : (
           <Tile index={1} hover={false} className="col-span-12">
+            <p className="mb-3 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+              当前显示 {visible.length.toLocaleString('zh-CN')} / {ranked.length.toLocaleString('zh-CN')} 对
+            </p>
             <ul className="divide-y divide-[var(--color-border)]">
-              {ranked.map((item, index) => (
+              {visible.map((item, index) => (
                 <li key={`${item.pair.a}|${item.pair.b}`} className="py-4 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -330,6 +360,17 @@ export default function ConfusablePage()
                 </li>
               ))}
             </ul>
+            {visible.length < ranked.length && (
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((count) => count + DISPLAY_STEP)}
+                  className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+                >
+                  再显示 {Math.min(DISPLAY_STEP, ranked.length - visible.length)} 对
+                </button>
+              </div>
+            )}
           </Tile>
         )}
 
