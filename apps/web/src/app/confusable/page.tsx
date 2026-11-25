@@ -89,7 +89,7 @@ function PairSide({
       <span className="tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
         {row.studyCount}
       </span>
-      <ResponseDot value={row.lastResponse} />
+      <ResponseMark value={row.lastResponse} />
       {open && (
         <WordCardPopover
           spelling={row.spelling}
@@ -139,21 +139,21 @@ function KindLabel({ pair }: { pair: ConfusablePair })
 }
 
 /**
- * 作答状态圆点。
+ * 作答状态标记：单字 + 语义色。
  *
- * 这里不用 ResponseBadge 的文字胶囊：两列布局下单侧只有 ~150px，
- * 词 + 次数 + 「模糊」三个元素放不下，徽章会被挤到第二行，
- * 卡片高度参差不齐。圆点保留红/黄/绿语义，文字说明挂在 title 上。
+ * 原先是纯色圆点，没有文字也没有图例 —— 绿点代表什么、红点代表什么，
+ * 用户完全无从判断，等于没显示。改成单字（认/模/忘）后自解释，
+ * 宽度只比圆点多 8px 左右，不影响两列密度。
  */
-function ResponseDot({ value }: { value?: string | null })
+function ResponseMark({ value }: { value?: string | null })
 {
   const meta =
     value === 'FORGET'
-      ? { color: 'var(--color-forget)', label: '忘记' }
+      ? { label: '忘', title: '最近一次作答：忘记', className: 'bg-[var(--color-forget-bg)] text-[var(--color-forget)]' }
       : value === 'VAGUE'
-        ? { color: 'var(--color-vague)', label: '模糊' }
+        ? { label: '模', title: '最近一次作答：模糊', className: 'bg-[var(--color-vague-bg)] text-[var(--color-vague)]' }
         : value === 'FAMILIAR'
-          ? { color: 'var(--color-familiar)', label: '认识' }
+          ? { label: '认', title: '最近一次作答：认识', className: 'bg-[var(--color-familiar-bg)] text-[var(--color-familiar)]' }
           : null
 
   if (!meta)
@@ -163,11 +163,11 @@ function ResponseDot({ value }: { value?: string | null })
 
   return (
     <span
-      title={meta.label}
-      aria-label={meta.label}
-      className="h-1.5 w-1.5 shrink-0 rounded-full"
-      style={{ background: meta.color }}
-    />
+      title={meta.title}
+      className={`shrink-0 rounded-sm px-1 py-0.5 text-[10px] font-medium leading-none ${meta.className}`}
+    >
+      {meta.label}
+    </span>
   )
 }
 
@@ -392,9 +392,27 @@ export default function ConfusablePage()
           />
         ) : (
           <Tile index={1} hover={false} className="col-span-12">
-            <p className="mb-3 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-              当前显示 {visible.length.toLocaleString('zh-CN')} / {ranked.length.toLocaleString('zh-CN')} 对
-            </p>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                当前显示 {visible.length.toLocaleString('zh-CN')} / {ranked.length.toLocaleString('zh-CN')} 对
+              </p>
+              {/* 图例：没有图例的彩色标记等于没说明 */}
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                <span className="text-[var(--color-text-muted)]">词后数字=学习次数</span>
+                <span className="flex items-center gap-1">
+                  <span className="rounded-sm bg-[var(--color-familiar-bg)] px-1 py-0.5 text-[10px] font-medium leading-none text-[var(--color-familiar)]">认</span>
+                  认识
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="rounded-sm bg-[var(--color-vague-bg)] px-1 py-0.5 text-[10px] font-medium leading-none text-[var(--color-vague)]">模</span>
+                  模糊
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="rounded-sm bg-[var(--color-forget-bg)] px-1 py-0.5 text-[10px] font-medium leading-none text-[var(--color-forget)]">忘</span>
+                  忘记
+                </span>
+              </p>
+            </div>
             {/*
              * 两列紧凑排布：每对只占一个小卡。
              * 用 auto-fill + minmax 而不是固定断点：左侧 248px 侧栏会吃掉视口宽度，
@@ -413,14 +431,10 @@ export default function ConfusablePage()
                     className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-3 py-2"
                   >
                     {/*
-                     * 标签固定在右侧（middle 列可伸缩），而不是跟在词后面 flex-wrap：
-                     * 跟在后面时一旦放不下就单独掉到第二行左侧，一个「差1」孤零零
-                     * 挂在行首很怪。固定右列后无论词多长，标签都对齐在同一处。
-                     */}
-                    {/*
-                     * 三栏对称：左词 / 箭头 / 右词。用 grid 而不是 flex-wrap，
-                     * 长词在各自栏内换行，箭头永远停在正中 —— 之前 flex-wrap 会让
-                     * 箭头悬在行尾，两个词上下错开，读起来像断句。
+                     * 三栏对称：左词 / 箭头 / 右词；类型标签固定在最右。
+                     * 用 grid 而不是 flex-wrap：长词在各自栏内换行，箭头永远停在正中
+                     * （flex-wrap 时箭头会悬在行尾，两个词上下错开，读起来像断句）。
+                     * 标签单独占一列，无论词多长都对齐在同一处。
                      */}
                     <div className="flex items-start gap-2">
                       <span className="tabular mt-0.5 shrink-0 font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
@@ -452,10 +466,10 @@ export default function ConfusablePage()
         )}
 
         <p className="col-span-12 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
-          判定方式：纯前端拼写比对，不调 AI。三类信号 ——
-          <b>差 1–2 个字母</b>（affect / effect）、
-          <b>字母顺序颠倒</b>（quiet / quite）、
-          <b>词干延伸</b>（economic / economical）。
+          判定方式：纯前端拼写比对，不调 AI。右侧标签表示差异类型 ——
+          <b>差N</b> 是拼写相差 N 个字母（affect / effect）、
+          <b>颠倒</b> 是字母相同仅顺序不同（quiet / quite）、
+          <b>词干</b> 是一个词是另一个的词干延伸（economic / economical）。
           短于 5 个字母的词不参与（差一字母就换义的噪音太大）。
           排序已把「两边都练过很多遍」的组合提前 —— 练得多还混，才是真的危险。
         </p>
