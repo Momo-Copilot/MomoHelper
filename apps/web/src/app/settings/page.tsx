@@ -12,7 +12,7 @@ import {
 } from '@momo/maimemo'
 import { Icon } from '@/components/icons'
 import { ErrorNote, PageHeader, Segmented, Tile } from '@/components/kit'
-import { verifyDeepSeekKey } from '@/lib/ai'
+import { getAiClient, verifyDeepSeekKey } from '@/lib/ai'
 import { BackupError, createBackup, fetchBackup, type BackupTarget, type RestoreSource } from '@/lib/backup'
 import { restoreBackup } from '@/lib/backup-restore'
 import { handleGithubCallback, startGithubLogin } from '@/lib/github-oauth'
@@ -39,6 +39,90 @@ const BACKUP_TARGET_LABELS: Record<BackupTarget, string> = {
   github: 'GitHub',
   gitee: 'Gitee',
   webdav: 'WebDAV'
+}
+
+/** 币种符号：官方只枚举 CNY / USD，其余原样带上前缀 */
+function currencySymbol(currency: string): string
+{
+  if (currency === 'CNY')
+  {
+    return '¥'
+  }
+
+  if (currency === 'USD')
+  {
+    return '$'
+  }
+
+  return `${currency} `
+}
+
+/**
+ * DeepSeek 余额（GET /user/balance，官方接口不计费）。
+ *
+ * 只在 Key 已配置时渲染。查询失败刻意低调处理：余额是附加信息，不该盖过
+ * 「Key 是否可用」这个主判断——那个在保存流程里已经用 verify 探过了。
+ */
+function AiBalanceHint()
+{
+  const query = useQuery({
+    queryKey: ['settings', 'ai-balance'],
+    queryFn: () => getAiClient().getBalance(),
+    staleTime: 60_000,
+    retry: false
+  })
+
+  if (query.isPending)
+  {
+    return (
+      <p className="mt-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">正在查询余额…</p>
+    )
+  }
+
+  if (query.isError)
+  {
+    return (
+      <p className="mt-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+        {query.error instanceof AiAuthError
+          ? '余额查询失败：Key 已失效'
+          : '余额查询失败：接口暂不可用'}
+      </p>
+    )
+  }
+
+  const { items, isAvailable } = query.data
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:var(--text-xs)]">
+      {items.length === 0 ? (
+        <span className="text-[var(--color-text-subtle)]">余额：—</span>
+      ) : (
+        items.map((item) => (
+          <span key={item.currency} className="text-[var(--color-text-muted)]">
+            余额
+            <b className="ml-1 tabular font-[family-name:var(--font-mono)] text-[var(--color-text)]">
+              {currencySymbol(item.currency)}
+              {item.total.toFixed(2)}
+            </b>
+            <span className="ml-1 text-[var(--color-text-subtle)]">
+              （赠金 {item.granted.toFixed(2)} / 充值 {item.toppedUp.toFixed(2)}）
+            </span>
+          </span>
+        ))
+      )}
+      {!isAvailable && (
+        <span className="text-[var(--color-forget)]">余额不足，AI 调用会被拒绝</span>
+      )}
+      <button
+        type="button"
+        onClick={() => void query.refetch()}
+        disabled={query.isFetching}
+        className="text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-text)] hover:underline disabled:opacity-50"
+      >
+        {query.isFetching ? '刷新中…' : '刷新'}
+      </button>
+    </div>
+  )
 }
 
 /**
@@ -450,6 +534,8 @@ export default function SettingsPage()
       setKeyOk(true)
       setHasKey(true)
       invalidateStatus()
+      // 换了 Key 就要换余额：旧余额属于上一个账号
+      void queryClient.invalidateQueries({ queryKey: ['settings', 'ai-balance'] })
       window.setTimeout(() => setKeyOk(false), 2500)
     },
     onError: (error) =>
@@ -475,6 +561,8 @@ export default function SettingsPage()
       setKeyError(null)
       setHasKey(false)
       invalidateStatus()
+      // 清掉余额缓存，避免清除 Key 后还显示上一个账号的数字
+      queryClient.removeQueries({ queryKey: ['settings', 'ai-balance'] })
     }
   })
 
@@ -645,6 +733,7 @@ export default function SettingsPage()
                 清除
               </button>
             </div>
+            <AiBalanceHint />
           </div>
         ) : (
           <form

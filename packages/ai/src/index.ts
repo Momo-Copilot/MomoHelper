@@ -1,6 +1,8 @@
 export { AiClient, AiAuthError, AiUnavailableError } from './client'
 export type {
   AiModel,
+  AiBalance,
+  AiBalanceItem,
   AiClientOptions,
   ChatMessage,
   CompletionParams,

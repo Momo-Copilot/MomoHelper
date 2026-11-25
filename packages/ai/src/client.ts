@@ -15,6 +15,26 @@
 
 export type AiModel = 'deepseek-flash'
 
+/** 单币种余额；金额单位为该币种的基本单位（元 / 美元） */
+export interface AiBalanceItem
+{
+  /** 官方枚举为 CNY / USD，未识别时原样透传 */
+  currency: string
+  /** 总可用（赠金 + 充值） */
+  total: number
+  /** 未过期的赠金 */
+  granted: number
+  /** 充值余额 */
+  toppedUp: number
+}
+
+export interface AiBalance
+{
+  /** false = 余额不足以继续调用 API */
+  isAvailable: boolean
+  items: AiBalanceItem[]
+}
+
 /** Key 无效 / 无权限：设置页保存前校验失败走这里，与「接口不可用」区分开 */
 export class AiAuthError extends Error
 {
@@ -175,6 +195,77 @@ export class AiClient
     })
   }
 
+  /**
+   * 查询账号余额（GET /user/balance，官方文档「查询余额」）。
+   *
+   * 与补全接口共用同一个 Key；接口本身不计费。金额在官方响应里是**字符串**
+   * （避免浮点误差），这里转成 number 只用于展示与判断，展示时统一 toFixed(2)。
+   *
+   * 返回是按币种分组的数组：一个账号可能同时有 CNY 与 USD 余额，
+   * 不能假设只有一条。isAvailable 为 false 表示余额耗尽、调用会被拒。
+   */
+  async getBalance(): Promise<AiBalance>
+  {
+    let response: Response
+
+    try
+    {
+      response = await fetch(`${this.baseUrl}/user/balance`, {
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          Accept: 'application/json'
+        }
+      })
+    }
+    catch
+    {
+      throw new AiUnavailableError()
+    }
+
+    if (response.status === 401 || response.status === 403)
+    {
+      throw new AiAuthError()
+    }
+
+    if (!response.ok)
+    {
+      const text = await response.text().catch(() => '')
+
+      throw new AiUnavailableError(
+        `DeepSeek 余额接口错误 HTTP ${response.status}${text ? `: ${text.slice(0, 200)}` : ''}`
+      )
+    }
+
+    const raw = (await response.json()) as {
+      is_available?: unknown
+      balance_infos?: unknown
+    }
+
+    const infos = Array.isArray(raw.balance_infos) ? raw.balance_infos : []
+    const items: AiBalanceItem[] = []
+
+    for (const rawItem of infos)
+    {
+      const info = rawItem as Record<string, unknown>
+      const total = toAmount(info.total_balance)
+
+      // 没有可用总额的条目直接跳过：展示层不需要一个「余额未知」的币种
+      if (total === null)
+      {
+        continue
+      }
+
+      items.push({
+        currency: typeof info.currency === 'string' ? info.currency : 'CNY',
+        total,
+        granted: toAmount(info.granted_balance) ?? 0,
+        toppedUp: toAmount(info.topped_up_balance) ?? 0
+      })
+    }
+
+    return { isAvailable: raw.is_available === true, items }
+  }
+
   /** 流式补全（SSE），逐段回调增量文本，用于 AI 问词（NFR-1.3 首字 < 3s） */
   async streamComplete(
     params: CompletionParams,
@@ -278,4 +369,25 @@ export class AiClient
       }
     }
   }
+}
+
+/**
+ * 官方金额字段是字符串（如 "110.00"），避免浮点误差。
+ * 转成 number 只用于展示与判断；解析不了返回 null，由调用方决定跳过。
+ */
+function toAmount(value: unknown): number | null
+{
+  if (typeof value === 'number')
+  {
+    return Number.isFinite(value) ? value : null
+  }
+
+  if (typeof value !== 'string')
+  {
+    return null
+  }
+
+  const parsed = Number.parseFloat(value)
+
+  return Number.isFinite(parsed) ? parsed : null
 }
