@@ -113,6 +113,14 @@ function AiBalanceHint()
       {!isAvailable && (
         <span className="text-[var(--color-forget)]">余额不足，AI 调用会被拒绝</span>
       )}
+      <a
+        href="https://platform.deepseek.com/usage"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[var(--color-accent)] underline-offset-4 transition-colors hover:underline"
+      >
+        充值 / 用量 ↗
+      </a>
       <button
         type="button"
         onClick={() => void query.refetch()}
