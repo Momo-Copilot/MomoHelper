@@ -232,7 +232,13 @@ const SLEEP_BUCKETS: { key: string; label: string; min: number; max: number }[] 
 /** 沉睡风险口径：距上次学习 >= 30 天 */
 const SLEEPING_THRESHOLD = 30
 
-/** 每词「开始学习日」：first_study_date 缺失时回退 add_date（接口必返字段） */
+/**
+ * 每词「开始学习日」：first_study_date 缺失时回退 add_date。
+ *
+ * 只给考前推演（analyzeExamPlan）的速度口径用。学情统计一律直接读
+ * first_study_date —— add_date 是「加进计划」的日期，几年前的批量导入
+ * 会被误当成学习日，把 1 天的数据撑成几千天（见 analyzeReport 口径说明）。
+ */
 function startedDayOf(record: LibraryRecordRowDto): string | null
 {
   return beijingDayOf(record.firstStudyDate) ?? beijingDayOf(record.addDate)
@@ -264,7 +270,10 @@ function addDays(date: string, n: number): string
  * 学情快照聚合（纯函数，零 AI）：日粒度新学曲线、沉睡词、断更区间、复习峰值。
  *
  * 口径说明（写给将来接 AI 解读时的自己）：
- * - 「开始学习」= first_study_date，缺失回退 add_date（spec 必返），单日分母永远完整
+ * - 「开始学习」只认 first_study_date，不用 add_date 兜底：add_date 是「加进
+ *   计划」而非「学过」，拿它兜底会把几年前批量导入的词书当成首学日，跨度、
+ *   断更区间、新学曲线全线失真，最终把只有 1 天数据的人判成 rich 档，
+ *   AI 因此获准谈长期趋势（2026-11 修复）
  * - 「沉睡」只统计已学词（last_study_date 存在），分母是已学词数
  * - 复习分布只看未来（next_study_date >= 今天）；过期日期会出现在墨墨当日
  *   计划里，属于今日看板的职责，这里不重复统计
@@ -286,7 +295,8 @@ export function analyzeReport(
 
   for (const record of records)
   {
-    const started = startedDayOf(record)
+    // 只认真正开始学习的日期，不回退 add_date（见函数头口径说明）
+    const started = beijingDayOf(record.firstStudyDate)
 
     if (started)
     {
