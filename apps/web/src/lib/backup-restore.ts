@@ -10,11 +10,11 @@
  *   - settings：仅当本机未配置时采纳远端值，本机已配置优先
  */
 
-import { getDiagnoseHistory, saveDiagnosis, type DiagnoseRecord } from './diagnose-history'
+import { findDiagnosis, getDiagnoseHistory, saveDiagnosis, type DiagnoseRecord } from './diagnose-history'
 import type { BackupPayload, RestoreSource } from './backup'
 import { loadDrill, saveDrill, type DrillStore, type DrillWordState } from './drill'
 import { setWordCardsCache } from './word-card-cache'
-import { setAiThinkingMode } from './settings'
+import { setAiThinkingMode, setExamDate, getExamDate } from './settings'
 
 export interface RestoreResult
 {
@@ -22,6 +22,8 @@ export interface RestoreResult
   wordCardsMerged: number
   /** 攻坚记录：远端带来了更新的训练状态，或补齐了缺失的 noteId */
   drillMerged: number
+  /** 攻坚台独有的诊断回填进诊断历史的条数 */
+  diagnoseBackfilled: number
   libraryRestored: boolean
   /** 远端快照比本机旧，主动保留本机数据（不是失败） */
   librarySkipped: boolean
@@ -137,6 +139,61 @@ function mergeDrill(
   return { store: { words }, merged }
 }
 
+/**
+ * 把攻坚台独有的诊断回填进诊断历史。
+ *
+ * 背景：攻坚台点「诊断」时只写 drill state（recordDiagnosis），
+ * 从不写 diagnoseHistory；而遗忘词页诊断只写 diagnoseHistory。
+ * 两条路径各存一份，导致 drill 里 259 条诊断中有 244 条在历史里查不到，
+ * 且重叠的几条内容还不一致。
+ *
+ * 回填规则：历史里没有该词、或 drill 的那条更新时才补，不覆盖更新的本机记录。
+ * 返回补入条数。
+ */
+function backfillDiagnoseFromDrill(store: DrillStore): number
+{
+  let filled = 0
+
+  for (const state of Object.values(store.words))
+  {
+    if (!state?.diagnosis || !state.spelling)
+    {
+      continue
+    }
+
+    const diag = state.diagnosis
+
+    if (!diag.reason || typeof diag.at !== 'string')
+    {
+      continue
+    }
+
+    const existing = findDiagnosis(state.spelling)
+
+    if (existing && existing.at >= diag.at)
+    {
+      continue
+    }
+
+    // drill 只存了 reason/explanation/suggestion，缺少 isSpeculative。
+    // 按「诊断恒为推测」的既有约定补 true（与 forgetReasonSchema 默认值一致）。
+    saveDiagnosis(
+      state.spelling,
+      {
+        reason: diag.reason as DiagnoseRecord['data']['reason'],
+        explanation: diag.explanation,
+        suggestion: diag.suggestion,
+        isSpeculative: true
+      },
+      false,
+      diag.at
+    )
+    filled++
+  }
+
+  return filled
+}
+
 export async function restoreBackup(source: RestoreSource): Promise<RestoreResult>
 {
   const { payload } = source
@@ -144,6 +201,7 @@ export async function restoreBackup(source: RestoreSource): Promise<RestoreResul
     diagnoseMerged: 0,
     wordCardsMerged: 0,
     drillMerged: 0,
+    diagnoseBackfilled: 0,
     libraryRestored: false,
     librarySkipped: false,
     settingsApplied: false
@@ -154,7 +212,9 @@ export async function restoreBackup(source: RestoreSource): Promise<RestoreResul
 
   for (const record of merged)
   {
-    saveDiagnosis(record.spelling, record.data, record.thinking)
+    // 必须带原始 at：否则恢复后所有记录时间都变成「刚才」，
+    // 下次再恢复时「取更新的一条」就再也比不出先后了
+    saveDiagnosis(record.spelling, record.data, record.thinking, record.at)
   }
 
   result.diagnoseMerged = merged.length
@@ -166,6 +226,11 @@ export async function restoreBackup(source: RestoreSource): Promise<RestoreResul
 
     saveDrill(drill.store)
     result.drillMerged = drill.merged
+
+    // 攻坚台把诊断存在自己那份 state 里，历史上并不回写 diagnoseHistory，
+    // 于是同一个词会出现「drill 里有诊断、历史里没有」的分裂。
+    // 恢复时把 drill 独有的诊断补进历史，让两边收敛到同一份。
+    result.diagnoseBackfilled = backfillDiagnoseFromDrill(drill.store)
   }
 
   // 词卡缓存：远端有而本机没有的词补进来（时间戳旧的会被 TTL 自然淘汰）
@@ -189,7 +254,12 @@ export async function restoreBackup(source: RestoreSource): Promise<RestoreResul
 
     for (const [key, value] of Object.entries(payload.wordCards))
     {
-      if (!table[key])
+      const mine = table[key] as { at?: string } | undefined
+      const theirs = value as { at?: string } | undefined
+
+      // 本机没有 → 补入；本机有但更旧 → 用远端覆盖。
+      // 原先只补缺，导致「本机是旧版简卡、远端是完整卡」时永远不更新。
+      if (!mine || (theirs?.at && (!mine.at || theirs.at > mine.at)))
       {
         table[key] = value
         result.wordCardsMerged++
@@ -214,6 +284,15 @@ export async function restoreBackup(source: RestoreSource): Promise<RestoreResul
   if (!getAiThinkingModeLocal() && (remoteThinking === 'on' || remoteThinking === 'off'))
   {
     setAiThinkingMode(remoteThinking)
+    result.settingsApplied = true
+  }
+
+  // 考试日期：本机未设置时才采纳远端（旧备份没这个字段，按未设置处理）
+  const remoteExam = payload.settings?.examDate ?? null
+
+  if (!getExamDate() && remoteExam && /^\d{4}-\d{2}-\d{2}$/.test(remoteExam))
+  {
+    setExamDate(remoteExam)
     result.settingsApplied = true
   }
 

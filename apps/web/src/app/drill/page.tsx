@@ -19,6 +19,7 @@ import type { FocusWordDto } from '@momo/types'
 import { Icon } from '@/components/icons'
 import { PageHeader, Tile, TileSkeleton } from '@/components/kit'
 import { diagnoseWord } from '@/lib/ai'
+import { saveDiagnosis } from '@/lib/diagnose-history'
 import {
   DAILY_GOAL,
   GRADUATE_STREAK,
@@ -186,17 +187,25 @@ export default function DrillPage()
     mutationFn: (word: FocusWordDto) => diagnoseWord(word.spelling, getAiThinkingMode() === 'on'),
     onSuccess: (data, word) =>
     {
+      const at = new Date().toISOString()
+
       setStore((prev) =>
       {
         const next = recordDiagnosis(prev, word, {
           reason: data.reason,
           explanation: data.explanation,
           suggestion: data.suggestion,
-          at: new Date().toISOString()
+          at
         })
         saveDrill(next)
         return next
       })
+
+      // 同步写一份进诊断历史。
+      // 攻坚台原先把诊断只存在 drill state 里，遗忘词页只写 diagnoseHistory，
+      // 两条路径各存一套：备份里 259 条 drill 诊断有 244 条在历史中查不到，
+      // 重叠的几条内容还不一致。「诊断过哪些词」应当是同一份数据。
+      saveDiagnosis(word.spelling, data, getAiThinkingMode() === 'on', at)
     },
     onError: (error) =>
     {

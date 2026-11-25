@@ -20,7 +20,7 @@
 
 import { getDiagnoseHistory } from './diagnose-history'
 import { loadDrill, type DrillStore } from './drill'
-import { getAiThinkingMode } from './settings'
+import { getAiThinkingMode, getExamDate } from './settings'
 import { getWordCardsCache } from './word-card-cache'
 
 const BACKUP_VERSION = 1
@@ -44,6 +44,8 @@ export interface BackupPayload
   drill?: DrillStore
   settings: {
     aiThinking: 'on' | 'off' | null
+    /** 考试日期 YYYY-MM-DD；旧备份没有这个字段 */
+    examDate?: string | null
   }
 }
 
@@ -86,19 +88,107 @@ export function registerLibraryReader(reader: LibraryReader): void
   libraryReader = reader
 }
 
+/**
+ * 兜底加载词库模块，确保注册器已挂上。
+ *
+ * 注册是副作用，只在 library.ts 被求值时执行。而设置页只 import 了
+ * backup/backup-restore，从不 import library —— 用户直接进设置页点备份时，
+ * 注册没发生，libraryReader 为 null，备份包里 librarySnapshot 恒为 null。
+ * 表现是「备份成功」，实际词库根本没进去，且因为库是按路由懒加载的，
+ * 先逛过词库页再回设置页又恰好正常，很容易漏测。
+ *
+ * 动态 import 让注册与「是否访问过词库页」解耦。
+ */
+async function ensureLibraryRegistered(): Promise<void>
+{
+  if (libraryReader)
+  {
+    return
+  }
+
+  try
+  {
+    await import('./library')
+  }
+  catch
+  {
+    // 词库模块加载失败（旧浏览器无 IndexedDB 等）时照常备份其余数据，
+    // 不因为一个可选字段让整次备份失败
+  }
+}
+
+/**
+ * 备份前瘦身：drill 里与诊断历史重复的诊断不再重复打包。
+ *
+ * 实测一份备份 240KB 里有 167KB 是 drill 中 259 条诊断全文，
+ * 而同一个词在 diagnoseHistory 往往已有同一份（或更新的一份）。
+ * 备份包里同一内容存两遍，既浪费体积，恢复时又可能带出两份不一致。
+ *
+ * 规则（只影响备份产物，不改本机存储）：按词比较，若历史里那条的 at 不早于
+ * drill 的，就丢掉 drill 的 diagnosis —— 恢复时 backfillDiagnoseFromDrill
+ * 会从历史照常还原，语义不变；若 drill 的那条更新，则保留，避免丢新数据。
+ */
+function slimDrillForBackup(store: DrillStore, history: unknown[]): DrillStore
+{
+  /** spelling(小写) → 历史里该词最新一条的 at */
+  const historyAt = new Map<string, string>()
+
+  for (const item of history)
+  {
+    const record = item as { spelling?: string; at?: string }
+
+    if (!record?.spelling || typeof record.at !== 'string')
+    {
+      continue
+    }
+
+    const key = record.spelling.toLowerCase()
+    const prev = historyAt.get(key)
+
+    if (!prev || record.at > prev)
+    {
+      historyAt.set(key, record.at)
+    }
+  }
+
+  const words: DrillStore['words'] = {}
+
+  for (const [vocId, state] of Object.entries(store.words ?? {}))
+  {
+    const diag = state?.diagnosis
+    const known = state?.spelling ? historyAt.get(state.spelling.toLowerCase()) : undefined
+
+    if (!diag?.at || !known || known < diag.at)
+    {
+      words[vocId] = state
+      continue
+    }
+
+    // 历史里已有同词且不更旧 → 包里不再重复
+    const { diagnosis: _dropped, ...rest } = state
+    words[vocId] = rest as typeof state
+  }
+
+  return { words }
+}
+
 async function buildPayload(): Promise<BackupPayload>
 {
+  await ensureLibraryRegistered()
+
   const library = libraryReader ? await libraryReader() : null
+  const diagnoseHistory = getDiagnoseHistory()
 
   return {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    diagnoseHistory: getDiagnoseHistory(),
+    diagnoseHistory,
     wordCards: getWordCardsCache(),
     librarySnapshot: library,
-    drill: loadDrill(),
+    drill: slimDrillForBackup(loadDrill(), diagnoseHistory),
     settings: {
-      aiThinking: getAiThinkingMode()
+      aiThinking: getAiThinkingMode(),
+      examDate: getExamDate()
     }
   }
 }

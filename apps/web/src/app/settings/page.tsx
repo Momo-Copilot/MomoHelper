@@ -15,7 +15,11 @@ import { ErrorNote, PageHeader, Segmented, Tile } from '@/components/kit'
 import { getAiClient, verifyDeepSeekKey } from '@/lib/ai'
 import { BackupError, createBackup, fetchBackup, type BackupTarget, type RestoreSource } from '@/lib/backup'
 import { restoreBackup } from '@/lib/backup-restore'
+import { getDiagnoseHistory } from '@/lib/diagnose-history'
+import { loadDrill } from '@/lib/drill'
 import { handleGithubCallback, startGithubLogin } from '@/lib/github-oauth'
+import { peekLibraryCache } from '@/lib/library'
+import { getWordCardsCache } from '@/lib/word-card-cache'
 import { verifyMaimemoToken } from '@/lib/maimemo'
 import {
   backupBindingToConfig,
@@ -187,6 +191,8 @@ export default function SettingsPage()
   const [backupError, setBackupError] = useState<string | null>(null)
   /** 已拉回、等待用户确认的远端备份 */
   const [restorePending, setRestorePending] = useState<RestoreSource | null>(null)
+  /** 本机现有数据量，用于恢复前与远端对照 */
+  const [localCounts, setLocalCounts] = useState({ library: 0, diagnose: 0, wordCards: 0, drill: 0 })
   /** OAuth 登录是否可用（前端配置了 client_id） */
   const oauthClientId = process.env.NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID ?? ''
 
@@ -391,7 +397,16 @@ export default function SettingsPage()
 
     try
     {
-      setRestorePending(await fetchBackup(backupBindingToConfig(active)))
+      const source = await fetchBackup(backupBindingToConfig(active))
+
+      // 读本机数据量，供确认框做「远端 vs 本机」对照
+      setLocalCounts({
+        library: (await peekLibraryCache())?.records.length ?? 0,
+        diagnose: getDiagnoseHistory().length,
+        wordCards: Object.keys(getWordCardsCache()).length,
+        drill: Object.keys(loadDrill().words).length
+      })
+      setRestorePending(source)
     }
     catch (error)
     {
@@ -424,11 +439,13 @@ export default function SettingsPage()
 
       setBackupNotice(
         `恢复完成（远端备份时间 ${new Date(restorePending.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}）：` +
-        `诊断合并 ${result.diagnoseMerged} 条 · 词卡补入 ${result.wordCardsMerged} 条` +
+        `诊断合并 ${result.diagnoseMerged} 条` +
+        `${result.diagnoseBackfilled > 0 ? `（另从攻坚记录补入 ${result.diagnoseBackfilled} 条）` : ''}` +
+        ` · 词卡补入 ${result.wordCardsMerged} 条` +
         `${result.drillMerged > 0 ? ` · 攻坚合并 ${result.drillMerged} 词` : ''}` +
         `${result.libraryRestored ? ' · 词库快照已写回' : ''}` +
         `${result.librarySkipped ? ' · 词库快照保留本机（本机数据更新）' : ''}` +
-        `${result.settingsApplied ? ' · 已采纳远端思考模式' : ''}。刷新页面生效。`
+        `${result.settingsApplied ? ' · 已采纳远端偏好设置' : ''}。刷新页面生效。`
       )
       setRestorePending(null)
     }
@@ -1048,16 +1065,51 @@ export default function SettingsPage()
               <p className="text-[length:var(--text-sm)] font-medium text-[var(--color-info)]">确认从云端恢复？</p>
               <p className="mt-1 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-muted)]">
                 远端备份时间 {new Date(restorePending.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}
-                {' · '}词库快照 {(restorePending.payload.librarySnapshot?.records.length ?? 0).toLocaleString('zh-CN')} 词
-                {' · '}诊断历史 {restorePending.payload.diagnoseHistory.length} 条
-                {' · '}词卡 {Object.keys(restorePending.payload.wordCards ?? {}).length} 张
               </p>
+              {/* 远端 vs 本机对照：只说远端有多少，用户无法判断这是「补数据」还是「基本重来」 */}
+              <table className="mt-2 w-full text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
+                <thead>
+                  <tr className="text-[var(--color-text-subtle)]">
+                    <th className="py-1 text-left font-normal">数据</th>
+                    <th className="py-1 text-right font-normal">远端</th>
+                    <th className="py-1 text-right font-normal">本机</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="py-0.5">词库快照</td>
+                    <td className="tabular py-0.5 text-right">
+                      {(restorePending.payload.librarySnapshot?.records.length ?? 0).toLocaleString('zh-CN')} 词
+                    </td>
+                    <td className="tabular py-0.5 text-right">{localCounts.library.toLocaleString('zh-CN')} 词</td>
+                  </tr>
+                  <tr>
+                    <td className="py-0.5">诊断历史</td>
+                    <td className="tabular py-0.5 text-right">{restorePending.payload.diagnoseHistory.length} 条</td>
+                    <td className="tabular py-0.5 text-right">{localCounts.diagnose} 条</td>
+                  </tr>
+                  <tr>
+                    <td className="py-0.5">词卡缓存</td>
+                    <td className="tabular py-0.5 text-right">
+                      {Object.keys(restorePending.payload.wordCards ?? {}).length} 张
+                    </td>
+                    <td className="tabular py-0.5 text-right">{localCounts.wordCards} 张</td>
+                  </tr>
+                  <tr>
+                    <td className="py-0.5">攻坚记录</td>
+                    <td className="tabular py-0.5 text-right">
+                      {Object.keys(restorePending.payload.drill?.words ?? {}).length} 词
+                    </td>
+                    <td className="tabular py-0.5 text-right">{localCounts.drill} 词</td>
+                  </tr>
+                </tbody>
+              </table>
               <ul className="mt-2 list-disc space-y-0.5 pl-5 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-muted)]">
                 <li>诊断历史：按时间合并，同一词取更新的一条，不丢本机记录</li>
-                <li>词卡缓存：只补本机没有的词</li>
+                <li>词卡缓存：本机缺失或更旧时用远端覆盖</li>
                 <li>攻坚记录：同一词取作答更新的一方，助记撤回凭据不会丢</li>
                 <li>词库快照：仅当远端更新时覆盖，本机更新则保留本机</li>
-                <li>思考模式：本机已配置时不改动</li>
+                <li>偏好设置（思考模式 / 考试日期）：本机已配置时不改动</li>
               </ul>
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button
