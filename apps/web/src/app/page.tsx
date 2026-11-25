@@ -268,6 +268,8 @@ export default function DashboardPage()
 
   const data = query.data
   const rate = data.completionRate ?? 0
+  /** 降级快照拿不到遗忘数（null）：此时不弹遗忘预览，也不占额外卡片位 */
+  const forgotten = data.forgottenWords ?? 0
   const ringR = 62
   const ringC = 2 * Math.PI * ringR
 
@@ -386,8 +388,8 @@ export default function DashboardPage()
                   <Icon name={metric.icon} className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
-                  <dd className="num-in tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xl)] font-semibold leading-tight" key={data[metric.key]}>
-                    {data[metric.key]}
+                  <dd className="num-in tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xl)] font-semibold leading-tight" key={data[metric.key] ?? 'unknown'}>
+                    {data[metric.key] ?? '—'}
                   </dd>
                   <dt className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                     {metric.label}
@@ -465,12 +467,12 @@ export default function DashboardPage()
         </Tile>
 
         {/* 今日遗忘词预览（条件出现） */}
-        {data.forgottenWords > 0 && (
+        {forgotten > 0 && (
           <Tile index={4} className="col-span-12 border-l-4 !border-l-[var(--color-forget)]">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-[length:var(--text-sm)]">
                 <span className="tabular font-[family-name:var(--font-mono)] font-semibold text-[var(--color-forget)]">
-                  {data.forgottenWords}
+                  {forgotten}
                 </span>{' '}
                 个词今日首次作答遗忘，建议进入诊断。
               </p>
@@ -489,7 +491,7 @@ export default function DashboardPage()
         <ReportTeaser />
 
         {/* 今日词表明细：全部词逐行展示 + 双筛选（复用看板数据，无额外请求） */}
-        <Tile index={data.forgottenWords > 0 ? 5 : 4} hover={false} className="col-span-12">
+        <Tile index={forgotten > 0 ? 5 : 4} hover={false} className="col-span-12">
           <TodayWordsCard words={data.todayWords} />
         </Tile>
       </div>

@@ -117,7 +117,14 @@ function upsertSnapshot(snapshot: LocalSnapshot): void
   }
 }
 
-/** 最近一次快照转看板数据：dataReliable = false，UI 标注「可能不是最新」（C2）；快照不存词表明细，todayWords 为空 */
+/**
+ * 最近一次快照转看板数据：dataReliable = false，UI 标注「可能不是最新」（C2）；
+ * 快照不存词表明细，todayWords 为空。
+ *
+ * 四分项一律给 null（未知）而不是 0：快照里没有逐词明细，回算不出新词 / 复习 /
+ * 未完成 / 遗忘，填 0 会让接口故障看起来像「今天没学习」。
+ * 唯一的例外是 newWords / reviewWords —— 后来的快照存了这两个数，有就用。
+ */
 function latestSnapshotAsToday(): DashboardTodayDto
 {
   const list = loadSnapshots()
@@ -132,10 +139,10 @@ function latestSnapshotAsToday(): DashboardTodayDto
       remaining: 0,
       studyTimeMs: 0,
       completionRate: null,
-      newWords: 0,
-      reviewWords: 0,
-      unfinishedWords: 0,
-      forgottenWords: 0,
+      newWords: null,
+      reviewWords: null,
+      unfinishedWords: null,
+      forgottenWords: null,
       dataReliable: false,
       capturedAt: new Date().toISOString(),
       todayWords: emptyWords
@@ -148,10 +155,11 @@ function latestSnapshotAsToday(): DashboardTodayDto
     remaining: Math.max(0, snapshot.total - snapshot.finished),
     studyTimeMs: snapshot.studyTimeMs,
     completionRate: snapshot.total === 0 ? null : snapshot.finished / snapshot.total,
-    newWords: 0,
-    reviewWords: 0,
-    unfinishedWords: 0,
-    forgottenWords: 0,
+    // 旧快照没有这两个字段（后加的），缺失时同样是未知
+    newWords: snapshot.newWords ?? null,
+    reviewWords: snapshot.reviewWords ?? null,
+    unfinishedWords: null,
+    forgottenWords: null,
     dataReliable: false,
     capturedAt: snapshot.capturedAt,
     todayWords: emptyWords

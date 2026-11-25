@@ -91,10 +91,15 @@ export interface DashboardTodayDto
   studyTimeMs: number
   /** total = 0 时返回 null，不出现除零 */
   completionRate: number | null
-  newWords: number
-  reviewWords: number
-  unfinishedWords: number
-  forgottenWords: number
+  /**
+   * 今日四分项。null = 这一项拿不到（不是 0）：
+   * 学习接口不可用时降级到本地快照，而快照不存逐词明细，无法回算这四个数。
+   * UI 必须区分「0 个」和「不知道」，否则会把接口故障显示成「今天没学」。
+   */
+  newWords: number | null
+  reviewWords: number | null
+  unfinishedWords: number | null
+  forgottenWords: number | null
   dataReliable: boolean
   capturedAt: string
   /** 今日词表明细（dataReliable = false 时为空——快照不存词表） */

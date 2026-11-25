@@ -267,8 +267,11 @@ export function ReportInsightTile({
     // 上一次留下（或页面滚动误判）的 false 不能带进新一轮生成
     followRef.current = true
 
-    // 今日数据：读看板查询缓存（['dashboard', 'today']），没有就只带全库指标
-    const dashboard = queryClient.getQueryData<DashboardTodayDto>(['dashboard', 'today'])
+    // 今日数据：读看板查询缓存（['dashboard', 'today']），没有就只带全库指标。
+    // 降级快照（dataReliable = false）没有逐词明细，四分项都是未知，不能进摘要——
+    // 否则 AI 会把「拿不到数据」写成「今天一个词都没学」。
+    const cachedDashboard = queryClient.getQueryData<DashboardTodayDto>(['dashboard', 'today'])
+    const dashboard = cachedDashboard?.dataReliable ? cachedDashboard : undefined
     const summary = buildReportSummary(report, stats, dashboard, truncated)
 
     try
