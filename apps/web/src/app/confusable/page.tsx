@@ -15,18 +15,16 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { LibraryRecordRowDto } from '@momo/types'
 import { MaimemoAuthError } from '@momo/maimemo'
 import { Icon } from '@/components/icons'
 import { EmptyTile, ErrorNote, PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
-import { ResponseBadge } from '@/components/response-badge'
 import { WordCardPopover } from '@/components/word-card'
-import { alignDiff, buildConfusablePairs, type ConfusablePair } from '@/lib/similar-words'
+import { alignDiff, buildConfusablePairs, type ConfusablePair, type DiffSegment } from '@/lib/similar-words'
 import { loadLibrary } from '@/lib/library'
 import { MaimemoNotConfiguredError } from '@/lib/maimemo'
-import { useRef } from 'react'
 
 const QUERY_KEY = ['library'] as const
 
@@ -40,71 +38,33 @@ type SortKey = 'risk' | 'alpha'
  */
 const DISPLAY_STEP = 120
 
-/** 两词差异高亮：不同处标红，相同处淡化 */
-function DiffPair({ pair }: { pair: ConfusablePair })
-{
-  const segments = alignDiff(pair.a, pair.b)
-
-  return (
-    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-      <span className="font-[family-name:var(--font-display)] text-[length:var(--text-md)]">
-        {segments.map((segment, index) =>
-          segment.same ? (
-            <span key={index}>{segment.a}</span>
-          ) : (
-            <span
-              key={index}
-              className="rounded-sm bg-[var(--color-forget-bg)] px-0.5 font-semibold text-[var(--color-forget)]"
-            >
-              {segment.a || '∅'}
-            </span>
-          )
-        )}
-      </span>
-      <span className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">↔</span>
-      <span className="font-[family-name:var(--font-display)] text-[length:var(--text-md)]">
-        {segments.map((segment, index) =>
-          segment.same ? (
-            <span key={index}>{segment.b}</span>
-          ) : (
-            <span
-              key={index}
-              className="rounded-sm bg-[var(--color-forget-bg)] px-0.5 font-semibold text-[var(--color-forget)]"
-            >
-              {segment.b || '∅'}
-            </span>
-          )
-        )}
-      </span>
-    </div>
-  )
-}
-
-/** 差异类型说明 */
-function KindLabel({ pair }: { pair: ConfusablePair })
-{
-  const meta =
-    pair.kind === 'anagram'
-      ? { label: '字母相同·顺序不同', className: 'bg-[var(--color-vague-bg)] text-[var(--color-vague)]' }
-      : pair.kind === 'affix'
-        ? { label: '词干延伸', className: 'bg-[var(--color-bg-subtle)] text-[var(--color-text-muted)]' }
-        : { label: `差 ${pair.distance} 个字母`, className: 'bg-[var(--color-forget-bg)] text-[var(--color-forget)]' }
-
-  return (
-    <span className={`rounded-sm px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[11px] font-medium ${meta.className}`}>
-      {meta.label}
-    </span>
-  )
-}
-
-/** 可点单词：弹词卡看细节 */
-function WordChip({ row }: { row: LibraryRecordRowDto })
+/**
+ * 词对的一侧：差异高亮 + 学习数据合成一处。
+ *
+ * 早先这里是两个组件——DiffPair 画高亮、WordChip 画次数与标签，
+ * 结果每个词在同一张卡里出现两遍，一张卡要吃四行，留白浪费严重。
+ * 合并后每个词只出现一次，一对词压到一行内。
+ */
+function PairSide({
+  segments,
+  side,
+  row
+}: {
+  segments: DiffSegment[]
+  side: 'a' | 'b'
+  row?: LibraryRecordRowDto
+})
 {
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
+  if (!row)
+  {
+    return null
+  }
+
   return (
-    <span className="relative inline-flex items-center gap-2">
+    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5">
       <button
         ref={buttonRef}
         type="button"
@@ -113,17 +73,23 @@ function WordChip({ row }: { row: LibraryRecordRowDto })
         title="点击查看词条释义"
         className="font-[family-name:var(--font-display)] text-[length:var(--text-sm)] underline decoration-[var(--color-border-strong)] decoration-dotted underline-offset-4 transition-colors hover:decoration-[var(--color-accent)]"
       >
-        {row.spelling}
+        {segments.map((segment, index) =>
+          segment.same ? (
+            <span key={index}>{segment[side]}</span>
+          ) : (
+            <span
+              key={index}
+              className="rounded-sm bg-[var(--color-forget-bg)] px-0.5 font-semibold text-[var(--color-forget)]"
+            >
+              {segment[side] || '∅'}
+            </span>
+          )
+        )}
       </button>
       <span className="tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-        {row.studyCount} 次
+        {row.studyCount}
       </span>
-      <ResponseBadge value={row.lastResponse} />
-      {row.tags.includes('STICKING') && (
-        <span className="rounded-sm bg-[var(--color-forget-bg)] px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-forget)]">
-          顽固
-        </span>
-      )}
+      <ResponseDot value={row.lastResponse} />
       {open && (
         <WordCardPopover
           spelling={row.spelling}
@@ -132,6 +98,76 @@ function WordChip({ row }: { row: LibraryRecordRowDto })
         />
       )}
     </span>
+  )
+}
+
+/** 差异类型说明 */
+function KindLabel({ pair }: { pair: ConfusablePair })
+{
+  /**
+   * 标签压到 2–4 个汉字：完整说法挂在 title 上。
+   * 原来写「字母相同·顺序不同」占 90px，卡片里塞不下两个词 + 两处标记，
+   * 结果每条都折成两行，两列布局的密度优势被抵消掉一半。
+   */
+  const meta =
+    pair.kind === 'anagram'
+      ? {
+          label: '颠倒',
+          title: '字母相同，只是顺序不同',
+          className: 'bg-[var(--color-vague-bg)] text-[var(--color-vague)]'
+        }
+      : pair.kind === 'affix'
+        ? {
+            label: '词干',
+            title: '一个是另一个的词干延伸',
+            className: 'bg-[var(--color-bg-subtle)] text-[var(--color-text-muted)]'
+          }
+        : {
+            label: `差${pair.distance}`,
+            title: `拼写相差 ${pair.distance} 个字母`,
+            className: 'bg-[var(--color-forget-bg)] text-[var(--color-forget)]'
+          }
+
+  return (
+    <span
+      title={meta.title}
+      className={`shrink-0 rounded-sm px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[11px] font-medium ${meta.className}`}
+    >
+      {meta.label}
+    </span>
+  )
+}
+
+/**
+ * 作答状态圆点。
+ *
+ * 这里不用 ResponseBadge 的文字胶囊：两列布局下单侧只有 ~150px，
+ * 词 + 次数 + 「模糊」三个元素放不下，徽章会被挤到第二行，
+ * 卡片高度参差不齐。圆点保留红/黄/绿语义，文字说明挂在 title 上。
+ */
+function ResponseDot({ value }: { value?: string | null })
+{
+  const meta =
+    value === 'FORGET'
+      ? { color: 'var(--color-forget)', label: '忘记' }
+      : value === 'VAGUE'
+        ? { color: 'var(--color-vague)', label: '模糊' }
+        : value === 'FAMILIAR'
+          ? { color: 'var(--color-familiar)', label: '认识' }
+          : null
+
+  if (!meta)
+  {
+    return null
+  }
+
+  return (
+    <span
+      title={meta.label}
+      aria-label={meta.label}
+      className="h-1.5 w-1.5 shrink-0 rounded-full"
+      style={{ background: meta.color }}
+    />
   )
 }
 
@@ -257,6 +293,15 @@ export default function ConfusablePage()
   const riskyCount = ranked.filter((item) => item.study >= 4).length
   const hasFilter = minStudy > 0 || deferredKeyword.trim().length > 0
 
+  /**
+   * 覆盖度：墨墨只返回已安排复习（有 next_study_date）的词，
+   * 接口总数往往大于实际取到的条数。用「已读取」而不是「全库」，
+   * 再补一行说明缺的那部分查不到，避免把结论说成覆盖全部词库。
+   */
+  const loaded = records.length
+  const expected = query.data?.total ?? loaded
+  const isComplete = (query.data?.complete ?? false) && loaded >= expected
+
   return (
     <div>
       <PageHeader
@@ -273,11 +318,22 @@ export default function ConfusablePage()
       />
 
       <div className="grid grid-cols-12 gap-4">
+        {!isComplete && (
+          <p className="col-span-12 flex items-start gap-2 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] px-4 py-2.5 text-[length:var(--text-sm)] text-[var(--color-vague)]">
+            <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              只取到 {loaded.toLocaleString('zh-CN')} 条，接口总数 {expected.toLocaleString('zh-CN')}
+              条。差额多为未安排复习的词（没有 next_study_date），墨墨接口暂不提供按此筛选的查询，
+              易混词检测只覆盖已进入复习计划的词。
+            </span>
+          </p>
+        )}
+
         <Tile index={0} hover={false} className="col-span-12">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-[length:var(--text-sm)]">
-                全库 <b className="tabular">{records.length.toLocaleString('zh-CN')}</b> 词中，找到{' '}
+                已读取 <b className="tabular">{loaded.toLocaleString('zh-CN')}</b> 词中，找到{' '}
                 <b className="tabular text-[var(--color-forget)]">{ranked.length.toLocaleString('zh-CN')}</b>{' '}
                 对高危混淆
                 {hasFilter && (
@@ -339,26 +395,47 @@ export default function ConfusablePage()
             <p className="mb-3 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
               当前显示 {visible.length.toLocaleString('zh-CN')} / {ranked.length.toLocaleString('zh-CN')} 对
             </p>
-            <ul className="divide-y divide-[var(--color-border)]">
-              {visible.map((item, index) => (
-                <li key={`${item.pair.a}|${item.pair.b}`} className="py-4 first:pt-0 last:pb-0">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="tabular font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-                          {String(index + 1).padStart(2, '0')}
-                        </span>
-                        <DiffPair pair={item.pair} />
-                        <KindLabel pair={item.pair} />
+            {/*
+             * 两列紧凑排布：每对只占一个小卡。
+             * 用 auto-fill + minmax 而不是固定断点：左侧 248px 侧栏会吃掉视口宽度，
+             * 按视口写的 xl:grid-cols-2 在 1280 屏下内容区只有 ~950px，
+             * 容易出现「明明够宽却还是单列」。auto-fill 直接按真实可用宽度决定列数，
+             * 宽屏自动两列、窄屏自动回落单列，不需要维护断点。
+             */}
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-2">
+              {visible.map((item, index) =>
+              {
+                const segments = alignDiff(item.pair.a, item.pair.b)
+
+                return (
+                  <li
+                    key={`${item.pair.a}|${item.pair.b}`}
+                    className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-3 py-2"
+                  >
+                    {/*
+                     * 标签固定在右侧（middle 列可伸缩），而不是跟在词后面 flex-wrap：
+                     * 跟在后面时一旦放不下就单独掉到第二行左侧，一个「差1」孤零零
+                     * 挂在行首很怪。固定右列后无论词多长，标签都对齐在同一处。
+                     */}
+                    {/*
+                     * 三栏对称：左词 / 箭头 / 右词。用 grid 而不是 flex-wrap，
+                     * 长词在各自栏内换行，箭头永远停在正中 —— 之前 flex-wrap 会让
+                     * 箭头悬在行尾，两个词上下错开，读起来像断句。
+                     */}
+                    <div className="flex items-start gap-2">
+                      <span className="tabular mt-0.5 shrink-0 font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <div className="grid min-w-0 flex-1 grid-cols-[1fr_auto_1fr] items-start gap-x-2">
+                        <PairSide segments={segments} side="a" row={item.left} />
+                        <span className="text-[length:var(--text-xs)] leading-5 text-[var(--color-text-subtle)]">↔</span>
+                        <PairSide segments={segments} side="b" row={item.right} />
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-                        {item.left && <WordChip row={item.left} />}
-                        {item.right && <WordChip row={item.right} />}
-                      </div>
+                      <KindLabel pair={item.pair} />
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
             {visible.length < ranked.length && (
               <div className="mt-4 flex justify-center">
@@ -377,7 +454,7 @@ export default function ConfusablePage()
         <p className="col-span-12 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
           判定方式：纯前端拼写比对，不调 AI。三类信号 ——
           <b>差 1–2 个字母</b>（affect / effect）、
-          <b>字母相同但顺序不同</b>（quiet / quite）、
+          <b>字母顺序颠倒</b>（quiet / quite）、
           <b>词干延伸</b>（economic / economical）。
           短于 5 个字母的词不参与（差一字母就换义的噪音太大）。
           排序已把「两边都练过很多遍」的组合提前 —— 练得多还混，才是真的危险。
