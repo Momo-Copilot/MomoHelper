@@ -23,14 +23,15 @@ import { loadDrill, recordDiagnosis, saveDrill, type DrillDiagnosis, type DrillS
 import { getStickingWords } from '@/lib/maimemo'
 import { getAiThinkingMode } from '@/lib/settings'
 
-/** 每次最多诊断几个：AI 调用串行，太多会让人等太久 */
-const BATCH = 6
+/** 每批诊断多少个：AI 串行调用，25 个约 1~2 分钟 */
+const BATCH = 25
 
 export default function RarePage()
 {
   const [store, setStore] = useState<DrillStore>({ words: {} })
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [auto, setAuto] = useState(false)
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [error, setError] = useState<string | null>(null)
 
@@ -60,7 +61,12 @@ export default function RarePage()
   )
 
   const pending = useMemo(
-    () => candidates.filter((word) => !store.words[word.vocId]?.diagnosis),
+    () =>
+      candidates
+        .filter((word) => !store.words[word.vocId]?.diagnosis)
+        // 学习次数多的先查：学了很多遍还记不住，最可能是「只记住了常见义」。
+        // 按接口原顺序（下次复习日期）取批，最可疑的词可能排在两百名开外。
+        .sort((a, b) => (b.studyCount ?? 0) - (a.studyCount ?? 0)),
     [candidates, store]
   )
 
@@ -113,12 +119,29 @@ export default function RarePage()
           ? cause.message
           : '诊断中断了，可能是 AI Key 未配置或接口限流'
       )
+      // 出错就别继续连着打接口，让用户先看清原因
+      setAuto(false)
     }
     finally
     {
       setBusy(false)
     }
   }
+
+  // 连续诊断：每批跑完自动接下一批，直到没有待诊断的词或用户取消。
+  // 依赖里放 pending.length 而不是 pending 本身，避免每次 setStore 都重跑。
+  useEffect(
+    () =>
+    {
+      if (!auto || busy || !ready || pending.length === 0)
+      {
+        return
+      }
+
+      void diagnoseBatch()
+    },
+    [auto, busy, ready, pending.length]
+  )
 
   if (sticking.isPending || !ready)
   {
@@ -159,24 +182,36 @@ export default function RarePage()
                 {pending.length > 0 && `，还有 ${pending.length} 个没看过`}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void diagnoseBatch()}
-              disabled={busy || pending.length === 0}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-4 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Icon name="zap" className="h-4 w-4" />
-              {busy
-                ? `诊断中 ${progress.done}/${progress.total}`
-                : pending.length === 0
-                  ? '全部诊断过了'
-                  : `诊断下一批（${Math.min(BATCH, pending.length)} 个）`}
-            </button>
+            <div className="flex flex-col items-stretch gap-2 sm:items-end">
+              <button
+                type="button"
+                onClick={() => void diagnoseBatch()}
+                disabled={busy || pending.length === 0}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-[var(--color-accent)] px-4 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Icon name="zap" className="h-4 w-4" />
+                {busy
+                  ? `诊断中 ${progress.done}/${progress.total}`
+                  : pending.length === 0
+                    ? '全部诊断过了'
+                    : `诊断下一批（${Math.min(BATCH, pending.length)} 个）`}
+              </button>
+              <label className="flex items-center gap-1.5 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                <input
+                  type="checkbox"
+                  checked={auto}
+                  disabled={pending.length === 0}
+                  onChange={(event) => setAuto(event.target.checked)}
+                  className="h-3.5 w-3.5 accent-[var(--color-accent)]"
+                />
+                连续诊断（跑完自动接下一批）
+              </label>
+            </div>
           </div>
 
           {busy && (
             <p className="mt-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-              每个词要调一次 AI，串行跑完大约需要半分钟，别关页面。
+              本批 {progress.total} 个词串行诊断中，每个一次 AI 调用，别关页面。
             </p>
           )}
 
@@ -230,8 +265,8 @@ export default function RarePage()
         )}
 
         <p className="col-span-12 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
-          判定方式：对顽固词逐个调 AI 诊断，原因为「熟词僻义」的收进这里。墨墨不提供官方释义，
-          所以无法按释义数量筛选——只能靠 AI 结合你的学习记录推断。诊断结果缓存在本机，
+          判定方式：只覆盖墨墨标为「顽固」的词（不是整个词库——官方不提供释义，无法按释义数量筛），
+          按学习次数从高到低逐个调 AI 诊断，原因判为「熟词僻义」的收进这里。诊断结果缓存在本机，
           和攻坚台共用，不会重复消耗额度。
         </p>
       </div>
