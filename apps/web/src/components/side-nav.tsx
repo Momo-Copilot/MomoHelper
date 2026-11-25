@@ -16,6 +16,7 @@ const ITEMS: { href: string; label: string; icon: IconName }[] = [
   { href: '/forget', label: '遗忘词', icon: 'trending-down' },
   { href: '/drill', label: '攻坚', icon: 'zap' },
   { href: '/rare', label: '僻义', icon: 'search' },
+  { href: '/confusable', label: '易混', icon: 'swap' },
   { href: '/cloud', label: '词云', icon: 'cloud' },
   { href: '/ask', label: '问词', icon: 'message' },
   { href: '/report', label: '学情', icon: 'clipboard' },
