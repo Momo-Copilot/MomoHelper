@@ -7,10 +7,25 @@ import type { NextConfig } from 'next'
  * 静态导出：产物 apps/web/out 交由 EdgeOne Pages 托管；
  * 同源 /api/memo/* 由 edge-functions 下的代理函数处理。
  *
- * 版本号方案：apps/web/package.json 的 version 是唯一真相源（semver）。
- * 改代码时按性质手动 bump：feat 升 minor、fix/chore 升 patch、里程碑升 major。
+ * 版本号方案：apps/web/package.json 的 version 是唯一真相源（semver），
  * 构建期读该文件，EdgeOne Git 集成自动部署无需额外环境变量。
  * 发正式版本时可用 NEXT_PUBLIC_APP_VERSION 覆盖整个版本号。
+ *
+ * ── 什么时候 bump（重要，别按 commit 数升）─────────────────────────
+ * 曾经的做法是「每个提交都动版本号」，结果 3 小时里从 0.2.1 连跳到 0.4.0，
+ * 9 个版本号对应 9 个 commit，其中大半是同一模块的连续微调。版本号被
+ * 快速烧掉，反而失去「这个版本大概是什么状态」的指示作用。
+ *
+ * 现在的规则 —— 按「交付批次」bump，不是按提交：
+ *   - 一次交付 = 一个功能做完 / 一批修复告一段落，才动一次版本号
+ *   - 同一模块连续修补（如配色、间距、单行折行），只在最后那次 bump
+ *   - 只改了内部实现、对用户无感的（重构、注释、依赖升级）不 bump
+ *   - feat 升 minor；fix/chore/polish 升 patch；里程碑才升 major
+ *
+ * 小版本号是稀缺资源：0.x 阶段总共有 100 个 patch 位，1.0.0 留给
+ * 「核心功能稳定、可对外推荐使用」那一刻，不该被日常微调消耗掉。
+ * 需要区分具体代码版本用 git SHA（侧栏已显示），不必靠版本号。
+ * ────────────────────────────────────────────────────────────────
  */
 
 /** 从 config 自身位置定位 package.json，避免 EdgeOne 构建 cwd 不同读错文件 */
