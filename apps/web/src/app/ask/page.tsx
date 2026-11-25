@@ -4,6 +4,7 @@ import Link from 'next/link'
 
 import { useEffect, useRef, useState } from 'react'
 
+import { AiAuthError } from '@momo/ai'
 import { Icon } from '@/components/icons'
 import { Markdown } from '@/components/markdown'
 import { ErrorNote, PageHeader, Tile } from '@/components/kit'
@@ -99,6 +100,11 @@ export default function AskPage()
       if (err instanceof DOMException && err.name === 'AbortError')
       {
         // 忽略
+      }
+      else if (err instanceof AiAuthError)
+      {
+        // Key 失效：给可执行的下一步，而不是把 HTTP 401 甩给用户
+        setError('DeepSeek Key 已失效或无效，请到「设置」页重新填写')
       }
       else
       {

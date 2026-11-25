@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import type { DashboardTodayDto, LibraryStatsDto, ReportSnapshotDto } from '@momo/types'
+import { AiAuthError } from '@momo/ai'
 import { Icon } from '@/components/icons'
 import { Tile } from '@/components/kit'
 import { AiNotConfiguredError } from '@/lib/ai'
@@ -293,6 +294,11 @@ export function ReportInsightTile({
       if (err instanceof AiNotConfiguredError)
       {
         setNeedKey(true)
+      }
+      else if (err instanceof AiAuthError)
+      {
+        // Key 失效：与「未配置」区分——一个要去填，一个要去换
+        setError('DeepSeek Key 已失效或无效，请到「设置」页重新填写')
       }
       else
       {

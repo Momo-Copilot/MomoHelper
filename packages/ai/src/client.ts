@@ -198,9 +198,26 @@ export class AiClient
       })
     })
 
-    if (!response.ok || !response.body)
+    // 401 / 403 必须与「接口不可用」分开：前者要引导用户去设置页换 Key，
+    // 后者只需提示稍后重试。流式与非流式（complete）的错误分类保持一致，
+    // 否则同一个失效 Key，问词页说「HTTP 401」、诊断却说「请检查 API Key」。
+    if (response.status === 401 || response.status === 403)
     {
-      throw new Error(`DeepSeek 流式接口错误 HTTP ${response.status}`)
+      throw new AiAuthError()
+    }
+
+    if (!response.ok)
+    {
+      const text = await response.text().catch(() => '')
+
+      throw new AiUnavailableError(
+        `DeepSeek 流式接口错误 HTTP ${response.status}${text ? `: ${text.slice(0, 200)}` : ''}`
+      )
+    }
+
+    if (!response.body)
+    {
+      throw new AiUnavailableError('DeepSeek 返回了空响应体，无法读取流式内容')
     }
 
     const reader = response.body.getReader()
