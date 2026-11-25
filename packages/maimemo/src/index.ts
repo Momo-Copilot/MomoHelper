@@ -19,7 +19,7 @@ export type {
   QueryFilteredStudyRecordsResult
 } from './study'
 export { listNotepads } from './notepads'
-export { createNote, deleteNote } from './notes'
+export { createNote, deleteNote, findNoteByBody } from './notes'
 export type { CreateNoteInput } from './notes'
 export {
   getVocabularyBySpelling,

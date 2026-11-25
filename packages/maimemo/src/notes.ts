@@ -11,7 +11,7 @@ import { z } from 'zod'
 
 import type { MaimemoClient } from './client'
 import { MaimemoApiError } from './errors'
-import type { MaimemoNote } from './vocabulary'
+import { listNotes, type MaimemoNote } from './vocabulary'
 
 const noteSchema = z.object({
   id: z.string(),
@@ -62,4 +62,23 @@ export async function createNote(
 export async function deleteNote(client: MaimemoClient, id: string): Promise<void>
 {
   await client.request<void>('DELETE', `/notes/${encodeURIComponent(id)}`)
+}
+
+/**
+ * 按正文查这个词是否已经写入过同一条助记。
+ *
+ * 用在「创建失败后」：墨墨对不接受的 note_type 返回 500，但这个 500 也可能
+ * 来自「其实已经写进去了，只是响应没回来」。盲目换类型重试会写出两条，
+ * 而本地只能记住最后一条 id，第一条就撤回不了——所以重试前必须核对一次。
+ */
+export async function findNoteByBody(
+  client: MaimemoClient,
+  vocId: string,
+  note: string
+): Promise<MaimemoNote | null>
+{
+  const notes = await listNotes(client, vocId)
+  const target = note.trim()
+
+  return notes.find((item) => item.note.trim() === target) ?? null
 }

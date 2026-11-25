@@ -10,7 +10,7 @@
  * 否则正在看的词会突然跳走。
  */
 
-import { MaimemoAuthError, createNote, deleteNote } from '@momo/maimemo'
+import { MaimemoAuthError, createNote, deleteNote, findNoteByBody } from '@momo/maimemo'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
@@ -207,7 +207,11 @@ export default function DrillPage()
     let failure: unknown = null
 
     // 类型不被接受时墨墨返回的是 500 而不是参数错误，没法从错误码区分，
-    // 只能按顺序试：APP 标准类型 → 带句点的写法
+    // 只能按顺序试：APP 标准类型 → 带句点的写法。
+    //
+    // 但「500」也可能是「其实写进去了，只是响应没回来」。直接换类型重试会写出
+    // 两条，而本地只记得住最后一条 id，第一条就撤回不了——所以每次失败先按
+    // 正文核对一次，已写入就当成功；401 则直接中止（换类型也还是 401）。
     for (const noteType of NOTE_TYPES)
     {
       try
@@ -218,6 +222,26 @@ export default function DrillPage()
       catch (error)
       {
         failure = error
+
+        if (error instanceof MaimemoAuthError)
+        {
+          break
+        }
+
+        try
+        {
+          const existing = await findNoteByBody(client, current.vocId, body)
+
+          if (existing)
+          {
+            created = existing
+            break
+          }
+        }
+        catch
+        {
+          // 核对失败不改变结论：带着原始错误继续下一个类型
+        }
       }
     }
 
