@@ -123,6 +123,95 @@ function upsertSnapshot(snapshot: LocalSnapshot): void
   }
 }
 
+/* ============================ 备份集成 ============================ */
+
+/**
+ * 每日快照的备份读写。
+ *
+ * 这份数据是全站唯一「不可重建」的：墨墨接口只返回当前学习状态，
+ * 不提供「某天学了几个词、花了多久」。一旦换设备或清站点数据，
+ * 今日页的连续打卡、学情页的 14 天趋势与热力图会直接断掉，
+ * 靠重新拉取永远补不回来 —— 所以必须进备份包。
+ *
+ * 快照本身就是普通对象数组，这里只做结构校验，不额外包装。
+ */
+export function readDailySnapshotsForBackup(): LocalSnapshot[]
+{
+  return loadSnapshots()
+}
+
+/**
+ * 从备份写回：按 date 合并，同一天取 capturedAt 更新的一条。
+ *
+ * 不整体替换：本机可能有备份之后新产生的日期，覆盖会把它们抹掉。
+ * 返回合并后实际写入的条数（含被更新的同日记录）。
+ */
+export function mergeDailySnapshotsFromBackup(incoming: unknown[]): number
+{
+  if (!Array.isArray(incoming) || incoming.length === 0)
+  {
+    return 0
+  }
+
+  try
+  {
+    /** date → 快照，同一天择优 */
+    const byDate = new Map<string, LocalSnapshot>()
+
+    for (const item of loadSnapshots())
+    {
+      if (item?.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date))
+      {
+        byDate.set(item.date, item)
+      }
+    }
+
+    let written = 0
+
+    for (const raw of incoming)
+    {
+      const snap = raw as LocalSnapshot
+
+      // 脏数据直接跳过：date 是合并键，capturedAt 决定同日择优，缺一不可
+      if (!snap?.date || !/^\d{4}-\d{2}-\d{2}$/.test(snap.date))
+      {
+        continue
+      }
+
+      if (typeof snap.capturedAt !== 'string' || Number.isNaN(Date.parse(snap.capturedAt)))
+      {
+        continue
+      }
+
+      const mine = byDate.get(snap.date)
+
+      if (!mine || snap.capturedAt > (mine.capturedAt ?? ''))
+      {
+        byDate.set(snap.date, snap)
+        written++
+      }
+    }
+
+    if (written === 0)
+    {
+      return 0
+    }
+
+    const merged = [...byDate.values()]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-SNAPSHOT_MAX)
+
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(merged))
+
+    return written
+  }
+  catch
+  {
+    // 存储满 / 隐私模式：不因备份恢复失败影响其它数据写回
+    return 0
+  }
+}
+
 /**
  * 最近一次快照转看板数据：dataReliable = false，UI 标注「可能不是最新」（C2）；
  * 快照不存词表明细，todayWords 为空。

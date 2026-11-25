@@ -19,6 +19,7 @@ import { getDiagnoseHistory } from '@/lib/diagnose-history'
 import { loadDrill } from '@/lib/drill'
 import { handleGithubCallback, startGithubLogin } from '@/lib/github-oauth'
 import { peekLibraryCache } from '@/lib/library'
+import { readDailySnapshotsForBackup } from '@/lib/maimemo'
 import { getWordCardsCache } from '@/lib/word-card-cache'
 import { verifyMaimemoToken } from '@/lib/maimemo'
 import {
@@ -192,7 +193,7 @@ export default function SettingsPage()
   /** 已拉回、等待用户确认的远端备份 */
   const [restorePending, setRestorePending] = useState<RestoreSource | null>(null)
   /** 本机现有数据量，用于恢复前与远端对照 */
-  const [localCounts, setLocalCounts] = useState({ library: 0, diagnose: 0, wordCards: 0, drill: 0 })
+  const [localCounts, setLocalCounts] = useState({ library: 0, diagnose: 0, wordCards: 0, drill: 0, daily: 0 })
   /** OAuth 登录是否可用（前端配置了 client_id） */
   const oauthClientId = process.env.NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID ?? ''
 
@@ -404,7 +405,8 @@ export default function SettingsPage()
         library: (await peekLibraryCache())?.records.length ?? 0,
         diagnose: getDiagnoseHistory().length,
         wordCards: Object.keys(getWordCardsCache()).length,
-        drill: Object.keys(loadDrill().words).length
+        drill: Object.keys(loadDrill().words).length,
+        daily: readDailySnapshotsForBackup().length
       })
       setRestorePending(source)
     }
@@ -443,6 +445,7 @@ export default function SettingsPage()
         `${result.diagnoseBackfilled > 0 ? `（另从攻坚记录补入 ${result.diagnoseBackfilled} 条）` : ''}` +
         ` · 词卡补入 ${result.wordCardsMerged} 条` +
         `${result.drillMerged > 0 ? ` · 攻坚合并 ${result.drillMerged} 词` : ''}` +
+        `${result.dailySnapshotsMerged > 0 ? ` · 每日记录补入 ${result.dailySnapshotsMerged} 天` : ''}` +
         `${result.libraryRestored ? ' · 词库快照已写回' : ''}` +
         `${result.librarySkipped ? ' · 词库快照保留本机（本机数据更新）' : ''}` +
         `${result.settingsApplied ? ' · 已采纳远端偏好设置' : ''}。刷新页面生效。`
@@ -1102,12 +1105,22 @@ export default function SettingsPage()
                     </td>
                     <td className="tabular py-0.5 text-right">{localCounts.drill} 词</td>
                   </tr>
+                  <tr>
+                    <td className="py-0.5">每日记录</td>
+                    <td className="tabular py-0.5 text-right">
+                      {Array.isArray(restorePending.payload.dailySnapshots)
+                        ? `${restorePending.payload.dailySnapshots.length} 天`
+                        : '无'}
+                    </td>
+                    <td className="tabular py-0.5 text-right">{localCounts.daily} 天</td>
+                  </tr>
                 </tbody>
               </table>
               <ul className="mt-2 list-disc space-y-0.5 pl-5 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-muted)]">
                 <li>诊断历史：按时间合并，同一词取更新的一条，不丢本机记录</li>
                 <li>词卡缓存：本机缺失或更旧时用远端覆盖</li>
                 <li>攻坚记录：同一词取作答更新的一方，助记撤回凭据不会丢</li>
+                <li>每日记录：按日期合并，同一天取更晚采集的一条，不影响本机其它日期</li>
                 <li>词库快照：仅当远端更新时覆盖，本机更新则保留本机</li>
                 <li>偏好设置（思考模式 / 考试日期）：本机已配置时不改动</li>
               </ul>

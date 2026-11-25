@@ -13,6 +13,7 @@
 import { findDiagnosis, getDiagnoseHistory, saveDiagnosis, type DiagnoseRecord } from './diagnose-history'
 import type { BackupPayload, RestoreSource } from './backup'
 import { loadDrill, saveDrill, type DrillStore, type DrillWordState } from './drill'
+import { mergeDailySnapshotsFromBackup } from './maimemo'
 import { setWordCardsCache } from './word-card-cache'
 import { setAiThinkingMode, setExamDate, getExamDate } from './settings'
 
@@ -24,6 +25,8 @@ export interface RestoreResult
   drillMerged: number
   /** 攻坚台独有的诊断回填进诊断历史的条数 */
   diagnoseBackfilled: number
+  /** 每日学习快照写回条数（按 date 合并，同日取 capturedAt 更新的） */
+  dailySnapshotsMerged: number
   libraryRestored: boolean
   /** 远端快照比本机旧，主动保留本机数据（不是失败） */
   librarySkipped: boolean
@@ -202,6 +205,7 @@ export async function restoreBackup(source: RestoreSource): Promise<RestoreResul
     wordCardsMerged: 0,
     drillMerged: 0,
     diagnoseBackfilled: 0,
+    dailySnapshotsMerged: 0,
     libraryRestored: false,
     librarySkipped: false,
     settingsApplied: false
@@ -267,6 +271,13 @@ export async function restoreBackup(source: RestoreSource): Promise<RestoreResul
     }
 
     setWordCardsCache(table)
+  }
+
+  // 每日学习快照：按 date 合并，同一天取 capturedAt 更新的。
+  // 只增不删 —— 远端没有的日期一律保留本机，否则恢复一次就抹掉近期记录。
+  if (Array.isArray(payload.dailySnapshots))
+  {
+    result.dailySnapshotsMerged = mergeDailySnapshotsFromBackup(payload.dailySnapshots)
   }
 
   // 词库快照：写入器可用且远端有数据才恢复；远端更旧时由写入器返回 skipped

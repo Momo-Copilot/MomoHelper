@@ -20,6 +20,7 @@
 
 import { getDiagnoseHistory } from './diagnose-history'
 import { loadDrill, type DrillStore } from './drill'
+import { readDailySnapshotsForBackup } from './maimemo'
 import { getAiThinkingMode, getExamDate } from './settings'
 import { getWordCardsCache } from './word-card-cache'
 
@@ -42,6 +43,14 @@ export interface BackupPayload
    * 可选：旧备份没有这个字段，恢复时按「无远端记录」处理。
    */
   drill?: DrillStore
+  /**
+   * 每日学习快照：连续打卡、14 天趋势、热力图的数据源。
+   *
+   * 这是全站唯一「花钱也拿不回来」的数据 —— 墨墨接口只给当前状态，
+   * 不会告诉你某天学了多少。丢了就是永久缺口。
+   * 可选：旧备份没有这个字段。
+   */
+  dailySnapshots?: unknown[]
   settings: {
     aiThinking: 'on' | 'off' | null
     /** 考试日期 YYYY-MM-DD；旧备份没有这个字段 */
@@ -186,6 +195,7 @@ async function buildPayload(): Promise<BackupPayload>
     wordCards: getWordCardsCache(),
     librarySnapshot: library,
     drill: slimDrillForBackup(loadDrill(), diagnoseHistory),
+    dailySnapshots: readDailySnapshotsForBackup(),
     settings: {
       aiThinking: getAiThinkingMode(),
       examDate: getExamDate()
