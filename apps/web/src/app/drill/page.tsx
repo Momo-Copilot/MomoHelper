@@ -137,9 +137,16 @@ export default function DrillPage()
         return
       }
 
+      // 两个候选来源都 settled 才选词。否则顽固词先回来就把 6 个名额定死，
+      // 后到的今日遗忘词再也进不来（batch.length > 0 会挡住这之后的重算）。
+      if (!sticking.isFetched || !forgotten.isFetched)
+      {
+        return
+      }
+
       setBatch(pickTodayWords(candidates, loadDrill()))
     },
-    [ready, batch.length, candidates]
+    [ready, batch.length, candidates, sticking.isFetched, forgotten.isFetched]
   )
 
   const current: FocusWordDto | null = batch[index] ?? null
@@ -396,6 +403,7 @@ export default function DrillPage()
             </div>
             <div className="flex items-center gap-4 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
               <span>已攻下 {summary.graduated}</span>
+              {summary.dueReview > 0 && <span>待复查 {summary.dueReview}</span>}
               <span>在练 {summary.practicing}</span>
             </div>
           </div>

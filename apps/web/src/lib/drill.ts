@@ -19,6 +19,15 @@ const MAX_RESULTS = 6
 /** 连续答对几次算攻下 */
 export const GRADUATE_STREAK = 3
 
+/**
+ * 毕业后的冷却天数：到期重新进入候选池复查一次。
+ *
+ * 三次「认识」只是弱信号——可能那天状态好，也可能只是手顺。考研是长周期，
+ * 一个词三个月后忘了很正常，所以毕业不该是永久判决。复查答对继续毕业，
+ * 答错就回到正常训练。用 results[0].at 当毕业时间，不额外存字段。
+ */
+export const GRADUATION_COOLDOWN_DAYS = 30
+
 /** 每日攻坚数量 */
 export const DAILY_GOAL = 6
 
@@ -203,9 +212,43 @@ export function isGraduated(state?: DrillWordState): boolean
   return results.slice(0, GRADUATE_STREAK).every((item) => item.outcome === 'know')
 }
 
+/**
+ * 毕业冷却还剩几天；0 = 可回候选池（未毕业，或冷却已过）。
+ *
+ * 脏时间戳（NaN）按 0 处理：宁可让这个词早点回池复查，也不要它因为一条坏
+ * 记录被永久锁在毕业名单里。
+ */
+export function graduationCooldownLeft(
+  state: DrillWordState | undefined,
+  now = new Date()
+): number
+{
+  if (!isGraduated(state))
+  {
+    return 0
+  }
+
+  const at = new Date(state!.results[0]!.at).getTime()
+
+  if (Number.isNaN(at))
+  {
+    return 0
+  }
+
+  const remain = GRADUATION_COOLDOWN_DAYS * 86_400_000 - (now.getTime() - at)
+
+  return remain > 0 ? Math.ceil(remain / 86_400_000) : 0
+}
+
 export function countOutcome(state: DrillWordState | undefined, outcome: DrillOutcome): number
 {
   return (state?.results ?? []).filter((item) => item.outcome === outcome).length
+}
+
+/** 毕业冷却已过、该回池复查了 */
+export function isDueReview(state: DrillWordState | undefined, now = new Date()): boolean
+{
+  return isGraduated(state) && graduationCooldownLeft(state, now) === 0
 }
 
 /** 距毕业还差几次连续认识；已毕业为 0 */
@@ -280,24 +323,30 @@ function lastRank(state: DrillWordState | undefined): number
  *
  * 排序规则（越靠前越该练）：
  *   1. 今天已经答对过的排最后——已经会了，不占今天的名额
- *   2. 遗忘次数多的靠前
- *   3. 最近一次表现差的靠前（忘记 < 模糊 < 认识 < 无记录）
- *   4. 学习次数多的靠前——学了很多遍还记不住，更值得练
- *   5. 拼写兜底，保证同一批数据每次顺序一致
+ *   2. 毕业冷却到期、该回池复查的排最前——它们已经 30 天没碰了，
+ *      不提前就永远排不过那些「刚忘过」的词，回池等于没回
+ *   3. 遗忘次数多的靠前
+ *   4. 最近一次表现差的靠前（忘记 < 模糊 < 认识 < 无记录）
+ *   5. 学习次数多的靠前——学了很多遍还记不住，更值得练
+ *   6. 拼写兜底，保证同一批数据每次顺序一致
  *
- * 已毕业的词直接排除：它们要么真记住了，要么只是手顺点了三次认识，
- * 无论哪种都不该继续占名额。
+ * 已毕业的词在冷却期内排除：它们要么真记住了，要么只是手顺点了三次认识，
+ * 无论哪种都不该每天占名额。但冷却（GRADUATION_COOLDOWN_DAYS）到期后会重新
+ * 回到候选池复查——毕业不是永久判决。
  */
 export function pickTodayWords(
   candidates: FocusWordDto[],
   store: DrillStore,
-  options: { limit?: number; today?: string } = {}
+  options: { limit?: number; today?: string; now?: Date } = {}
 ): FocusWordDto[]
 {
   const limit = options.limit ?? DAILY_GOAL
   const today = options.today ?? beijingToday()
+  const now = options.now ?? new Date()
 
-  const alive = candidates.filter((word) => !isGraduated(store.words[word.vocId]))
+  const alive = candidates.filter(
+    (word) => graduationCooldownLeft(store.words[word.vocId], now) === 0
+  )
 
   alive.sort((a, b) =>
   {
@@ -311,6 +360,15 @@ export function pickTodayWords(
     if (pa !== pb)
     {
       return pa - pb
+    }
+
+    // 毕业到期该复查的排前面：它们已经很久没碰，不提前就永远排不上
+    const ra = isDueReview(sa, now) ? 0 : 1
+    const rb = isDueReview(sb, now) ? 0 : 1
+
+    if (ra !== rb)
+    {
+      return ra - rb
     }
 
     // 忘得多的排前面
@@ -344,10 +402,20 @@ export function pickTodayWords(
   return alive.slice(0, Math.max(0, limit))
 }
 
-/** 全局统计：给页面顶部展示「已攻下 / 在练」 */
-export function drillSummary(store: DrillStore): { graduated: number; practicing: number }
+/**
+ * 全局统计：给页面顶部展示「已攻下 / 待复查 / 在练」。
+ *
+ * 已攻下 = 毕业且仍在冷却期内的（暂时不用管）；
+ * 待复查 = 毕业但冷却已过，下次进页面会重新出现在候选池；
+ * 在练   = 有训练记录但还没毕业。
+ */
+export function drillSummary(
+  store: DrillStore,
+  now = new Date()
+): { graduated: number; dueReview: number; practicing: number }
 {
   let graduated = 0
+  let dueReview = 0
   let practicing = 0
 
   for (const state of Object.values(store.words))
@@ -357,17 +425,23 @@ export function drillSummary(store: DrillStore): { graduated: number; practicing
       continue
     }
 
-    if (isGraduated(state))
+    if (!isGraduated(state))
     {
-      graduated++
+      practicing++
+      continue
+    }
+
+    if (isDueReview(state, now))
+    {
+      dueReview++
     }
     else
     {
-      practicing++
+      graduated++
     }
   }
 
-  return { graduated, practicing }
+  return { graduated, dueReview, practicing }
 }
 
 /** 指定日期（默认今天）各作答结果的次数，结算页用 */
