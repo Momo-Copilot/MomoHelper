@@ -104,7 +104,14 @@ function buildDays(rows: DashboardTrendPointDto[], days = 14): DashboardTrendPoi
   return out
 }
 
-/** 近 14 天趋势：手写 SVG 柱状图，hover 显示数值 */
+/**
+ * 近 14 天趋势：手写 SVG 柱状图，hover 显示数值。
+ *
+ * 三种状态必须画得不一样，否则「没打开本站」会被读成「没学习」：
+ *   实心柱     = 有快照且有完成数
+ *   小圆点     = 打开了本站，但当天完成 0
+ *   空心虚线柱 = 没有快照（当天没打开本站，这一天的数据根本没被记录）
+ */
 function TrendChart({ days }: { days: DashboardTrendPointDto[] })
 {
   const [hovered, setHovered] = useState<number | null>(null)
@@ -132,11 +139,13 @@ function TrendChart({ days }: { days: DashboardTrendPointDto[] })
       />
       {days.map((day, i) =>
       {
+        const recorded = day.isReliable
         const h = day.finished > 0 ? Math.max(6, (day.finished / max) * chartH) : 0
         const x = i * slot + 9
         const y = baseY - h
         const isToday = day.date === today
         const fill = isToday ? 'var(--color-accent)' : 'var(--color-familiar)'
+        const dim = hovered !== null && hovered !== i
 
         return (
           <g
@@ -144,9 +153,30 @@ function TrendChart({ days }: { days: DashboardTrendPointDto[] })
             onMouseEnter={() => setHovered(i)}
             onMouseLeave={() => setHovered(null)}
           >
+            <title>
+              {recorded
+                ? `${day.date}：完成 ${day.finished}/${day.total}`
+                : `${day.date}：当天没打开本站，数据未记录（不等于没学）`}
+            </title>
             {/* 命中区 */}
             <rect x={i * slot} y="0" width={slot} height="160" fill="transparent" />
-            {day.finished > 0 ? (
+            {!recorded ? (
+              /* 没打开本站：空心虚线柱。与「打开了但没学」的圆点区分开，
+                 否则一排灰点会被读成「这些天都没学习」 */
+              <rect
+                x={x}
+                y={baseY - 12}
+                width="22"
+                height="12"
+                rx="5"
+                fill="none"
+                stroke="var(--color-border-strong)"
+                strokeWidth="1.5"
+                strokeDasharray="3 3"
+                opacity={dim ? 0.45 : 1}
+                style={{ transition: 'opacity 0.2s' }}
+              />
+            ) : day.finished > 0 ? (
               <rect
                 x={x}
                 y={y}
@@ -154,11 +184,17 @@ function TrendChart({ days }: { days: DashboardTrendPointDto[] })
                 height={h}
                 rx="5"
                 fill={fill}
-                opacity={hovered === null || hovered === i ? 1 : 0.45}
+                opacity={dim ? 0.45 : 1}
                 style={{ transition: 'opacity 0.2s' }}
               />
             ) : (
-              <circle cx={x + 11} cy={baseY - 4} r="3" fill="var(--color-border-strong)" />
+              <circle
+                cx={x + 11}
+                cy={baseY - 4}
+                r="3"
+                fill="var(--color-border-strong)"
+                opacity={dim ? 0.45 : 1}
+              />
             )}
             {hovered === i && day.finished > 0 && (
               <text
@@ -407,13 +443,20 @@ export default function DashboardPage()
               近 14 天完成趋势
             </p>
             <p className="font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-              {trendDays ? `${trendDays.reduce((sum, d) => sum + d.finished, 0)} 词` : '—'}
+              {trendDays
+                ? `${trendDays.reduce((sum, d) => sum + d.finished, 0)} 词 · 已记录 ${trendDays.filter((d) => d.isReliable).length}/${trendDays.length} 天`
+                : '—'}
             </p>
           </div>
           <div className="mt-3">
             {trendDays ? (
               trendDays.some((d) => d.finished > 0) ? (
-                <TrendChart days={trendDays} />
+                <>
+                  <TrendChart days={trendDays} />
+                  <p className="mt-1 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+                    空心虚线 = 当天没打开本站，数据未记录（不等于没学）。
+                  </p>
+                </>
               ) : (
                 <p className="flex h-40 items-center justify-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
                   快照从今天开始累积，明天回来看趋势。
