@@ -28,8 +28,8 @@ export const GRADUATE_STREAK = 3
  */
 export const GRADUATION_COOLDOWN_DAYS = 30
 
-/** 每日攻坚数量 */
-export const DAILY_GOAL = 6
+/** 每日攻坚数量：够覆盖当天的顽固词 + 遗忘词，又不至于练到走神 */
+export const DAILY_GOAL = 10
 
 export type DrillOutcome = 'know' | 'vague' | 'forget'
 
