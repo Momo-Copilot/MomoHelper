@@ -44,9 +44,33 @@ function readBuildInfo(): { version: string; commit: string }
 
 const { version, commit } = readBuildInfo()
 
+const isDev = process.env.NODE_ENV === 'development'
+
 const nextConfig: NextConfig = {
   output: 'export',
   images: { unoptimized: true },
+  /**
+   * 仅开发环境把 /api/memo/* 转发给墨墨。
+   *
+   * 线上靠 edge-functions/api/memo/[[default]].js，但那是 EdgeOne 的运行时，
+   * `next dev` 不执行它 —— 本地直接请求 /api/memo/* 会 404，表现为「没配 Token」
+   * 之外的另一种失败，很容易误判成代码问题。
+   *
+   * 不能在生产配置里保留 rewrites：`output: 'export'` 与 rewrites 冲突，build 会报错。
+   */
+  ...(isDev
+    ? {
+        async rewrites()
+        {
+          return [
+            {
+              source: '/api/memo/:path*',
+              destination: 'https://open.maimemo.com/open/api/v1/memo/:path*'
+            }
+          ]
+        }
+      }
+    : {}),
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
     NEXT_PUBLIC_COMMIT_SHA: commit
