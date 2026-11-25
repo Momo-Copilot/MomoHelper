@@ -38,6 +38,12 @@ import {
   type DrillStore
 } from '@/lib/drill'
 import { forgetReasonLabel } from '@/lib/forget-reason'
+import { loadLibrary } from '@/lib/library'
+import {
+  alignDiff,
+  findSimilarWords,
+  type SimilarWord
+} from '@/lib/similar-words'
 import {
   getMaimemoClient,
   getStickingWords,
@@ -100,6 +106,8 @@ export default function DrillPage()
   // 与遗忘词页共用 queryKey，从那边切过来零请求
   const sticking = useQuery({ queryKey: ['forget', 'sticking'], queryFn: getStickingWords })
   const forgotten = useQuery({ queryKey: ['forget', 'today'], queryFn: getTodayForgotten })
+  // 全库词表用于找当前词的易混词；与词库页/易混页共用缓存
+  const library = useQuery({ queryKey: ['library'], queryFn: () => loadLibrary(), retry: false })
 
   useEffect(
     () =>
@@ -151,6 +159,28 @@ export default function DrillPage()
 
   const current: FocusWordDto | null = batch[index] ?? null
   const currentState = current ? store.words[current.vocId] : undefined
+
+  /**
+   * 当前词的易混词。
+   *
+   * 为什么放在攻坚台：这些词恰恰是「单独背都对、放进句子就认错」的那批，
+   * 练一个词时把它的近邻摆出来，比孤立地重复一个词有用得多。
+   *
+   * 只在有全库词表时才算；模糊算法的开销是 O(n)，但在 8000 词上也就几毫秒，
+   * 且 useMemo 按 current.spelling 缓存，翻词才重算。
+   */
+  const confusables = useMemo(() =>
+  {
+    const spellings = library.data?.records?.map((row) => row.spelling).filter(Boolean) ?? []
+
+    if (!current || spellings.length === 0)
+    {
+      return []
+    }
+
+    // 只取前 3 个：旁边放太多会抢走当前词的注意力
+    return findSimilarWords(current.spelling, spellings, 3)
+  }, [current, library.data])
 
   const diagMutation = useMutation({
     mutationFn: (word: FocusWordDto) => diagnoseWord(word.spelling, getAiThinkingMode() === 'on'),
@@ -506,6 +536,43 @@ export default function DrillPage()
                   连续认识
                 </p>
               </div>
+
+              {/* 易混对照：把长得像的词摆在旁边，避免练一个词时混淆另一个 */}
+              {confusables.length > 0 && (
+                <div className="mt-4 rounded-md border border-[var(--color-vague)]/30 bg-[var(--color-vague-bg)] p-3">
+                  <p className="flex items-center gap-1.5 text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
+                    <Icon name="swap" className="h-3.5 w-3.5 shrink-0 text-[var(--color-vague)]" />
+                    易混词 —— 确认自己没记串
+                  </p>
+                  <ul className="mt-2 space-y-1.5">
+                    {confusables.map((item) => (
+                      <li key={item.candidate} className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="font-[family-name:var(--font-display)] text-[length:var(--text-md)]">
+                          {alignDiff(current.spelling.toLowerCase(), item.candidate).map((segment, i) =>
+                            segment.same ? (
+                              <span key={i} className="text-[var(--color-text-muted)]">{segment.b}</span>
+                            ) : (
+                              <span key={i} className="rounded-sm bg-[var(--color-surface)] px-0.5 font-semibold text-[var(--color-forget)]">
+                                {segment.b}
+                              </span>
+                            )
+                          )}
+                        </span>
+                        <span className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                          {item.kind === 'anagram'
+                            ? '字母相同·顺序不同'
+                            : item.kind === 'affix'
+                              ? '词干延伸'
+                              : `差 ${item.distance} 个字母`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+                    想看成体系的清单？<Link href="/confusable" className="text-[var(--color-accent)] underline underline-offset-2">去易混页</Link>
+                  </p>
+                </div>
+              )}
 
               {/* AI 诊断：点了才生成，结果按词缓存，不重复烧 token */}
               <div className="mt-5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
