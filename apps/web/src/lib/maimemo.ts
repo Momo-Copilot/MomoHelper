@@ -18,6 +18,7 @@ import {
   toBeijingDate,
   getStudyProgress,
   getTodayItems,
+  queryStudyRecords,
   queryStudyRecordsFiltered,
   listNotepads
 } from '@momo/maimemo'
@@ -286,17 +287,58 @@ export async function getTodayForgotten(): Promise<ForgottenResult>
 {
   const client = getMaimemoClient()
   const items = await getTodayItems(client)
+  const forgotten = items.filter((item) => item.first_response === 'FORGET')
+
+  if (forgotten.length === 0)
+  {
+    return { words: [] }
+  }
+
+  /**
+   * 补查学习次数：今日词表只有 is_new / first_response，没有 study_count。
+   * 攻坚排序第 4 条是「学了很多遍还记不住更该练」，缺这个字段的话今日遗忘词
+   * 永远排在顽固词后面，只能靠拼写序碰运气。一次 spellings 批量查询就够。
+   */
+  const bySpelling = new Map<
+    string,
+    Pick<FocusWordDto, 'studyCount' | 'lastResponse' | 'tags'>
+  >()
+
+  try
+  {
+    const spellings = [...new Set(forgotten.map((item) => item.voc_spelling))].slice(0, 1000)
+    const records = await queryStudyRecords(client, { spellings })
+
+    for (const record of records.records)
+    {
+      bySpelling.set(record.voc_spelling.toLowerCase(), {
+        studyCount: record.study_count,
+        lastResponse: record.last_response,
+        tags: record.tags ?? []
+      })
+    }
+  }
+  catch
+  {
+    // 补查是增强不是必需：公测接口抖动时不要连带把遗忘页打挂，
+    // 缺字段时排序退化为原有规则即可
+  }
 
   return {
-    words: items
-      .filter((item) => item.first_response === 'FORGET')
-      .map((item) => ({
+    words: forgotten.map((item) =>
+    {
+      const hint = bySpelling.get(item.voc_spelling.toLowerCase())
+
+      return {
         vocId: item.voc_id,
         spelling: item.voc_spelling,
         isNew: item.is_new,
         firstResponse: item.first_response,
-        tags: []
-      }))
+        lastResponse: hint?.lastResponse,
+        studyCount: hint?.studyCount,
+        tags: hint?.tags ?? []
+      }
+    })
   }
 }
 
