@@ -232,18 +232,6 @@ const SLEEP_BUCKETS: { key: string; label: string; min: number; max: number }[] 
 /** 沉睡风险口径：距上次学习 >= 30 天 */
 const SLEEPING_THRESHOLD = 30
 
-/**
- * 每词「开始学习日」：first_study_date 缺失时回退 add_date。
- *
- * 只给考前推演（analyzeExamPlan）的速度口径用。学情统计一律直接读
- * first_study_date —— add_date 是「加进计划」的日期，几年前的批量导入
- * 会被误当成学习日，把 1 天的数据撑成几千天（见 analyzeReport 口径说明）。
- */
-function startedDayOf(record: LibraryRecordRowDto): string | null
-{
-  return beijingDayOf(record.firstStudyDate) ?? beijingDayOf(record.addDate)
-}
-
 /** YYYY-MM-DD 差值（b − a，单位天，均按北京日期边界）；任一为 null 返回 null */
 function dayDiff(a: string | null, b: string | null): number | null
 {
@@ -738,8 +726,10 @@ export function analyzeForecast(
  * 考前推演（纯函数）：把「还剩多少词」和「还剩多少天」摆在一起。
  *
  * 「已学」沿用词库页口径 study_count > 0，与掌握度 0 次桶互补；
- * 「当前速度」取近 14 天日均新学，用 first_study_date（缺失回退 add_date）
- * 定位，和 /report 的每日新学曲线同源。
+ * 「当前速度」取近 14 天日均新学，只认 first_study_date —— add_date 是「加进
+ * 计划」而非「学过」，拿它兜底会让批量导入词书的那天变成「新学几百词」，
+ * 一个几乎没开始背的人被算成高速推进，ahead / projectedFinish 全线偏乐观
+ * （2026-11 修复，与 /report 的口径问题同源）。
  */
 export function analyzeExamPlan(
   records: LibraryRecordRowDto[],
@@ -761,7 +751,8 @@ export function analyzeExamPlan(
       studiedWords++
     }
 
-    const started = startedDayOf(record)
+    // 速度口径只认真正开始学习的日期，不回退 add_date（见函数头说明）
+    const started = beijingDayOf(record.firstStudyDate)
 
     if (!started)
     {
