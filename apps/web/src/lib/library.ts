@@ -47,6 +47,18 @@ export interface LibraryLoadOptions
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
+/**
+ * 打开库，并确保两个 store 都存在。
+ *
+ * 自愈：库存在、版本号已是 DB_VERSION 但 store 缺失时，onupgradeneeded 不会
+ * 再触发，这种「空壳库」会永久损坏 —— 之后所有读写抛 NotFoundError，且不会
+ * 自我修复。常见来历：调试脚本裸 open(DB_NAME) 建了个空库，或删除事务被
+ * 中断。表现为词库页一直报错、备份里 librarySnapshot 恒为 null，用户只能去
+ * 清空站点数据。
+ *
+ * 处理：检测到结构缺失就关连接、用「当前版本 + 1」重开一次（版本升高必然
+ * 触发 onupgradeneeded 建表）。不改 DB_VERSION 常量，正常用户不受影响。
+ */
 function openDb(): Promise<IDBDatabase>
 {
   return new Promise((resolve, reject) =>
@@ -57,12 +69,8 @@ function openDb(): Promise<IDBDatabase>
       return
     }
 
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-
-    request.onupgradeneeded = () =>
+    const ensureStores = (db: IDBDatabase): void =>
     {
-      const db = request.result
-
       if (!db.objectStoreNames.contains(STORE_RECORDS))
       {
         db.createObjectStore(STORE_RECORDS, { keyPath: 'vocId' })
@@ -73,9 +81,46 @@ function openDb(): Promise<IDBDatabase>
         db.createObjectStore(STORE_META, { keyPath: 'key' })
       }
     }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('打开 IndexedDB 失败'))
-    request.onblocked = () => reject(new Error('IndexedDB 被其他标签页占用'))
+
+    /**
+     * 不指定版本打开：拿到「现有版本」。
+     *
+     * 不能直接用 open(DB_NAME, DB_VERSION)：若库已被抬过版本（自愈会 +1），
+     * 现有版本 > DB_VERSION，直接指定低版本会抛 VersionError，
+     * 之后每次打开都失败 —— 比原来的空壳库更糟。
+     */
+    const probe = indexedDB.open(DB_NAME)
+    probe.onupgradeneeded = () => ensureStores(probe.result)
+    probe.onerror = () => reject(probe.error ?? new Error('打开 IndexedDB 失败'))
+    probe.onblocked = () => reject(new Error('IndexedDB 被其他标签页占用'))
+    probe.onsuccess = () =>
+    {
+      const db = probe.result
+      const ok = db.objectStoreNames.contains(STORE_RECORDS) && db.objectStoreNames.contains(STORE_META)
+
+      if (ok)
+      {
+        resolve(db)
+        return
+      }
+
+      /*
+       * 空壳库（库在、版本已达 DB_VERSION、但没有 store）：
+       * onupgradeneeded 只在版本升高时触发，这种状态永远补不了表，
+       * 之后所有读写抛 NotFoundError 且不会自愈 —— 用户只能清站点数据。
+       *
+       * 处理：抬到「现有版本 + 1」重开，强制触发 onupgradeneeded 建表。
+       * 注意要基于 db.version 而不是 DB_VERSION。
+       */
+      const next = Math.max(db.version, DB_VERSION) + 1
+      db.close()
+
+      const rebuild = indexedDB.open(DB_NAME, next)
+      rebuild.onupgradeneeded = () => ensureStores(rebuild.result)
+      rebuild.onerror = () => reject(rebuild.error ?? new Error('重建 IndexedDB 失败'))
+      rebuild.onblocked = () => reject(new Error('IndexedDB 被其他标签页占用'))
+      rebuild.onsuccess = () => resolve(rebuild.result)
+    }
   })
 }
 
