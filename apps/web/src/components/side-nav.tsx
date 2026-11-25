@@ -9,19 +9,25 @@ import { getLocalStatus } from '@/lib/settings'
 import { applyTheme, currentTheme, storeTheme, type ThemeMode } from '@/lib/theme'
 import { Icon, type IconName } from './icons'
 
-/** 导航顺序按使用频率：先看今天，再看未来，然后才是复盘与词库 */
-const ITEMS: { href: string; label: string; icon: IconName }[] = [
-  { href: '/', label: '今日', icon: 'gauge' },
-  { href: '/plan', label: '计划', icon: 'calendar' },
-  { href: '/forget', label: '遗忘词', icon: 'trending-down' },
-  { href: '/drill', label: '攻坚', icon: 'zap' },
-  { href: '/rare', label: '僻义', icon: 'search' },
-  { href: '/confusable', label: '易混', icon: 'swap' },
-  { href: '/cloud', label: '词云', icon: 'cloud' },
-  { href: '/ask', label: '问词', icon: 'message' },
-  { href: '/report', label: '学情', icon: 'clipboard' },
-  { href: '/library', label: '词库', icon: 'book' },
-  { href: '/settings', label: '设置', icon: 'sliders' }
+/**
+ * 导航顺序按使用频率：先看今天，再看未来，然后才是复盘与词库。
+ *
+ * 标签一律两个字：原来「遗忘词」是唯一的三个字，与其他项参差，
+ * 视觉上很跳。页面标题仍是「遗忘词分析」，菜单用简写不影响理解。
+ * 另外 `hint` 给悬停提示，补足简写丢掉的信息。
+ */
+const ITEMS: { href: string; label: string; icon: IconName; hint: string }[] = [
+  { href: '/', label: '今日', icon: 'gauge', hint: '今日学习看板' },
+  { href: '/plan', label: '计划', icon: 'calendar', hint: '复习计划与冲刺推演' },
+  { href: '/forget', label: '遗忘', icon: 'trending-down', hint: '遗忘词分析' },
+  { href: '/drill', label: '攻坚', icon: 'zap', hint: '顽固词攻坚' },
+  { href: '/rare', label: '僻义', icon: 'search', hint: '熟词僻义' },
+  { href: '/confusable', label: '易混', icon: 'swap', hint: '易混词对' },
+  { href: '/cloud', label: '词云', icon: 'cloud', hint: '遗忘词云' },
+  { href: '/ask', label: '问词', icon: 'message', hint: '向 AI 问词' },
+  { href: '/report', label: '学情', icon: 'clipboard', hint: '学情报告' },
+  { href: '/library', label: '词库', icon: 'book', hint: '词库明细' },
+  { href: '/settings', label: '设置', icon: 'sliders', hint: '凭据与备份设置' }
 ]
 
 /** 本地凭据快照：与设置页共用 getLocalStatus，保证同一 queryKey 数据形状一致 */
@@ -66,14 +72,32 @@ function NavLink({ item, active }: { item: (typeof ITEMS)[number]; active: boole
     <Link
       href={item.href}
       aria-current={active ? 'page' : undefined}
-      className={`flex items-center gap-3 rounded-md px-3 py-2 text-[length:var(--text-sm)] transition-colors ${
+      title={item.hint}
+      className={`group flex items-center gap-3 rounded-md px-3 py-2 text-[length:var(--text-sm)] transition-colors ${
         active
           ? 'bg-[var(--color-accent-bg)] font-semibold text-[var(--color-accent)]'
           : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text)]'
       }`}
     >
-      <Icon name={item.icon} className="h-[18px] w-[18px]" />
-      {item.label}
+      <Icon name={item.icon} className="h-[18px] w-[18px] shrink-0" />
+      {/*
+       * 文字撑满剩余宽度（flex-1）而不是跟在图标后自然流排：
+       * 原来标签只占自身宽度，248px 侧栏右侧空出一大块，整列像被挤在左边。
+       * 撑满后悬停底色铺到整行，右侧指示点也贴行末，视觉上是一条完整的行。
+       */}
+      <span className="flex-1 truncate">{item.label}</span>
+      {/*
+       * 右端指示点：当前页实心常亮；其余行悬停时淡淡出现，提示"点这里"。
+       * 始终占位（不只是当前页渲染），否则各行文字宽度不一致会左右晃。
+       */}
+      <span
+        aria-hidden
+        className={`h-1.5 w-1.5 shrink-0 rounded-full transition-all ${
+          active
+            ? 'bg-[var(--color-accent)] opacity-100'
+            : 'bg-[var(--color-text-subtle)] opacity-0 group-hover:opacity-40'
+        }`}
+      />
     </Link>
   )
 }
