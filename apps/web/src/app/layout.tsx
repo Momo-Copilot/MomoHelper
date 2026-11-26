@@ -19,6 +19,26 @@ export const metadata: Metadata = {
 const CLARITY_ID = 'zjo7ifza9u'
 const CLARITY_ENABLED = process.env.NODE_ENV === 'production'
 
+/**
+ * Google Tag Manager 容器 ID。
+ *
+ * 注意：这里用官方标准 snippet，不是「async src + gtag('js')」那种简化写法。
+ * gtm.js 需要 dataLayer 里先有一条 `{ 'gtm.start': 时间戳, event: 'gtm.js' }`
+ * 才会触发容器内的 Page View 等触发器；只加载脚本不 push 这条，后台能收到
+ * 访问但事件是空的。gtag() 属于 GA4 的 gtag.js，与 GTM 不是一回事，这里不需要。
+ *
+ * 国内网络下 googletagmanager.com 多数不可达，脚本会静默失败（async 不影响
+ * 页面渲染），属于预期现象。
+ */
+const GTM_ID = 'GTM-MPZSDPSV'
+const GTM_ENABLED = process.env.NODE_ENV === 'production'
+
+const GTM_SNIPPET = `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','${GTM_ID}');`
+
 export default function RootLayout({ children }: { children: React.ReactNode })
 {
   return (
@@ -31,8 +51,23 @@ export default function RootLayout({ children }: { children: React.ReactNode })
               "(function(){try{var t=localStorage.getItem('momo.theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})()"
           }}
         />
+        {/* Google Tag Manager：脚本放 head，官方要求的 noscript 兜底在 body 开头 */}
+        {GTM_ENABLED && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: GTM_SNIPPET
+            }}
+          />
+        )}
       </head>
       <body className="min-h-screen">
+        {GTM_ENABLED && (
+          <noscript
+            dangerouslySetInnerHTML={{
+              __html: `<iframe src="https://www.googletagmanager.com/ns.html?id=${GTM_ID}" height="0" width="0" style="display:none;visibility:hidden"></iframe>`
+            }}
+          />
+        )}
         <Providers>
           <div className="flex min-h-screen">
             <SideNav />
