@@ -193,22 +193,27 @@ function VersionTag()
   )
 }
 
-/** 外链：墨墨官方网页版背单词。新窗口打开，不把本站替换掉 */
-function StudyLink()
+/** 底部外链图标：新窗口打开，不把本站替换掉 */
+function FooterLink({ href, label, icon }: { href: string; label: string; icon: IconName })
 {
   return (
     <a
-      href="https://www.maimemo.com/home/web_study"
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
-      title="去墨墨网页版背单词"
-      aria-label="去墨墨网页版背单词"
+      title={label}
+      aria-label={label}
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-accent)]"
     >
-      <Icon name="external-link" className="h-4 w-4" />
+      <Icon name={icon} className="h-4 w-4" />
     </a>
   )
 }
+
+/** 墨墨官方网页版背单词（不依赖本站是否已绑定 Token） */
+const MAIMEMO_STUDY_URL = 'https://www.maimemo.com/home/web_study'
+/** 本项目仓库 */
+const REPO_URL = 'https://github.com/Momo-Copilot/MomoHelper'
 
 /** 桌面侧边栏 */
 export function SideNav()
@@ -235,8 +240,9 @@ export function SideNav()
       </div>
       <div>
         <StatusCard />
-        <div className="mt-3">
-          <StudyLink />
+        <div className="mt-3 flex items-center gap-2">
+          <FooterLink href={MAIMEMO_STUDY_URL} label="去墨墨网页版背单词" icon="external-link" />
+          <FooterLink href={REPO_URL} label="GitHub 仓库" icon="github" />
         </div>
         <VersionTag />
       </div>
@@ -254,7 +260,7 @@ export function MobileNav()
       <div className="flex items-center justify-between">
         <Brand />
         <div className="flex items-center gap-2">
-          <StudyLink />
+          <FooterLink href={MAIMEMO_STUDY_URL} label="去墨墨网页版背单词" icon="external-link" />
           <ThemeButton />
         </div>
       </div>
