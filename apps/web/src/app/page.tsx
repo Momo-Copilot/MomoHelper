@@ -453,7 +453,7 @@ export default function DashboardPage()
               trendDays.some((d) => d.finished > 0) ? (
                 <>
                   <TrendChart days={trendDays} />
-                  <p className="mt-1 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+                  <p className="mt-1 text-center text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
                     空心虚线 = 当天没打开本站，数据未记录（不等于没学）。
                   </p>
                 </>
