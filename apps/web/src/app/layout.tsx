@@ -5,7 +5,7 @@ import { Providers } from './providers'
 import { MobileNav, SideNav } from '@/components/side-nav'
 
 export const metadata: Metadata = {
-  title: '墨小墨 · AI 背词副驾',
+  title: '墨小墨',
   description: '贴着墨墨工作流的学习诊断、内容增强与复盘工具'
 }
 

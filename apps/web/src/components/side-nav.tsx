@@ -47,13 +47,15 @@ function Brand()
 {
   return (
     <div className="flex items-center gap-2.5">
-      {/* 墨黑底白「墨」：呼应墨墨黑白猫头鹰品牌；夜间模式经 token 自动反转为白底墨字 */}
-      <span
+      {/* 站点 logo：猫头鹰头像。object-cover 保证任意尺寸下不变形（多余部分自动裁掉） */}
+      <img
+        src="/logo.png"
+        alt=""
         aria-hidden
-        className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--color-text)] font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-bg)]"
-      >
-        墨
-      </span>
+        width={32}
+        height={32}
+        className="h-8 w-8 shrink-0 rounded-md object-cover"
+      />
       <div className="leading-tight">
         <p className="font-[family-name:var(--font-display)] text-[length:var(--text-md)] font-semibold">
           墨小墨
