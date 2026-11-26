@@ -106,6 +106,9 @@ export default function AskPage()
 
     setHistory(clearAskHistory())
     setExpanded(null)
+    // 当前回答本来也存进了历史，一起清掉，避免「历史空了但答案还挂在上面」
+    answerRef.current = ''
+    setAnswer('')
   }
 
   async function submit(): Promise<void>
@@ -190,11 +193,8 @@ export default function AskPage()
         })
 
         setHistory(next)
-        setExpanded(next[0]?.id ?? null)
-
-        // 答案已移入历史，清掉临时区避免同一段内容显示两遍
-        answerRef.current = ''
-        setAnswer('')
+        // 历史里那条保持折叠：答案仍留在上方的回答卡里，展开会变成同屏两份
+        setExpanded(null)
       }
     }
   }
@@ -290,6 +290,11 @@ export default function AskPage()
               )}
             </div>
           </div>
+          {!busy && (
+            <p className="mt-3 border-t border-[var(--color-border)] pt-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+              本次问答已存入下方历史，可直接开始下一个问题。
+            </p>
+          )}
         </Tile>
       )}
 
