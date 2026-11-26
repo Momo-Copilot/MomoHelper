@@ -136,8 +136,24 @@ function VersionTag()
   )
 }
 
-/** 底部外链图标：新窗口打开，不把本站替换掉 */
-function FooterLink({ href, label, icon }: { href: string; label: string; icon: IconName })
+/**
+ * 底部外链图标：新窗口打开，不把本站替换掉。
+ *
+ * 支持两种样式：内置 svg 图标，或品牌图片（墨墨猫头鹰）。
+ * 品牌图是黑白的，深色模式下会糊进背景，所以图片统一加白色圆底——
+ * 官方本身就是白底黑猫头鹰，两种主题下都清晰。
+ */
+function FooterLink({
+  href,
+  label,
+  icon,
+  imageSrc
+}: {
+  href: string
+  label: string
+  icon?: IconName
+  imageSrc?: string
+})
 {
   return (
     <a
@@ -148,7 +164,18 @@ function FooterLink({ href, label, icon }: { href: string; label: string; icon: 
       aria-label={label}
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-accent)]"
     >
-      <Icon name={icon} className="h-4 w-4" />
+      {imageSrc ? (
+        <img
+          src={imageSrc}
+          alt=""
+          aria-hidden
+          width={24}
+          height={24}
+          className="h-6 w-6 rounded-full bg-white object-contain"
+        />
+      ) : (
+        <Icon name={icon ?? 'link'} className="h-4 w-4" />
+      )}
     </a>
   )
 }
@@ -183,7 +210,7 @@ export function SideNav()
       </div>
       <div>
         <div className="flex items-center gap-2">
-          <FooterLink href={MAIMEMO_STUDY_URL} label="去墨墨网页版背单词" icon="external-link" />
+          <FooterLink href={MAIMEMO_STUDY_URL} label="去墨墨网页版背单词" imageSrc="/maimemo-logo.png" />
           <FooterLink href={REPO_URL} label="GitHub 仓库" icon="github" />
         </div>
         <VersionTag />
@@ -202,7 +229,7 @@ export function MobileNav()
       <div className="flex items-center justify-between">
         <Brand />
         <div className="flex items-center gap-2">
-          <FooterLink href={MAIMEMO_STUDY_URL} label="去墨墨网页版背单词" icon="external-link" />
+          <FooterLink href={MAIMEMO_STUDY_URL} label="去墨墨网页版背单词" imageSrc="/maimemo-logo.png" />
           <ThemeButton />
         </div>
       </div>
