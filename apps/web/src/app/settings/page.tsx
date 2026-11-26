@@ -48,6 +48,8 @@ const GUIDE_MAIMEMO_TOKEN =
   'https://docs.qq.com/aio/p/scbfp4dli08ucfu?p=V4zUzbyVpVXrd65aZbgiY2&nlc=1'
 const GUIDE_DEEPSEEK_KEY =
   'https://docs.qq.com/aio/p/scbfp4dli08ucfu?p=dU25MythvmL24Ffmux1K0V&nlc=1'
+const GUIDE_CLOUD_BACKUP =
+  'https://docs.qq.com/aio/p/scbfp4dli08ucfu?p=4dr8EXLRPoPZrv8LKhQySO&nlc=1'
 
 const BACKUP_TARGET_LABELS: Record<BackupTarget, string> = {
   github: 'GitHub',
@@ -1108,7 +1110,17 @@ export default function SettingsPage()
 
           {/* ② 云端备份 */}
           <section className="rounded-md border border-[var(--color-border)] p-4">
-            <h3 className="text-[length:var(--text-sm)] font-medium">② 云端备份</h3>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <h3 className="text-[length:var(--text-sm)] font-medium">② 云端备份</h3>
+              <a
+                href={GUIDE_CLOUD_BACKUP}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[length:var(--text-xs)] text-[var(--color-accent)] underline-offset-4 hover:underline"
+              >
+                如何配置 ↗
+              </a>
+            </div>
             <div className="mt-3 space-y-3">
               {!bindingReady ? (
                 <p className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">读取本机备份配置中…</p>
