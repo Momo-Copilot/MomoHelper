@@ -183,8 +183,8 @@ export default function LibraryPage()
           <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             只取到 {loaded.toLocaleString('zh-CN')} 条，接口总数 {expected.toLocaleString('zh-CN')}
-            条。差额多为未安排复习的词（没有 next_study_date），墨墨接口暂不提供按此筛选的查询，
-            以下统计仅覆盖已进入复习计划的词。
+            条。差额多为未安排复习的词（没有 next_study_date）——日期区间查询覆盖不到这类词，
+            不是请求失败。以下统计仅覆盖已进入复习计划的词。
           </span>
         </p>
       )}

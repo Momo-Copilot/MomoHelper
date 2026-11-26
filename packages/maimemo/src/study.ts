@@ -127,10 +127,10 @@ export async function queryStudyRecords(
 
 export interface QueryAllStudyRecordsOptions
 {
-  /** 每页条数，接口默认上限 1000 */
+  /** 每页条数，接口硬上限 1000（超过会被静默截断，不要调大） */
   pageSize?: number
-  /** 安全阀：每种策略最多翻多少页，避免异常数据下无限循环 */
-  maxPages?: number
+  /** 总请求数安全阀：超过就停止，避免极端数据把频控打满 */
+  maxRequests?: number
   /** 每翻完一页回吐一次已拉取条数，供 UI 显示进度 */
   onProgress?: (loaded: number, total: number | null) => void
 }
@@ -139,12 +139,16 @@ export interface QueryAllStudyRecordsOptions
 export interface StudyRecordFetchDiagnostics
 {
   total: number | null
-  /** 单请求全量取到多少（0 = 没走到这条） */
+  /** 单请求探针取到多少（0 = 没走到这条） */
   singleShot: number
   /** offset 翻页后累计条数 */
   offsetPaged: number
-  /** 日期窗口翻页后累计条数 */
-  windowPaged: number
+  /** 日期区间递归累计条数 */
+  rangePaged: number
+  /** 实际发出的请求数 */
+  requests: number
+  /** 因单日超量而被迫放弃的区间数（> 0 表示结果可能不全） */
+  overflowRanges: number
 }
 
 export interface QueryFilteredStudyRecordsResult
@@ -160,16 +164,16 @@ export interface QueryFilteredStudyRecordsResult
  * 服务端筛选条件下拉取学习记录（tags / spellings / voc_ids）。
  *
  * 与 queryStudyRecordsAll 的区别：筛选把结果集缩小到远小于全量的规模，
- * 不需要三策略回退，只需 as_count 校准总数 + offset 探测翻页。
+ * 不需要区间递归，只需 as_count 校准总数 + offset 探测翻页。
  * offset 不被服务端支持时会拿到重复页，按 voc_id 去重后 fresh === 0 自动终止。
  */
 export async function queryStudyRecordsFiltered(
   client: MaimemoClient,
   params: Omit<QueryStudyRecordsParams, 'asCount' | 'offset'> = {},
-  options: Pick<QueryAllStudyRecordsOptions, 'maxPages' | 'onProgress'> = {}
+  options: Pick<QueryAllStudyRecordsOptions, 'maxRequests' | 'onProgress'> = {}
 ): Promise<QueryFilteredStudyRecordsResult>
 {
-  const maxPages = options.maxPages ?? 10
+  const maxPages = options.maxRequests ?? 10
   const pageSize = 1000
 
   const countResult = await queryStudyRecords(client, { ...params, asCount: true })
@@ -235,32 +239,100 @@ export interface QueryAllStudyRecordsResult
   diagnostics: StudyRecordFetchDiagnostics
 }
 
-/** 单请求拉全的条数上限：再大响应体可能拖到边缘函数超时 */
-const MAX_SINGLE_SHOT = 12_000
+/** 接口单次响应硬上限：文档写 1000，实测超过也会被静默截断 */
+const API_PAGE_LIMIT = 1000
+
+/** 默认请求数上限：频控是 2000 次 / 5 小时，留足余量 */
+const DEFAULT_MAX_REQUESTS = 120
+
+const DAY_MS = 86_400_000
+const BEIJING_OFFSET_MS = 8 * 3600_000
 
 /**
- * 全量拉取单词级学习记录（8000+ 词时分页取全）。
+ * 北京日期序号：把任意时刻归一到「北京时间的第几天」。
  *
- * 关键约束：未安排复习的词 next_study_date 为空，日期窗口过滤会把它们整体排除，
- * 只靠窗口翻页永远取不全（实测 8614 词里只有 2212 条带复习日期）。
- * 因此按可靠性从高到低试三种策略，取到 as_count 总数即停：
- *   1. 单请求 limit = total：不带任何过滤，能覆盖全部词
- *   2. offset 翻页：文档未声明，探一页验证是否生效
- *   3. next_study_date 滑动窗口：兜底，只能覆盖有复习日期的词
+ * 区间递归全程用这个整数做单位，不用毫秒——毫秒对半会因奇数天丢余数，
+ * 导致左右子区间之间出现空隙（实测漏 873 条）。整数减法天然无缝。
+ */
+function toBeijingDayIndex(ms: number): number
+{
+  return Math.floor((ms + BEIJING_OFFSET_MS) / DAY_MS)
+}
+
+/**
+ * 北京日期序号 → 区间起点的 ISO 字符串（该日 00:00:00.000 +08:00）。
  *
- * next_study_date 是北京时间 00:00 的 UTC 表示（如 2027-07-04T16:00:00.000Z），
- * 窗口起点追加 24h 得到的 ISO 与接口返回值同格式，不会因时区解析偏 8 小时。
+ * 格式必须与 MemoSuperform 实测可用的写法一致（`2026-09-14T00:00:00+08:00`）。
+ * 不要用 `toISOString()` 的 `Z` 后缀：那是 UTC 表示，北京 00:00 会写成
+ * 前一日 16:00Z，服务端按字符串比较时会把边界那一天整体排除。
+ */
+function dayIndexToRangeStart(dayIndex: number): string
+{
+  return `${new Date(dayIndex * DAY_MS).toISOString().slice(0, 10)}T00:00:00+08:00`
+}
+
+/**
+ * 北京日期序号 → 区间终点的 ISO 字符串（该日 23:59:59.999 +08:00）。
  *
- * 频控无压力：最坏约 11 个请求，远低于 20 次 / 10 秒的限额。
+ * 必须用当天最后一毫秒，不能用「次日 00:00」。
+ */
+function dayIndexToRangeEnd(dayIndex: number): string
+{
+  return `${new Date(dayIndex * DAY_MS).toISOString().slice(0, 10)}T23:59:59.999+08:00`
+}
+
+/** 二分起点与终点（北京日期序号）：覆盖 2000 年到 2200 年之间所有复习日期 */
+const RANGE_START_DAY = toBeijingDayIndex(Date.UTC(2000, 0, 1))
+const RANGE_END_DAY = toBeijingDayIndex(Date.UTC(2200, 11, 31))
+
+/**
+ * 全量拉取单词级学习记录。
+ *
+ * ## 为什么要重写（2026-11-26）
+ *
+ * 旧实现按「单请求 limit=total → offset 翻页 → 日期窗口」三策略回退，
+ * 长期只能拿到部分数据（页面会提示「差额多为未安排复习的词」）。根因三条：
+ *
+ *   1. 接口 limit 硬上限 1000，传 total=8613 只会返回 1000 条；
+ *      旧代码只看 `records.length >= total` 判完整，没有「返回数是否等于
+ *      请求数」的校验，于是把截断误当部分成功。
+ *   2. offset 是**假可用**：服务端忽略 offset 但返回同一页。旧代码探到
+ *      「有新鲜 voc_id」就认定 offset 生效，翻几页后发现没有新词，直接
+ *      `return done(false)` 放弃，连日期窗口兜底都不走。
+ *   3. 日期窗口按「最后一页的 next_study_date + 1 天」推进，遇到
+ *      next_study_date 为空（未安排复习）的词就再也切不动。
+ *
+ *      next_study_date 为空（未安排复习）的词就再也切不动。
+ *
+ * ## 现在的做法：区间递归二分
+ *
+ * 借鉴 MemoSuperform 的 `_fetch_range_tree`：从 [2000-01-01, 2200-12-31]
+ * 开始按 next_study_date 拉，**只要返回满页就说明这段被截断了**，把区间对半
+ * 劈开递归，直到每段都不满页。
+ *
+ * 实测数据：8613 词分布在 1039 个复习日上，单日最多 165 条，远小于 1000，
+ * 所以二分必然收敛（深度约 log2(73000 天) ≈ 17，安全阀 24 足够）。
+ *
+ * ## 为什么不用 offset 做主策略
+ *
+ * offset 未在官方文档声明，实测服务端忽略它。递归二分只依赖 next_study_date
+ * 这一有文档保证的参数，稳定得多。offset 仅作为「总数很小」时的快速通道。
+ *
+ * ## 仍然存在的限制（必须如实告知上层）
+ *
+ * 完全没有 next_study_date 的词，日期区间查询覆盖不到。实测当前账号 8613 条
+ * 全部带日期，但其他账号可能有。这类词只能靠 offset（若服务端某天支持）或
+ * 单请求兜底，拿不到时 `complete=false`，UI 需标注。
  */
 export async function queryStudyRecordsAll(
   client: MaimemoClient,
   options: QueryAllStudyRecordsOptions = {}
 ): Promise<QueryAllStudyRecordsResult>
 {
-  const pageSize = options.pageSize ?? 1000
-  const maxPages = options.maxPages ?? 40
+  const pageSize = Math.min(options.pageSize ?? API_PAGE_LIMIT, API_PAGE_LIMIT)
+  const maxRequests = options.maxRequests ?? DEFAULT_MAX_REQUESTS
 
+  // 先拿总数：既是进度分母，也用于最终完整性判定
   const countResult = await queryStudyRecords(client, { asCount: true })
   const total = countResult.count ?? null
 
@@ -270,7 +342,9 @@ export async function queryStudyRecordsAll(
     total,
     singleShot: 0,
     offsetPaged: 0,
-    windowPaged: 0
+    rangePaged: 0,
+    requests: 1,
+    overflowRanges: 0
   }
 
   /** 去重吸收一页，返回新增条数 */
@@ -280,52 +354,99 @@ export async function queryStudyRecordsAll(
 
     for (const record of list)
     {
-      if (seen.has(record.voc_id))
+      if (record.voc_id && !seen.has(record.voc_id))
       {
-        continue
+        seen.add(record.voc_id)
+        records.push(record)
+        fresh++
       }
-
-      seen.add(record.voc_id)
-      records.push(record)
-      fresh++
     }
 
     return fresh
   }
 
   const hasAll = (): boolean => total !== null && records.length >= total
+  const outOfBudget = (): boolean => diagnostics.requests >= maxRequests
 
-  const done = (complete: boolean): QueryAllStudyRecordsResult => ({
-    records,
-    total,
-    complete,
-    diagnostics
-  })
+  /**
+   * 递归拉取 [startDay, endDay] 北京日期序号区间（闭区间）。
+   *
+   * 返回 false 表示这段彻底放弃了（预算耗尽 / 单日超量），调用方据此判定不完整。
+   *
+   * 拆分规则：拉满 pageSize 就说明这段被 API 截断，对半劈开递归。
+   * 用整数天序号切分，保证：
+   *   - 左段 [startDay, midDay]、右段 [midDay + 1, endDay] 严格相邻且无空隙
+   *   - 每段都严格小于父区间，必然收敛（最细到单日）
+   */
+  async function fetchRange(startDay: number, endDay: number): Promise<boolean>
+  {
+    if (startDay > endDay || hasAll() || outOfBudget())
+    {
+      return !outOfBudget()
+    }
 
-  // ---------- 策略 1：单请求拉全 ----------
-  // 文档写 limit 上限 1000，但实测可能放行更大值。这条最关键：
-  // 未安排复习的词没有 next_study_date，永远不会被日期窗口覆盖，只能靠无过滤查询拿到。
-  let seed: MaimemoStudyRecord[] = []
+    diagnostics.requests++
+    const result = await queryStudyRecords(client, {
+      limit: pageSize,
+      nextStudyDateStart: dayIndexToRangeStart(startDay),
+      nextStudyDateEnd: dayIndexToRangeEnd(endDay)
+    })
 
-  if (total !== null && total > 0 && total <= MAX_SINGLE_SHOT)
+    const page = result.records
+
+    // 不满页 = 这段已经拉全
+    if (page.length < pageSize)
+    {
+      absorb(page)
+      options.onProgress?.(records.length, total)
+      return true
+    }
+
+    // 满页 = 被截断。已经细到单日还满页，说明这一天真有超 1000 个词，无法再分
+    if (startDay >= endDay)
+    {
+      diagnostics.overflowRanges++
+      absorb(page)
+      options.onProgress?.(records.length, total)
+      return false
+    }
+
+    // 整数对半：单日区间已在上面返回，这里 startDay < endDay，midDay 必在两者之间
+    const midDay = startDay + Math.floor((endDay - startDay) / 2)
+
+    const okLeft = await fetchRange(startDay, midDay)
+
+    if (hasAll() || outOfBudget())
+    {
+      return okLeft
+    }
+
+    const okRight = await fetchRange(midDay + 1, endDay)
+
+    return okLeft && okRight
+  }
+
+  // ---------- 快速通道：总数不超过单页时，一次请求就够 ----------
+  // 必须校验「返回数是否等于请求数」，否则会把截断当成拉全（旧实现的坑）。
+  if (total !== null && total > 0 && total <= pageSize)
   {
     try
     {
+      diagnostics.requests++
       const shot = await queryStudyRecords(client, { limit: total })
 
-      seed = shot.records
-      diagnostics.singleShot = seed.length
-      absorb(seed)
+      diagnostics.singleShot = shot.records.length
+      absorb(shot.records)
       options.onProgress?.(records.length, total)
 
-      if (hasAll())
+      if (shot.records.length >= total)
       {
-        return done(true)
+        return { records, total, complete: true, diagnostics }
       }
     }
     catch (error)
     {
-      // 401 必须上抛；其余（体积/超时）不致命，继续翻页
+      // 401 必须上抛；其余（体积 / 超时）不致命，退回区间递归
       if (error instanceof MaimemoAuthError)
       {
         throw error
@@ -333,129 +454,15 @@ export async function queryStudyRecordsAll(
     }
   }
 
-  // ---------- 策略 2：offset 翻页 ----------
-  // 文档没声明 offset，探一页就知道：能探出新 voc_id 说明生效。
-  if (seed.length > 0 && !hasAll())
-  {
-    let offset = seed.length
-    let supported = false
-    let batch = await queryStudyRecords(client, { limit: pageSize, offset })
+  // ---------- 主策略：按 next_study_date 区间递归二分 ----------
+  const fullyFetched = await fetchRange(RANGE_START_DAY, RANGE_END_DAY)
 
-    if (batch.records.some((record) => !seen.has(record.voc_id)))
-    {
-      supported = true
-    }
+  diagnostics.rangePaged = records.length
 
-    for (let page = 0; supported && page < maxPages; page++)
-    {
-      const fresh = absorb(batch.records)
+  // 完整性判定：以 as_count 为准；拿不到总数时退化为「没放弃任何区间」
+  const complete = total !== null ? records.length >= total : fullyFetched
 
-      offset += batch.records.length
-      diagnostics.offsetPaged = records.length
-      options.onProgress?.(records.length, total)
-
-      if (batch.records.length < pageSize || fresh === 0 || hasAll())
-      {
-        break
-      }
-
-      batch = await queryStudyRecords(client, { limit: pageSize, offset })
-    }
-
-    if (hasAll())
-    {
-      return done(true)
-    }
-
-    if (supported)
-    {
-      // offset 可用但没翻完（撞上 maxPages），比日期窗口可靠，不再往下试
-      return done(false)
-    }
-  }
-
-  // ---------- 策略 3：next_study_date 滑动窗口兜底 ----------
-  let start: string | undefined
-  let complete = true
-
-  for (let page = 0; page < maxPages; page++)
-  {
-    const result = await queryStudyRecords(client, {
-      limit: pageSize,
-      nextStudyDateStart: start
-    })
-
-    // 边界可能重叠（同一复习日跨页），按 voc_id 去重
-    const fresh = absorb(result.records)
-
-    diagnostics.windowPaged = records.length
-    options.onProgress?.(records.length, total)
-
-    if (result.records.length < pageSize)
-    {
-      break
-    }
-
-    if (fresh === 0)
-    {
-      // 满页却没有一条新词：说明 next_study_date 窗口过滤没生效，翻下去也是原地打转
-      complete = false
-      break
-    }
-
-    const lastDate = lastStudyDate(result.records)
-
-    if (!lastDate)
-    {
-      // 满页但尾部没有复习日期：无法再切窗口，尾部可能漏词
-      complete = false
-      break
-    }
-
-    const next = shiftStudyDate(lastDate, 1)
-
-    if (next === start)
-    {
-      // 同一天塞满整页，窗口切不动
-      complete = false
-      break
-    }
-
-    start = next
-
-    if (page === maxPages - 1)
-    {
-      complete = false
-    }
-  }
-
-  return done(total === null ? complete : complete && hasAll())
-}
-
-/** 从后往前找最后一个存在的 next_study_date */
-function lastStudyDate(records: MaimemoStudyRecord[]): string | undefined
-{
-  for (let i = records.length - 1; i >= 0; i--)
-  {
-    const date = records[i]?.next_study_date
-
-    if (date)
-    {
-      return date
-    }
-  }
-
-  return undefined
-}
-
-/** 日期加 N 天，返回与接口一致的 ISO 字符串（纯日期输入按北京 00:00 解释） */
-function shiftStudyDate(value: string, days: number): string
-{
-  const base = /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? new Date(`${value}T00:00:00.000+08:00`)
-    : new Date(value)
-
-  return new Date(base.getTime() + days * 86_400_000).toISOString()
+  return { records, total, complete, diagnostics }
 }
 
 /**
