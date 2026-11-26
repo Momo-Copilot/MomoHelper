@@ -9,6 +9,13 @@ import { Icon } from '@/components/icons'
 import { Markdown } from '@/components/markdown'
 import { ErrorNote, PageHeader, Tile } from '@/components/kit'
 import { askStream } from '@/lib/ai'
+import {
+  addAskRecord,
+  clearAskHistory,
+  listAskHistory,
+  removeAskRecord,
+  type AskRecord
+} from '@/lib/ask-history'
 import { getAiThinkingMode } from '@/lib/settings'
 
 /**
@@ -17,6 +24,30 @@ import { getAiThinkingMode } from '@/lib/settings'
  * 未绑定墨墨时也能提问，只是缺少学习上下文。
  * 思考模式在设置页统一配置；未配置时引导跳转。
  */
+/** 历史条目的时间显示：今天只显示时分，其他日期显示月日 */
+function formatAskTime(iso: string): string
+{
+  const date = new Date(iso)
+
+  if (Number.isNaN(date.getTime()))
+  {
+    return ''
+  }
+
+  const today = new Date()
+
+  const sameDay =
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+
+  return date.toLocaleString('zh-CN', {
+    ...(sameDay ? {} : { month: 'numeric', day: 'numeric' }),
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 export default function AskPage()
 {
   const [question, setQuestion] = useState('')
@@ -26,6 +57,9 @@ export default function AskPage()
   const [busy, setBusy] = useState(false)
   /** null = 设置页还没配置过思考模式 */
   const [thinking, setThinking] = useState<'on' | 'off' | null>(null)
+  const [history, setHistory] = useState<AskRecord[]>([])
+  /** 展开中的历史条目 id */
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   const answerRef = useRef('')
   const abortRef = useRef<AbortController | null>(null)
@@ -44,6 +78,7 @@ export default function AskPage()
     () =>
     {
       setThinking(getAiThinkingMode())
+      setHistory(listAskHistory())
     },
     []
   )
@@ -51,6 +86,26 @@ export default function AskPage()
   function stop(): void
   {
     abortRef.current?.abort()
+  }
+
+  /** 把历史里的问题填回输入框，让用户可以直接改一改再问 */
+  function reask(item: AskRecord): void
+  {
+    setQuestion(item.question)
+    setSpelling(item.spelling)
+    setExpanded(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function clearAll(): void
+  {
+    if (!window.confirm(`清空 ${history.length} 条问词历史？此操作不可恢复。`))
+    {
+      return
+    }
+
+    setHistory(clearAskHistory())
+    setExpanded(null)
   }
 
   async function submit(): Promise<void>
@@ -119,6 +174,28 @@ export default function AskPage()
       }
 
       setBusy(false)
+
+      // 有内容就落历史：正常结束、用户主动停止、中途失败但已吐出部分答案，
+      // 都值得留下——问过一次的问题不该因为没答完就被丢掉
+      const finalAnswer = answerRef.current.trim()
+
+      if (finalAnswer)
+      {
+        const next = addAskRecord({
+          question: text,
+          spelling: spelling.trim(),
+          answer: finalAnswer,
+          thinking: mode === 'on' ? 'on' : 'off',
+          at: new Date().toISOString()
+        })
+
+        setHistory(next)
+        setExpanded(next[0]?.id ?? null)
+
+        // 答案已移入历史，清掉临时区避免同一段内容显示两遍
+        answerRef.current = ''
+        setAnswer('')
+      }
     }
   }
 
@@ -129,7 +206,7 @@ export default function AskPage()
         description="回答结合你的真实学习数据；涉及词根、词源的说明属于推测"
       />
 
-      <Tile index={0} hover={false}>
+      <Tile index={0} hover={false} className="md:sticky md:top-0 md:z-20">
         <form
           onSubmit={(event) =>
           {
@@ -215,6 +292,96 @@ export default function AskPage()
           </div>
         </Tile>
       )}
+
+      {/* 历史：独立滚动区——页面整体滚动时，这块自己滚，输入框不跟着跑 */}
+      <Tile index={2} hover={false} className="mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-baseline gap-2 text-[length:var(--text-sm)]">
+            历史记录
+            {history.length > 0 && (
+              <span className="font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                {history.length} 条
+              </span>
+            )}
+          </p>
+          {history.length > 0 && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-forget)] hover:underline"
+            >
+              清空
+            </button>
+          )}
+        </div>
+
+        <div className="mt-3 max-h-[52vh] space-y-2 overflow-y-auto overscroll-contain pr-1">
+          {history.length === 0 ? (
+            <p className="py-10 text-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
+              还没有提问记录。问过的单词与回答会保存在这里，只存本机。
+            </p>
+          ) : (
+            history.map((item) =>
+            {
+              const open = expanded === item.id
+
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-md border border-[var(--color-border)]"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setExpanded(open ? null : item.id)}
+                    className="flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-bg-subtle)]"
+                  >
+                    <div className="min-w-0">
+                      <p className="break-words text-[length:var(--text-sm)] leading-snug">
+                        {item.question}
+                      </p>
+                      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                        {item.spelling && (
+                          <span className="font-[family-name:var(--font-mono)]">{item.spelling}</span>
+                        )}
+                        <span>{item.thinking === 'on' ? '深度思考' : '快速回答'}</span>
+                        <span>{formatAskTime(item.at)}</span>
+                      </p>
+                    </div>
+                    <Icon
+                      name="chevron-right"
+                      className={`mt-1 h-4 w-4 shrink-0 text-[var(--color-text-subtle)] transition-transform ${
+                        open ? 'rotate-90' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {open && (
+                    <div className="border-t border-[var(--color-border)] px-3 py-3">
+                      <Markdown text={item.answer} />
+                      <div className="mt-3 flex items-center gap-4 text-[length:var(--text-xs)]">
+                        <button
+                          type="button"
+                          onClick={() => reask(item)}
+                          className="text-[var(--color-accent)] underline-offset-4 hover:underline"
+                        >
+                          重新提问
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHistory(removeAskRecord(item.id))}
+                          className="text-[var(--color-text-subtle)] transition-colors hover:text-[var(--color-forget)]"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      </Tile>
     </div>
   )
 }
