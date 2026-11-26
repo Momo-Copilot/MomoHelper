@@ -31,7 +31,7 @@ const TIER_NOTICE: Record<ReportSnapshotDto['tier'], { tone: string; title: stri
   few: {
     tone: 'border-[var(--color-forget)]/30 bg-[var(--color-forget-bg)] text-[var(--color-forget)]',
     title: '数据不足 7 天',
-    text: '只看当前画像即可，下面的断更区间与趋势暂不可信——新词曲线刚开始铺，别急着下结论。'
+    text: '只看当前画像即可，下面的「未学新词」区间与趋势暂不可信——新词曲线刚开始铺，别急着下结论。'
   },
   some: {
     tone: 'border-[var(--color-info)]/30 bg-[var(--color-info-bg)] text-[var(--color-info)]',
@@ -76,7 +76,7 @@ function Stat({
   )
 }
 
-/** 日粒度新学柱状图：断更区间自然显形为空白段 */
+/** 日粒度新学柱状图：没学新词的日子自然显形为空白段 */
 function DailyChart({ rows, days }: { rows: ReportSnapshotDto['dailyNew']; days: number })
 {
   const [hovered, setHovered] = useState<number | null>(null)
@@ -267,8 +267,13 @@ export default function ReportPage()
   }
 
   const { risk } = report
-  const notStarted = stats.countBuckets.find((bucket) => bucket.key === '0')?.count ?? 0
-  const started = stats.total - notStarted
+  const notStartedInData = stats.countBuckets.find((bucket) => bucket.key === '0')?.count ?? 0
+  const started = stats.total - notStartedInData
+  // 数据不全时不能用 records 里的 0 次桶：未排期的词压根不在 records 里，
+  // 直接算会显示「还没开始 0」，而实际有几千词从未开始
+  const notStarted = isComplete
+    ? notStartedInData
+    : Math.max(0, expected - started)
   const notice = TIER_NOTICE[report.tier]
   const recentGaps = [...risk.gaps].reverse().slice(0, 5)
 
@@ -381,15 +386,15 @@ export default function ReportPage()
 
         <Tile index={1} className="col-span-12 md:col-span-4">
           <Stat
-            label="最长断更"
+            label="最长未学新词"
             value={risk.maxGapDays > 0 ? `${risk.maxGapDays} 天` : '无'}
             tone={risk.maxGapDays >= 7 ? 'risk' : 'default'}
-            hint="连续 3 天以上零首学才计入"
+            hint="连续 3 天以上没学新词才计入"
           />
           <div className="mt-4 space-y-2">
             {recentGaps.length === 0 ? (
               <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-                没有超过 3 天的断更区间。
+                没有超过 3 天没学新词。
               </p>
             ) : (
               recentGaps.map((gap) => (
@@ -468,7 +473,7 @@ export default function ReportPage()
               <p className="text-[length:var(--text-sm)]">每日新学词数</p>
               <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 {report.firstDay
-                  ? `从 ${report.firstDay} 起共 ${report.spanDays} 天，空白段即断更`
+                  ? `从 ${report.firstDay} 起共 ${report.spanDays} 天，空白段即当天没学新词`
                   : '暂无开始学习的日期数据'}
               </p>
             </div>
@@ -512,6 +517,13 @@ export default function ReportPage()
           stats={stats}
           truncated={isComplete ? undefined : { loaded, expected }}
         />
+
+        {/* 口径说明：这几个指标最容易被误读成「没在学习」 */}
+        <p className="col-span-12 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+          「新学」与「未学新词」只统计某个词<strong className="font-medium">第一次</strong>学习；
+          复习旧词不计入，所以这些数字低不代表没在学习——复习量看上面的热力图与今日页。
+          {!isComplete && ` 词库明细只拿到 ${loaded.toLocaleString('zh-CN')} / ${expected.toLocaleString('zh-CN')} 词（墨墨接口只返回已排期的词），「还没开始」按总数差额估算。`}
+        </p>
       </div>
     </div>
   )

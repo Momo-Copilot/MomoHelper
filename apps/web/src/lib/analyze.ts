@@ -218,7 +218,7 @@ export function analyzeLibrary(
 
 /* ============================= 学情快照指标 ============================= */
 
-/** 断更判定阈值：连续零首学天数达到该值才算断更区间 */
+/** 未学新词阈值：连续这么多天没有新词首次学习，才记一段（复习不算） */
 const GAP_MIN_DAYS = 3
 
 /** 沉睡分桶（数学区间左闭右开）：[7,14) / [14,30) / [30,60) / [60,∞) */
@@ -255,17 +255,18 @@ function addDays(date: string, n: number): string
 }
 
 /**
- * 学情快照聚合（纯函数，零 AI）：日粒度新学曲线、沉睡词、断更区间、复习峰值。
+ * 学情快照聚合（纯函数，零 AI）：日粒度新学曲线、沉睡词、未学新词区间、复习峰值。
  *
  * 口径说明（写给将来接 AI 解读时的自己）：
  * - 「开始学习」只认 first_study_date，不用 add_date 兜底：add_date 是「加进
  *   计划」而非「学过」，拿它兜底会把几年前批量导入的词书当成首学日，跨度、
- *   断更区间、新学曲线全线失真，最终把只有 1 天数据的人判成 rich 档，
+ *   未学新词区间、新学曲线全线失真，最终把只有 1 天数据的人判成 rich 档，
  *   AI 因此获准谈长期趋势（2026-11 修复）
  * - 「沉睡」只统计已学词（last_study_date 存在），分母是已学词数
  * - 复习分布只看未来（next_study_date >= 今天）；过期日期会出现在墨墨当日
  *   计划里，属于今日看板的职责，这里不重复统计
- * - 断更区间从最早开始日到今天全量扫描，连续零首学 >= 3 天记一段
+ * - 未学新词区间从最早开始日到今天全量扫描，连续零首学 >= 3 天记一段；
+ *   注意这里只看「第一次学某个词」，复习旧词不算，所以它不等于「没学习」
  */
 export function analyzeReport(
   records: LibraryRecordRowDto[],
@@ -336,7 +337,7 @@ export function analyzeReport(
   const spanDays = earliest ? (dayDiff(earliest, today) ?? 0) : 0
   const tier: ReportSnapshotDto['tier'] = spanDays < 7 ? 'few' : spanDays < 30 ? 'some' : 'rich'
 
-  // 日粒度曲线：最早开始日 → 今天，逐日补 0（断更区间就藏在 0 值里）
+  // 日粒度曲线：最早开始日 → 今天，逐日补 0（未学新词区间就藏在 0 值里）
   const dailyNew: ReportDailyRowDto[] = []
 
   if (earliest)
@@ -347,7 +348,7 @@ export function analyzeReport(
     }
   }
 
-  // 断更区间：连续 count === 0 的天数段（>= 3 天），闭区间按日数计
+  // 未学新词区间：连续 count === 0 的天数段（>= 3 天），闭区间按日数计
   const gaps: ReportRiskDto['gaps'] = []
 
   if (dailyNew.length > 1)

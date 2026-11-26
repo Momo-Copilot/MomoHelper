@@ -49,7 +49,7 @@ export function ReportTeaser()
               </span>
             </span>
             <span className="text-[var(--color-text-muted)]">
-              最长断更{' '}
+              最长未学新词{' '}
               <span className="tabular font-[family-name:var(--font-mono)] font-semibold">
                 {risk.maxGapDays > 0 ? `${risk.maxGapDays} 天` : '无'}
               </span>
@@ -64,7 +64,7 @@ export function ReportTeaser()
             )}
           </p>
           <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-            来自词库缓存 · 全库画像、断更区间与复习压力详见学情页
+            来自词库缓存 · 全库画像、未学新词区间与复习压力详见学情页
           </p>
         </div>
         <Link

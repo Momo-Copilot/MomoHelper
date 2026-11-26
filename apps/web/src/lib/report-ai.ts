@@ -122,8 +122,19 @@ export function buildReportSummary(
 ): ReportSummary
 {
   const { risk, tier } = report
-  const notStarted = stats.countBuckets.find((bucket) => bucket.key === '0')?.count ?? 0
-  const started = stats.total - notStarted
+  const notStartedInData = stats.countBuckets.find((bucket) => bucket.key === '0')?.count ?? 0
+  const started = stats.total - notStartedInData
+  /**
+   * 「未开始」不能直接用 records 里的 0 次桶：
+   * 墨墨只返回已排期的词，从未开始学的词压根不在 records 里，
+   * 按 stats 统计会得到「未开始 0 词」这种和其他行自相矛盾的假数字。
+   * 数据被截断时改用「词库总数 − 已开始」。
+   */
+  const expectedTotal = truncated?.expected ?? null
+  const notStarted =
+    expectedTotal !== null && expectedTotal > stats.total
+      ? Math.max(0, expectedTotal - started)
+      : notStartedInData
   const lines: string[] = []
   const numbers = new Set<string>()
 
@@ -142,7 +153,7 @@ export function buildReportSummary(
   // 口径行：AI 必须知道数据不是全库，别把 1861 当 8614 说
   collect(
     truncated
-      ? `【口径】学习记录快照 ${n(truncated.loaded)} 条 / 词库总数 ${n(truncated.expected)}（差额多为未安排复习的词，统计仅覆盖已进入复习计划的词）；数据跨度 ${report.spanDays} 天（档位：${tier}）`
+      ? `【口径】学习记录快照 ${n(truncated.loaded)} 条 / 词库总数 ${n(truncated.expected)}（墨墨接口只返回已排期的词，未排期的拿不到明细）；数据跨度 ${report.spanDays} 天（档位：${tier}）`
       : `【口径】学习记录快照 ${n(stats.total)} 条（全量）；数据跨度 ${report.spanDays} 天（档位：${tier}）`
   )
   collect(`【总量】已开始学习 ${n(started)} 词，未开始 ${n(notStarted)} 词`)
@@ -156,7 +167,12 @@ export function buildReportSummary(
   const activeDays = last30.filter((row) => row.count > 0).length
 
   collect(
-    `【节奏】近 30 天新学 ${n(new30)} 词（有学习的天 ${activeDays} 天）；最长断更 ${risk.maxGapDays} 天`
+    `【节奏】近 30 天新学 ${n(new30)} 词（有学习的天 ${activeDays} 天）；最长未学新词 ${risk.maxGapDays} 天`
+  )
+  // 这一句必须给到模型：否则它会把「没学新词」读成「没学习」，写出
+  // 「你已经 238 天没学习了」这种与事实相反的结论
+  collect(
+    '【口径补充】「新学」与「未学新词」只统计某个词第一次学习；复习旧词不计入。这些数字低不代表没学习，复习量看【今日】与【沉睡】。'
   )
 
   if (risk.gaps.length > 0)
@@ -167,7 +183,7 @@ export function buildReportSummary(
       .map((gap) => `${gap.start} ~ ${gap.end}（${gap.days} 天）`)
       .join('、')
 
-    collect(`【断更区间】最近：${recent}`)
+    collect(`【未学新词区间】最近：${recent}`)
   }
 
   collect(
@@ -222,7 +238,7 @@ export function buildReportSummary(
 const TIER_RULES: Record<ReportSnapshotDto['tier'], string> = {
   few: '数据不足 7 天：只解读当前画像与今日状态，明确说数据积累尚早，禁止任何趋势判断。',
   some: '数据 7~29 天：可以谈近期节奏与质量，禁止长期趋势与规律性判断。',
-  rich: '数据 30 天以上：允许谈趋势、断更规律与风险，但仍须基于摘要数字。'
+  rich: '数据 30 天以上：允许谈趋势、新词节奏与风险，但仍须基于摘要数字。'
 }
 
 function buildMessages(summary: ReportSummary, tier: ReportSnapshotDto['tier']): ChatMessage[]
@@ -240,7 +256,7 @@ function buildMessages(summary: ReportSummary, tier: ReportSnapshotDto['tier']):
       '4. 结论必须指向行动；禁止鼓励性废话（"你已经很棒了""保持下去"这类一律不要）。',
       '5. 诚实对待数据局限：快照被截断就说明覆盖不全，趋势有洞就直说，不要脑补。',
       '',
-      '输出格式：2~3 段自然解读（可跨维度关联，如断更与作答质量的关系），',
+      '输出格式：2~3 段自然解读（可跨维度关联，如新词断档与作答质量的关系），',
       '最后一段以"建议："开头，列 2~3 条具体可执行的动作（每条一行，以 - 开头）。',
       '不要输出标题、分节符、markdown 加粗。'
     ].join('\n')

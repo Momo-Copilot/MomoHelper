@@ -223,9 +223,9 @@ export interface ReportRiskDto
   sleepingCount: number
   /** 沉睡分桶（已学词数作分母）：7–13 / 14–29 / 30–59 / 60+ 天未碰 */
   sleepingBuckets: LibraryBucketDto[]
-  /** 断更区间（连续 >= 3 天零首学），按时间升序 */
+  /** 未学新词区间（连续 >= 3 天没有新词首次学习），按时间升序；复习不算 */
   gaps: { start: string; end: string; days: number }[]
-  /** 最长断得天数；无断更为 0 */
+  /** 最长连续未学新词天数；无则为 0 */
   maxGapDays: number
   /** 未来复习峰值日（并列取最早一天）；无未来安排为 null */
   reviewPeak: { date: string; count: number } | null

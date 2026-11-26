@@ -19,7 +19,7 @@ export interface ReportCardInput
   newWordsTotal: number
   /** 顽固词 */
   stickingCount: number
-  /** 最长断更天数 */
+  /** 最长未学新词天数 */
   maxGapDays: number
   /** 当前连续学习天数 */
   streak: number
@@ -194,9 +194,9 @@ export async function downloadReportCard(input: ReportCardInput): Promise<void>
     ctx,
     left + colWidth + colGap,
     row2,
-    '最长断更',
+    '最长未学新词',
     `${input.maxGapDays} 天`,
-    '连续 3 天以上零新学',
+    '连续 3 天以上没学新词',
     colors
   )
 
@@ -215,7 +215,7 @@ export async function downloadReportCard(input: ReportCardInput): Promise<void>
 
   const notes = [
     '数据来自墨墨背单词开放接口，仅统计已同步的学习记录。',
-    '绿色格越深表示当天新学越多；断更日会留成空白。'
+    '绿色格越深表示当天新学越多；没学新词的日子留成空白。'
   ]
 
   notes.forEach((note, index) =>
