@@ -18,7 +18,7 @@ import { restoreBackup } from '@/lib/backup-restore'
 import { getDiagnoseHistory } from '@/lib/diagnose-history'
 import { loadDrill } from '@/lib/drill'
 import { handleGithubCallback, startGithubLogin } from '@/lib/github-oauth'
-import { peekLibraryCache } from '@/lib/library'
+import { inspectLibraryCache, peekLibraryCache } from '@/lib/library'
 import { readDailySnapshotsForBackup } from '@/lib/maimemo'
 import { getWordCardsCache } from '@/lib/word-card-cache'
 import { verifyMaimemoToken } from '@/lib/maimemo'
@@ -192,6 +192,11 @@ export default function SettingsPage()
   const [backupError, setBackupError] = useState<string | null>(null)
   /** 本地文件恢复的文件选择器 */
   const fileRef = useRef<HTMLInputElement>(null)
+  /** 词库缓存状态：导出前就让用户知道这次会不会带上词库 */
+  const [libraryCache, setLibraryCache] = useState<{
+    state: 'absent' | 'incomplete' | 'ready'
+    records: number
+  } | null>(null)
   /** 已拉回、等待用户确认的远端备份 */
   const [restorePending, setRestorePending] = useState<RestoreSource | null>(null)
   /** 本机现有数据量，用于恢复前与远端对照 */
@@ -222,6 +227,38 @@ export default function SettingsPage()
       }
 
       setBindingReady(true)
+    },
+    []
+  )
+
+  // 打开设置页就问一次词库缓存状态：导出前先让用户看到「这次会不会带词库」，
+  // 而不是导出完才发现文件里没有。
+  useEffect(
+    () =>
+    {
+      let alive = true
+
+      void (async () =>
+      {
+        try
+        {
+          const info = await inspectLibraryCache()
+
+          if (alive)
+          {
+            setLibraryCache({ state: info.state, records: info.records })
+          }
+        }
+        catch
+        {
+          // 诊断失败就不显示这一行，不影响其它功能
+        }
+      })()
+
+      return () =>
+      {
+        alive = false
+      }
     },
     []
   )
@@ -411,9 +448,27 @@ export default function SettingsPage()
       const name = `momoxiao-backup-${stamp}.json`
 
       downloadJson(name, file.content)
-      setBackupNotice(
-        `已导出 ${name}（${(file.bytes / 1024).toFixed(1)} KB）。文件不含任何登录凭据。`
-      )
+
+      const size = `${(file.bytes / 1024).toFixed(1)} KB`
+
+      if (file.library.state === 'ready')
+      {
+        setBackupNotice(
+          `已导出 ${name}（${size}），含词库快照 ${file.library.records.toLocaleString('zh-CN')} 词。文件不含任何登录凭据。`
+        )
+      }
+      else if (file.library.state === 'incomplete')
+      {
+        setBackupNotice(
+          `已导出 ${name}（${size}），但词库快照不完整（${file.library.records.toLocaleString('zh-CN')} 词，未拉全），本次未写入备份包。去「词库」页点「重新拉取」，等加载完再导一次。`
+        )
+      }
+      else
+      {
+        setBackupNotice(
+          `已导出 ${name}（${size}），但没有词库快照——本机还没加载过词库。先打开「词库」页等它加载完，再导出一次就能带上。`
+        )
+      }
     }
     catch (error)
     {
@@ -969,6 +1024,21 @@ export default function SettingsPage()
                 <p className="mt-1 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
                   不需要配置云端。下载的 JSON 可以放网盘或 U 盘，换设备时用「从文件恢复」导入。
                 </p>
+                {libraryCache && (
+                  <p
+                    className={`mt-1 text-[length:var(--text-xs)] leading-relaxed ${
+                      libraryCache.state === 'ready'
+                        ? 'text-[var(--color-familiar)]'
+                        : 'text-[var(--color-vague)]'
+                    }`}
+                  >
+                    {libraryCache.state === 'ready'
+                      ? `词库快照 ${libraryCache.records.toLocaleString('zh-CN')} 词，会一起导出`
+                      : libraryCache.state === 'incomplete'
+                        ? `词库快照未拉全（只有 ${libraryCache.records.toLocaleString('zh-CN')} 词），这次导出不会包含——去「词库」页点「重新拉取」`
+                        : '本机还没有词库快照，这次导出不会包含——先打开「词库」页等它加载完'}
+                  </p>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <button

@@ -200,6 +200,34 @@ interface CachedLibrary
   meta: LibraryMeta
 }
 
+/**
+ * 只读诊断：当前词库缓存到底处于什么状态。
+ *
+ * 备份里 librarySnapshot 为 null 时，用户无法自查是「没加载过」「加载不全」
+ * 还是「IndexedDB 坏了」。这个函数把三种情况区分开，供设置页直接显示。
+ */
+export async function inspectLibraryCache(): Promise<{
+  state: 'absent' | 'incomplete' | 'ready'
+  records: number
+  total: number | null
+  fetchedAt: string | null
+}>
+{
+  const cached = await readCache()
+
+  if (!cached)
+  {
+    return { state: 'absent', records: 0, total: null, fetchedAt: null }
+  }
+
+  return {
+    state: cached.meta.complete ? 'ready' : 'incomplete',
+    records: cached.records.length,
+    total: cached.meta.total,
+    fetchedAt: cached.meta.fetchedAt
+  }
+}
+
 /** 读缓存；IndexedDB 不可用或数据缺失时返回 null（调用方走全量拉取） */
 async function readCache(): Promise<CachedLibrary | null>
 {

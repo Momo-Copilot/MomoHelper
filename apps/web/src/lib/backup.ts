@@ -577,15 +577,40 @@ export async function createLocalBackup(): Promise<{
   content: string
   exportedAt: string
   bytes: number
+  /** 词库快照有没有进包：absent = 从没加载过，incomplete = 拉过但没拉全 */
+  library: { state: 'absent' | 'incomplete' | 'ready'; records: number }
 }>
 {
   const payload = await buildPayload()
   const content = JSON.stringify(payload)
 
+  let library: { state: 'absent' | 'incomplete' | 'ready'; records: number } = {
+    state: payload.librarySnapshot ? 'ready' : 'absent',
+    records: payload.librarySnapshot?.records.length ?? 0
+  }
+
+  // 包里没有词库时再追问一句「卡在哪一步」：直接 import 已注册过的模块，
+  // 不会重复加载；失败就保持 absent，不影响导出本身。
+  if (!payload.librarySnapshot)
+  {
+    try
+    {
+      const mod = await import('./library')
+      const info = await mod.inspectLibraryCache()
+
+      library = { state: info.state, records: info.records }
+    }
+    catch
+    {
+      // 忽略：诊断信息拿不到就不显示原因
+    }
+  }
+
   return {
     content,
     exportedAt: payload.exportedAt,
-    bytes: new TextEncoder().encode(content).length
+    bytes: new TextEncoder().encode(content).length,
+    library
   }
 }
 
