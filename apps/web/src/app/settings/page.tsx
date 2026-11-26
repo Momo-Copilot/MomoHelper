@@ -40,6 +40,15 @@ import {
   type BackupBinding
 } from '@/lib/settings'
 
+/**
+ * 配置指引（腾讯文档）。设置页里作为「如何获取」外链，新窗口打开。
+ * 单独抽成常量：两处文案共用同一份地址，改文档时只改这里。
+ */
+const GUIDE_MAIMEMO_TOKEN =
+  'https://docs.qq.com/aio/p/scbfp4dli08ucfu?p=V4zUzbyVpVXrd65aZbgiY2&nlc=1'
+const GUIDE_DEEPSEEK_KEY =
+  'https://docs.qq.com/aio/p/scbfp4dli08ucfu?p=dU25MythvmL24Ffmux1K0V&nlc=1'
+
 const BACKUP_TARGET_LABELS: Record<BackupTarget, string> = {
   github: 'GitHub',
   gitee: 'Gitee',
@@ -745,6 +754,15 @@ export default function SettingsPage()
               <h2 className="text-[length:var(--text-md)] font-semibold">墨墨 Token</h2>
               <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 墨墨 App → 更多设置 → 实验功能 中开启并复制；鉴权失败时重新复制
+                {' · '}
+                <a
+                  href={GUIDE_MAIMEMO_TOKEN}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--color-accent)] underline-offset-4 hover:underline"
+                >
+                  如何获取 ↗
+                </a>
               </p>
             </div>
           </div>
@@ -861,6 +879,15 @@ export default function SettingsPage()
               <h2 className="text-[length:var(--text-md)] font-semibold">DeepSeek API Key</h2>
               <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 在 platform.deepseek.com 获取；AI 诊断与问词都走它
+                {' · '}
+                <a
+                  href={GUIDE_DEEPSEEK_KEY}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--color-accent)] underline-offset-4 hover:underline"
+                >
+                  如何获取 ↗
+                </a>
               </p>
             </div>
           </div>
