@@ -562,7 +562,57 @@ export async function createBackup(cfg: BackupConfig): Promise<BackupResult>
     await webdavPut(cfg, content)
   }
 
-  return { exportedAt: payload.exportedAt, size: content.length }
+  // 按 UTF-8 字节算：中文每个字符 3 字节，content.length 会把它低估近三倍
+  return { exportedAt: payload.exportedAt, size: new TextEncoder().encode(content).length }
+}
+
+/**
+ * 导出到本地文件：与云端备份同一份 payload，但不需要任何远端配置。
+ *
+ * 用途：没配 GitHub/Gitee/WebDAV 时也能留一份外部副本；配了云端也可以定期
+ * 手动下载一份留档（云端是单文件覆盖，没有历史版本）。
+ * 返回字节数而不是字符数——中文在 UTF-8 下是 3 字节，按 length 算会偏小近三倍。
+ */
+export async function createLocalBackup(): Promise<{
+  content: string
+  exportedAt: string
+  bytes: number
+}>
+{
+  const payload = await buildPayload()
+  const content = JSON.stringify(payload)
+
+  return {
+    content,
+    exportedAt: payload.exportedAt,
+    bytes: new TextEncoder().encode(content).length
+  }
+}
+
+/**
+ * 解析备份包正文（云端拉回与本地文件共用同一套校验）。
+ *
+ * 结构校验失败给出可读原因：用户可能选错了文件（比如选了截图或旧版包）。
+ */
+export function parseBackupContent(content: string): RestoreSource
+{
+  let payload: BackupPayload
+
+  try
+  {
+    payload = JSON.parse(content) as BackupPayload
+  }
+  catch
+  {
+    throw new BackupError('备份文件不是有效 JSON，请确认选的是导出的备份文件')
+  }
+
+  if (payload?.version !== BACKUP_VERSION || !Array.isArray(payload.diagnoseHistory))
+  {
+    throw new BackupError('备份包版本或结构不匹配，可能来自旧版应用')
+  }
+
+  return { payload, exportedAt: payload.exportedAt }
 }
 
 /** 拉取远端备份包并解析；形状校验失败会明确报错 */
@@ -585,23 +635,7 @@ export async function fetchBackup(cfg: BackupConfig): Promise<RestoreSource>
     content = await webdavGet(cfg)
   }
 
-  let payload: BackupPayload
-
-  try
-  {
-    payload = JSON.parse(content) as BackupPayload
-  }
-  catch
-  {
-    throw new BackupError('远端备份文件不是有效 JSON')
-  }
-
-  if (payload?.version !== BACKUP_VERSION || !Array.isArray(payload.diagnoseHistory))
-  {
-    throw new BackupError('备份包版本或结构不匹配，可能来自旧版应用')
-  }
-
-  return { payload, exportedAt: payload.exportedAt }
+  return parseBackupContent(content)
 }
 
 export { BackupError }

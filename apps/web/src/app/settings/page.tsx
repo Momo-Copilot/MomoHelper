@@ -1,7 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { AiAuthError } from '@momo/ai'
 import {
@@ -13,7 +13,7 @@ import {
 import { Icon } from '@/components/icons'
 import { ErrorNote, PageHeader, Segmented, Tile } from '@/components/kit'
 import { getAiClient, verifyDeepSeekKey } from '@/lib/ai'
-import { BackupError, createBackup, fetchBackup, type BackupTarget, type RestoreSource } from '@/lib/backup'
+import { BackupError, createBackup, createLocalBackup, fetchBackup, parseBackupContent, type BackupTarget, type RestoreSource } from '@/lib/backup'
 import { restoreBackup } from '@/lib/backup-restore'
 import { getDiagnoseHistory } from '@/lib/diagnose-history'
 import { loadDrill } from '@/lib/drill'
@@ -187,9 +187,11 @@ export default function SettingsPage()
   const [webdavUrl, setWebdavUrl] = useState('')
   const [webdavUser, setWebdavUser] = useState('')
   const [webdavPass, setWebdavPass] = useState('')
-  const [backupBusy, setBackupBusy] = useState<'backup' | 'restore' | null>(null)
+  const [backupBusy, setBackupBusy] = useState<'backup' | 'restore' | 'export' | null>(null)
   const [backupNotice, setBackupNotice] = useState<string | null>(null)
   const [backupError, setBackupError] = useState<string | null>(null)
+  /** 本地文件恢复的文件选择器 */
+  const fileRef = useRef<HTMLInputElement>(null)
   /** 已拉回、等待用户确认的远端备份 */
   const [restorePending, setRestorePending] = useState<RestoreSource | null>(null)
   /** 本机现有数据量，用于恢复前与远端对照 */
@@ -375,6 +377,79 @@ export default function SettingsPage()
     }
   }
 
+  /** 触发浏览器下载；内容已在内存里，不需要任何网络 */
+  function downloadJson(filename: string, content: string): void
+  {
+    const blob = new Blob([content], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+
+    anchor.href = url
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+
+    // 立刻 revoke 在部分浏览器会打断下载，推迟到下一轮事件循环
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  }
+
+  /** 导出到本地：与云端同一份 payload，不依赖任何远端配置 */
+  async function exportLocal(): Promise<void>
+  {
+    setBackupError(null)
+    setBackupNotice(null)
+    setBackupBusy('export')
+
+    try
+    {
+      const file = await createLocalBackup()
+      // sv-SE 给出 "2026-11-25 14:32:10"，替换分隔符即得文件名安全的日期时间
+      const stamp = new Date()
+        .toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
+        .replace(/[: ]/g, '-')
+      const name = `momoxiao-backup-${stamp}.json`
+
+      downloadJson(name, file.content)
+      setBackupNotice(
+        `已导出 ${name}（${(file.bytes / 1024).toFixed(1)} KB）。文件不含任何登录凭据。`
+      )
+    }
+    catch (error)
+    {
+      setBackupError(
+        error instanceof BackupError
+          ? error.message
+          : `导出失败：${error instanceof Error ? error.message : '未知错误'}`
+      )
+    }
+    finally
+    {
+      setBackupBusy(null)
+    }
+  }
+
+  /** 从本地文件恢复：解析后复用与云端恢复相同的确认面板 */
+  async function importLocal(file: File): Promise<void>
+  {
+    setBackupError(null)
+    setBackupNotice(null)
+    setRestorePending(null)
+
+    try
+    {
+      setRestorePending(parseBackupContent(await file.text()))
+    }
+    catch (error)
+    {
+      setBackupError(
+        error instanceof BackupError
+          ? error.message
+          : `读取备份文件失败：${error instanceof Error ? error.message : '未知错误'}`
+      )
+    }
+  }
+
   /**
    * 恢复分两步：先只读远端、把「会写什么」摆出来，用户确认后才动本机。
    *
@@ -440,7 +515,7 @@ export default function SettingsPage()
       const result = await restoreBackup(restorePending)
 
       setBackupNotice(
-        `恢复完成（远端备份时间 ${new Date(restorePending.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}）：` +
+        `恢复完成（备份时间 ${new Date(restorePending.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}）：` +
         `诊断合并 ${result.diagnoseMerged} 条` +
         `${result.diagnoseBackfilled > 0 ? `（另从攻坚记录补入 ${result.diagnoseBackfilled} 条）` : ''}` +
         ` · 词卡补入 ${result.wordCardsMerged} 条` +
@@ -879,13 +954,61 @@ export default function SettingsPage()
             <div>
               <h2 className="text-[length:var(--text-md)] font-semibold">数据备份</h2>
               <p className="text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-                诊断历史、词卡缓存、词库快照备份到你的私有远端；备份包不含登录凭据
+                可存私有远端，也可导出到本地文件；备份包不含登录凭据
               </p>
             </div>
           </div>
         </div>
 
         <div className="mt-4 space-y-3">
+          {/* 本地导出：不依赖任何云端配置，配了云端也能额外留一份 */}
+          <div className="rounded-md border border-[var(--color-border)] p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[length:var(--text-sm)] font-medium">导出到本地文件</p>
+                <p className="mt-1 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+                  不需要配置云端。下载的 JSON 可以放网盘或 U 盘，换设备时用「从文件恢复」导入。
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={backupBusy !== null}
+                  onClick={() => void exportLocal()}
+                  className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+                >
+                  {backupBusy === 'export' ? '导出中…' : '导出 JSON'}
+                </button>
+                <button
+                  type="button"
+                  disabled={backupBusy !== null}
+                  onClick={() => fileRef.current?.click()}
+                  className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
+                >
+                  从文件恢复
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(event) =>
+                  {
+                    const file = event.target.files?.[0]
+
+                    // 清空 value：否则连续选同一个文件不会再触发 change
+                    event.target.value = ''
+
+                    if (file)
+                    {
+                      void importLocal(file)
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
           {!bindingReady ? (
             <p className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">读取本机备份配置中…</p>
           ) : binding ? (
@@ -1057,7 +1180,7 @@ export default function SettingsPage()
           )}
 
           <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
-            备份内容：AI 诊断历史（合并去重）、AI 词卡缓存（只补缺）、顽固词攻坚记录（按词取更新）、词库学习记录快照、思考模式。
+            备份内容：AI 诊断历史（合并去重）、AI 词卡缓存（只补缺）、顽固词攻坚记录（按词取更新）、词库学习记录快照、每日学习快照（按日期合并）、思考模式与考试日期。云端与本地导出用的是同一份数据。
             <span className="font-medium text-[var(--color-text-muted)]">不含墨墨 Token 与 DeepSeek Key</span>
             （换设备重新粘贴即可，避免明文凭据上云）。
             {(binding?.target ?? backupTarget) === 'webdav' && ' 若服务不支持跨域，上传会被浏览器拦截，需配置代理后重试。'}
@@ -1067,7 +1190,7 @@ export default function SettingsPage()
             <div className="mt-4 rounded-md border border-[var(--color-info)]/30 bg-[var(--color-info-bg)] p-4">
               <p className="text-[length:var(--text-sm)] font-medium text-[var(--color-info)]">确认从云端恢复？</p>
               <p className="mt-1 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-muted)]">
-                远端备份时间 {new Date(restorePending.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}
+                备份时间 {new Date(restorePending.exportedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}
               </p>
               {/* 远端 vs 本机对照：只说远端有多少，用户无法判断这是「补数据」还是「基本重来」 */}
               <table className="mt-2 w-full text-[length:var(--text-xs)] text-[var(--color-text-muted)]">
