@@ -14,6 +14,11 @@ export interface MaimemoClientOptions
 {
   token: string
   baseUrl?: string
+  /**
+   * 因频控需要排队时回调（毫秒）。全量拉取会排队近 1 分钟，
+   * UI 靠它显示「正在等待频控」而不是静止不动的进度条。
+   */
+  onRateLimitWait?: (waitMs: number) => void
 }
 
 export interface RequestOptions
@@ -24,6 +29,16 @@ export interface RequestOptions
    */
   retries?: number
 }
+
+/**
+ * 全进程共享的限流器。
+ *
+ * 必须是模块级单例：频控是「同一个 Token 的出口速率」限制，与客户端实例无关。
+ * 若放在实例字段上，每次 `new MaimemoClient()` 都会重置计数（本项目
+ * `getMaimemoClient()` 就是每次新建），限流形同虚设——2026-11-26 全量拉取
+ * 一次性发 53 个请求直接撞 40 次/60 秒上限，根因就在这里。
+ */
+const sharedLimiter = new MaimemoRateLimiter()
 
 /**
  * 墨墨 Open API 客户端：统一请求、包裹层解析、限流与错误映射。
@@ -37,12 +52,13 @@ export class MaimemoClient
 {
   private readonly token: string
   private readonly baseUrl: string
-  private readonly limiter = new MaimemoRateLimiter()
+  private readonly onRateLimitWait?: (waitMs: number) => void
 
   constructor(options: MaimemoClientOptions)
   {
     this.token = options.token
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL
+    this.onRateLimitWait = options.onRateLimitWait
   }
 
   /** 发起请求并返回 envelope 的 data 部分 */
@@ -53,7 +69,7 @@ export class MaimemoClient
 
     for (;;)
     {
-      await this.limiter.acquire()
+      await sharedLimiter.acquire(this.onRateLimitWait)
 
       let response: Response
 

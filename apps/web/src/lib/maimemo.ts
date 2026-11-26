@@ -48,7 +48,13 @@ export class MaimemoNotConfiguredError extends Error
 const MAIMEMO_PROXY_BASE = '/api/memo'
 
 /** 每次调用现取 Token：设置页换绑后无需重建任何实例 */
-export function getMaimemoClient(): MaimemoClient
+/**
+ * 创建墨墨客户端。
+ *
+ * `onRateLimitWait` 用于长任务（如全量拉取 8613 条）在频控排队时把等待
+ * 状态回传给 UI —— 否则进度条会静止近 1 分钟，看起来像卡死。
+ */
+export function getMaimemoClient(options: { onRateLimitWait?: (waitMs: number) => void } = {}): MaimemoClient
 {
   const token = getMaimemoToken()
 
@@ -57,7 +63,11 @@ export function getMaimemoClient(): MaimemoClient
     throw new MaimemoNotConfiguredError()
   }
 
-  return new MaimemoClient({ token, baseUrl: MAIMEMO_PROXY_BASE })
+  return new MaimemoClient({
+    token,
+    baseUrl: MAIMEMO_PROXY_BASE,
+    onRateLimitWait: options.onRateLimitWait
+  })
 }
 
 /**

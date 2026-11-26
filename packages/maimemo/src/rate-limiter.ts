@@ -24,9 +24,15 @@ export class MaimemoRateLimiter
   /**
    * 获取一次请求配额，必要时等待。
    * 返回是否真的立即获得（用于区分排队与直行，日志用）。
+   *
+   * `onWait(ms)` 在需要排队时回调，供 UI 显示「正在等待频控」——
+   * 全量拉取会因 40 次/60 秒窗口排队近 1 分钟，不提示的话进度条会静止不动，
+   * 用户以为卡死了。
    */
-  async acquire(): Promise<boolean>
+  async acquire(onWait?: (waitMs: number) => void): Promise<boolean>
   {
+    let waited = false
+
     for (;;)
     {
       const now = Date.now()
@@ -61,10 +67,15 @@ export class MaimemoRateLimiter
           this.timestamps[i]!.push(now)
         }
 
-        return true
+        return !waited
       }
 
-      await sleep(Math.min(blockedUntil, 5_000))
+      waited = true
+      // 分段睡：一次最多 5 秒，便于外部取消时尽快响应
+      const slice = Math.min(blockedUntil, 5_000)
+
+      onWait?.(blockedUntil)
+      await sleep(slice)
     }
   }
 }

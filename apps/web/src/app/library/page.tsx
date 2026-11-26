@@ -38,7 +38,12 @@ export default function LibraryPage()
   const [view, setView] = useState<ViewKey>('stats')
   /** 来自 ?word= 的定位词（词云点击跳进来时用） */
   const [initialWord, setInitialWord] = useState('')
-  const [progress, setProgress] = useState<{ loaded: number; total: number | null } | null>(null)
+  const [progress, setProgress] = useState<{
+    loaded: number
+    total: number | null
+    /** > 0 表示正在因频控排队，UI 要提示而不是让进度条静止 */
+    waitingMs: number
+  } | null>(null)
   const queryClient = useQueryClient()
 
   // 不用 useSearchParams：那要包 Suspense 边界，这里只需首帧带一次定位词。
@@ -66,7 +71,10 @@ export default function LibraryPage()
     mutationFn: () =>
       loadLibrary({
         force: true,
-        onProgress: (loaded, total) => setProgress({ loaded, total })
+        // 每成功拉回一页就把等待标记清掉：进度在动就说明不在排队
+        onProgress: (loaded, total) => setProgress({ loaded, total, waitingMs: 0 }),
+        onRateLimitWait: (waitMs) =>
+          setProgress((prev) => (prev ? { ...prev, waitingMs: waitMs } : prev))
       }),
     onSuccess: (data) =>
     {
@@ -82,7 +90,9 @@ export default function LibraryPage()
   const busy = refresh.isPending && progress !== null
   const refreshLabel = refresh.isPending
     ? progress
-      ? `拉取中 ${progress.loaded}${progress.total ? ` / ${progress.total}` : ''}`
+      ? progress.waitingMs > 0
+        ? `等待频控 ${Math.ceil(progress.waitingMs / 1000)}s（已拉 ${progress.loaded}${progress.total ? ` / ${progress.total}` : ''}）`
+        : `拉取中 ${progress.loaded}${progress.total ? ` / ${progress.total}` : ''}`
       : '准备中…'
     : '重新拉取'
 

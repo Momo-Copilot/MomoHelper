@@ -41,6 +41,12 @@ export interface LibraryLoadOptions
   force?: boolean
   /** 每翻一页回吐已拉取条数 */
   onProgress?: (loaded: number, total: number | null) => void
+  /**
+   * 因频控排队时回调（毫秒）。
+   * 全量拉取 8613 条约 53 个请求，会撞 40 次 / 60 秒的窗口排近 1 分钟，
+   * UI 靠它显示「等待频控」而不是让进度条静止不动。
+   */
+  onRateLimitWait?: (waitMs: number) => void
 }
 
 /* ============================ IndexedDB ============================ */
@@ -329,9 +335,9 @@ export async function loadLibrary(
   // 上次没拉全的缓存直接作废：否则页面会一直显示偏小的统计，
   // 直到缓存自然过期（最多 24 小时）才重试，用户以为数据就是这么多
   const raw = options.force ? null : await readCache()
-  // 但不完整缓存仍然复用：墨墨接口本身拉不全（单请求被截断、offset 不生效），
-  // 每次进页面重拉 9 个请求、结果还是同样偏小，纯属白花。保留 FRESH_MS 窗口，
-  // 过期再试；用户也可以在词库页手动「重新拉取」强制一次。
+  // 不完整缓存也复用：完全没有 next_study_date 的词日期区间覆盖不到，
+  // 这类账号每次进页面重拉 50+ 个请求、结果还是同样偏小，纯属白花额度。
+  // 保留 FRESH_MS 窗口，过期再试；用户也可以在词库页手动「重新拉取」强制一次。
   const cached = raw ?? null
 
   if (cached)
@@ -368,7 +374,7 @@ export async function loadLibrary(
     }
   }
 
-  const client = getMaimemoClient()
+  const client = getMaimemoClient({ onRateLimitWait: options.onRateLimitWait })
   const result = await queryStudyRecordsAll(client, {
     onProgress: options.onProgress
   })
