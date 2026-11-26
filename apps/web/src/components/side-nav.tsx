@@ -1,11 +1,9 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-import { getLocalStatus } from '@/lib/settings'
 import { applyTheme, currentTheme, storeTheme, type ThemeMode } from '@/lib/theme'
 import { Icon, type IconName } from './icons'
 
@@ -29,19 +27,6 @@ const ITEMS: { href: string; label: string; icon: IconName; hint: string }[] = [
   { href: '/library', label: '词库', icon: 'book', hint: '词库明细' },
   { href: '/settings', label: '设置', icon: 'sliders', hint: '凭据与备份设置' }
 ]
-
-/** 本地凭据快照：与设置页共用 getLocalStatus，保证同一 queryKey 数据形状一致 */
-function useLocalStatus()
-{
-  const query = useQuery({
-    queryKey: ['settings', 'status'],
-    queryFn: getLocalStatus,
-    staleTime: 0,
-    retry: false
-  })
-
-  return query.data ?? null
-}
 
 function Brand()
 {
@@ -100,48 +85,6 @@ function NavLink({ item, active }: { item: (typeof ITEMS)[number]; active: boole
             : 'bg-[var(--color-text-subtle)] opacity-0 group-hover:opacity-40'
         }`}
       />
-    </Link>
-  )
-}
-
-/** 凭据状态卡：数据全部存本机浏览器，不经过任何服务器 */
-function StatusCard()
-{
-  const status = useLocalStatus()
-  const connected = status?.token?.hasToken ?? false
-
-  return (
-    <Link
-      href="/settings"
-      className="flex items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-3 py-2.5 transition-colors hover:border-[var(--color-border-strong)]"
-    >
-      <span
-        aria-hidden
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-info-bg)] font-[family-name:var(--font-display)] text-sm font-semibold text-[var(--color-info)]"
-      >
-        <Icon name="user" className="h-4 w-4" />
-      </span>
-      <div className="min-w-0 flex-1 leading-tight">
-        <p className="text-[length:var(--text-sm)] font-medium">本机凭据</p>
-        <p className="mt-1 flex items-center gap-1.5 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-          <span
-            aria-hidden
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-              connected ? 'bg-[var(--color-familiar)]' : 'bg-[var(--color-border-strong)]'
-            }`}
-          />
-          {connected ? '墨墨已连接' : '墨墨未配置'}
-        </p>
-        <p className="mt-0.5 flex items-center gap-1.5 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-          <span
-            aria-hidden
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-              status?.hasAiKey ? 'bg-[var(--color-familiar)]' : 'bg-[var(--color-border-strong)]'
-            }`}
-          />
-          {status?.hasAiKey ? 'AI 已配置' : 'AI 未配置'}
-        </p>
-      </div>
     </Link>
   )
 }
@@ -239,8 +182,7 @@ export function SideNav()
         </ul>
       </div>
       <div>
-        <StatusCard />
-        <div className="mt-3 flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <FooterLink href={MAIMEMO_STUDY_URL} label="去墨墨网页版背单词" icon="external-link" />
           <FooterLink href={REPO_URL} label="GitHub 仓库" icon="github" />
         </div>
