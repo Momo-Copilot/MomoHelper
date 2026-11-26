@@ -584,14 +584,19 @@ export async function createLocalBackup(): Promise<{
   const payload = await buildPayload()
   const content = JSON.stringify(payload)
 
-  let library: { state: 'absent' | 'incomplete' | 'ready'; records: number } = {
-    state: payload.librarySnapshot ? 'ready' : 'absent',
-    records: payload.librarySnapshot?.records.length ?? 0
-  }
+  const snapshot = payload.librarySnapshot
 
-  // 包里没有词库时再追问一句「卡在哪一步」：直接 import 已注册过的模块，
-  // 不会重复加载；失败就保持 absent，不影响导出本身。
-  if (!payload.librarySnapshot)
+  let library: { state: 'absent' | 'incomplete' | 'ready'; records: number } = snapshot
+    ? {
+        // 有数据但 complete=false（墨墨接口拉不全）时标 incomplete：仍然打包，
+        // 只是要让用户知道这份快照覆盖得不全
+        state: (snapshot.meta as { complete?: boolean } | null)?.complete === true ? 'ready' : 'incomplete',
+        records: snapshot.records.length
+      }
+    : { state: 'absent', records: 0 }
+
+  // 完全没有词库时再追问一句「是没加载过还是读不出来」
+  if (!snapshot)
   {
     try
     {

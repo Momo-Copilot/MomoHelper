@@ -329,7 +329,10 @@ export async function loadLibrary(
   // 上次没拉全的缓存直接作废：否则页面会一直显示偏小的统计，
   // 直到缓存自然过期（最多 24 小时）才重试，用户以为数据就是这么多
   const raw = options.force ? null : await readCache()
-  const cached = raw && raw.meta.complete ? raw : null
+  // 但不完整缓存仍然复用：墨墨接口本身拉不全（单请求被截断、offset 不生效），
+  // 每次进页面重拉 9 个请求、结果还是同样偏小，纯属白花。保留 FRESH_MS 窗口，
+  // 过期再试；用户也可以在词库页手动「重新拉取」强制一次。
+  const cached = raw ?? null
 
   if (cached)
   {
@@ -388,7 +391,11 @@ export async function loadLibrary(
 
 /**
  * 供 backup.ts 读取快照（records + meta），无缓存返回 null。
- * 只备「完整」快照：半截数据备上去，换设备恢复后统计会偏小。
+ *
+ * 不完整也返回：墨墨 query_study_records 本身拉不全（单请求被截断、offset
+ * 不生效、日期窗口只覆盖有排期的词），坚持「只备完整快照」等于备份里永远
+ * 没有词库。半份数据至少离线可看，恢复后 loadLibrary 读到 complete=false
+ * 会自动重拉补全。
  */
 async function readSnapshotForBackup(): Promise<{
   records: unknown[]
@@ -397,7 +404,7 @@ async function readSnapshotForBackup(): Promise<{
 {
   const cached = await readCache()
 
-  return cached && cached.meta.complete ? { records: cached.records, meta: cached.meta } : null
+  return cached ? { records: cached.records, meta: cached.meta } : null
 }
 
 /**
@@ -431,6 +438,13 @@ async function writeSnapshotFromBackup(snapshot: {
 
       // 解析失败（脏数据）时按「本机优先」保守处理，不覆盖
       if (Number.isNaN(remoteAt) || (!Number.isNaN(localAt) && localAt >= remoteAt))
+      {
+        return 'skipped'
+      }
+
+      // 远端时间更新但条数更少：多半是它导出时接口只拉到一部分。
+      // 本机已经完整时不能被一份残缺数据顶掉。
+      if (current.meta.complete && records.length < current.records.length)
       {
         return 'skipped'
       }

@@ -460,7 +460,7 @@ export default function SettingsPage()
       else if (file.library.state === 'incomplete')
       {
         setBackupNotice(
-          `已导出 ${name}（${size}），但词库快照不完整（${file.library.records.toLocaleString('zh-CN')} 词，未拉全），本次未写入备份包。去「词库」页点「重新拉取」，等加载完再导一次。`
+          `已导出 ${name}（${size}），含词库快照 ${file.library.records.toLocaleString('zh-CN')} 词——墨墨接口只能拉到这些，恢复后会自动重新拉取补全。`
         )
       }
       else
@@ -1035,7 +1035,7 @@ export default function SettingsPage()
                     {libraryCache.state === 'ready'
                       ? `词库快照 ${libraryCache.records.toLocaleString('zh-CN')} 词，会一起导出`
                       : libraryCache.state === 'incomplete'
-                        ? `词库快照未拉全（只有 ${libraryCache.records.toLocaleString('zh-CN')} 词），这次导出不会包含——去「词库」页点「重新拉取」`
+                        ? `词库快照 ${libraryCache.records.toLocaleString('zh-CN')} 词（墨墨接口只能拉到这些），会一起导出`
                         : '本机还没有词库快照，这次导出不会包含——先打开「词库」页等它加载完'}
                   </p>
                 )}
