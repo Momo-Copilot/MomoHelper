@@ -107,6 +107,7 @@ export async function askStream(
   await ai.streamComplete(
     {
       model: 'deepseek-flash',
+      label: 'AI 问词',
       messages,
       maxTokens: 1200,
       temperature: 0.5,

@@ -307,6 +307,7 @@ export async function generateReportInsight(
   await ai.streamComplete(
     {
       model: 'deepseek-flash',
+      label: '学情解读',
       messages: buildMessages(summary, tier),
       maxTokens: 1200,
       temperature: 0.5,

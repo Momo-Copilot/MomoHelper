@@ -84,6 +84,7 @@ export async function diagnoseForget(
     // 全站统一 deepseek-flash：遗忘诊断是「7 选 1 分类 + 一段解释」，
     // 不需要深度推理链；批量筛查（熟词僻义页一次 25 个）用 pro 成本差一个量级
     model: 'deepseek-flash',
+    label: '遗忘诊断',
     thinking: input.thinking,
     messages: [
       { role: 'system', content: FORGET_SYSTEM_PROMPT },
@@ -177,6 +178,7 @@ export async function explainWord(
 {
   const result = await client.complete({
     model: 'deepseek-flash',
+    label: '词卡解释',
     thinking: input.thinking,
     messages: [
       { role: 'system', content: EXPLAIN_SYSTEM_PROMPT },

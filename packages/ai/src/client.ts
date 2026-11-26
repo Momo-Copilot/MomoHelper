@@ -71,6 +71,8 @@ export interface CompletionParams
 {
   model: AiModel
   messages: ChatMessage[]
+  /** 调试日志里显示的用途名，如「遗忘诊断」；不参与请求体 */
+  label?: string
   /** JSON 模式：prompt 中必须出现 "json" 字样并给出格式示例，否则可能返回空内容 */
   jsonMode?: boolean
   maxTokens?: number
@@ -92,6 +94,87 @@ export interface CompletionResult
   completionTokens: number
 }
 
+/* ============================ 调试日志 ============================ */
+
+/**
+ * AI 调用日志，默认开启。
+ *
+ * 目的：在浏览器控制台直接看到每次发给模型的完整 prompt，核对「模型到底收到
+ * 了什么」。只打印请求参数与消息正文，**不打印 Authorization 头**，Key 不会
+ * 出现在日志里。
+ *
+ * 关闭：控制台执行 localStorage.setItem('momo.debugAi', '0') 后刷新。
+ */
+function aiDebugEnabled(): boolean
+{
+  // 不直接引用 window / Storage：本包可能在没有 DOM lib 的环境下编译（Node 端）。
+  // 用最小结构化类型从 globalThis 取，取不到就当作关闭。
+  const store = (
+    globalThis as { localStorage?: { getItem(key: string): string | null } }
+  ).localStorage
+
+  if (!store)
+  {
+    return false
+  }
+
+  try
+  {
+    return store.getItem('momo.debugAi') !== '0'
+  }
+  catch
+  {
+    return false
+  }
+}
+
+function logAiRequest(kind: string, params: CompletionParams): number
+{
+  const startedAt = Date.now()
+
+  if (!aiDebugEnabled())
+  {
+    return startedAt
+  }
+
+  console.groupCollapsed(`%c🤖 ${params.label ?? kind}`, 'color:#28b69d;font-weight:600', {
+    model: params.model,
+    temperature: params.temperature ?? '(默认)',
+    maxTokens: params.maxTokens ?? '(默认)',
+    thinking: params.thinking === undefined ? '(服务端默认)' : params.thinking ? 'on' : 'off',
+    jsonMode: params.jsonMode === true
+  })
+
+  for (const message of params.messages)
+  {
+    console.log(`%c[${message.role}]`, 'color:#7f948d;font-weight:600', message.content)
+  }
+
+  console.log('%c关闭日志：localStorage.setItem("momo.debugAi", "0") 后刷新', 'color:#8a8a8a')
+  console.groupEnd()
+
+  return startedAt
+}
+
+function logAiResponse(
+  kind: string,
+  params: CompletionParams,
+  startedAt: number,
+  detail: Record<string, unknown>
+): void
+{
+  if (!aiDebugEnabled())
+  {
+    return
+  }
+
+  console.log(
+    `%c✓ ${params.label ?? kind} · ${Date.now() - startedAt}ms`,
+    'color:#28b69d;font-weight:600',
+    detail
+  )
+}
+
 export class AiClient
 {
   private readonly apiKey: string
@@ -105,6 +188,8 @@ export class AiClient
 
   async complete(params: CompletionParams): Promise<CompletionResult>
   {
+    const startedAt = logAiRequest('AI 补全', params)
+
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       signal: params.signal,
@@ -143,6 +228,12 @@ export class AiClient
     }
 
     const choice = data.choices[0]
+
+    logAiResponse('AI 补全', params, startedAt, {
+      promptTokens: data.usage?.prompt_tokens ?? 0,
+      completionTokens: data.usage?.completion_tokens ?? 0,
+      content: choice?.message?.content ?? ''
+    })
 
     return {
       content: choice?.message?.content ?? '',
@@ -189,6 +280,7 @@ export class AiClient
 
     await this.complete({
       model: 'deepseek-flash',
+      label: 'Key 校验',
       messages: [{ role: 'user', content: 'ping' }],
       maxTokens: 1,
       thinking: false
@@ -272,6 +364,9 @@ export class AiClient
     onDelta: (text: string) => void
   ): Promise<void>
   {
+    const startedAt = logAiRequest('AI 流式', params)
+    let emitted = 0
+
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       signal: params.signal,
@@ -317,56 +412,65 @@ export class AiClient
     const decoder = new TextDecoder()
     let buffer = ''
 
-    for (;;)
+    try
     {
-      const { done, value } = await reader.read()
-
-      if (done)
+      for (;;)
       {
-        break
-      }
+        const { done, value } = await reader.read()
 
-      buffer += decoder.decode(value, { stream: true })
-
-      // SSE 事件以空行分隔
-      const events = buffer.split('\n\n')
-      buffer = events.pop() ?? ''
-
-      for (const event of events)
-      {
-        for (const line of event.split('\n'))
+        if (done)
         {
-          if (!line.startsWith('data:'))
+          break
+        }
+
+        buffer += decoder.decode(value, { stream: true })
+
+        // SSE 事件以空行分隔
+        const events = buffer.split('\n\n')
+        buffer = events.pop() ?? ''
+
+        for (const event of events)
+        {
+          for (const line of event.split('\n'))
           {
-            continue
-          }
-
-          const payload = line.slice(5).trim()
-
-          if (payload === '[DONE]')
-          {
-            return
-          }
-
-          try
-          {
-            const chunk = JSON.parse(payload) as {
-              choices: { delta?: { content?: string } }[]
-            }
-
-            const delta = chunk.choices[0]?.delta?.content
-
-            if (delta)
+            if (!line.startsWith('data:'))
             {
-              onDelta(delta)
+              continue
             }
-          }
-          catch
-          {
-            // 忽略无法解析的心跳/分片
+
+            const payload = line.slice(5).trim()
+
+            if (payload === '[DONE]')
+            {
+              return
+            }
+
+            try
+            {
+              const chunk = JSON.parse(payload) as {
+                choices: { delta?: { content?: string } }[]
+              }
+
+              const delta = chunk.choices[0]?.delta?.content
+
+              if (delta)
+              {
+                emitted += delta.length
+                onDelta(delta)
+              }
+            }
+            catch
+            {
+              // 忽略无法解析的心跳/分片
+            }
           }
         }
       }
+    }
+    finally
+    {
+      // 正常结束、[DONE]、用户中止都会走到这里，统一记一条收尾日志
+      logAiResponse('AI 流式', params, startedAt, { chars: emitted })
     }
   }
 }
