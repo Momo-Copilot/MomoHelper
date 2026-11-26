@@ -187,9 +187,26 @@ function VersionTag()
   const commit = process.env.NEXT_PUBLIC_COMMIT_SHA ?? ''
 
   return (
-    <p className="px-2 font-[family-name:var(--font-mono)] text-[11px] tracking-wide text-[var(--color-text-subtle)]">
+    <p className="mt-2 px-2 font-[family-name:var(--font-mono)] text-[11px] tracking-wide text-[var(--color-text-subtle)]">
       {commit ? `v${version} · ${commit}` : `v${version}`}
     </p>
+  )
+}
+
+/** 外链：墨墨官方网页版背单词。新窗口打开，不把本站替换掉 */
+function StudyLink()
+{
+  return (
+    <a
+      href="https://www.maimemo.com/home/web_study"
+      target="_blank"
+      rel="noopener noreferrer"
+      title="去墨墨网页版背单词"
+      aria-label="去墨墨网页版背单词"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-accent)]"
+    >
+      <Icon name="external-link" className="h-4 w-4" />
+    </a>
   )
 }
 
@@ -217,8 +234,11 @@ export function SideNav()
         </ul>
       </div>
       <div>
-        <VersionTag />
         <StatusCard />
+        <div className="mt-3">
+          <StudyLink />
+        </div>
+        <VersionTag />
       </div>
     </nav>
   )
@@ -233,7 +253,10 @@ export function MobileNav()
     <div className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 px-4 py-3 backdrop-blur md:hidden">
       <div className="flex items-center justify-between">
         <Brand />
-        <ThemeButton />
+        <div className="flex items-center gap-2">
+          <StudyLink />
+          <ThemeButton />
+        </div>
       </div>
       <nav aria-label="主导航" className="-mx-1 mt-3 overflow-x-auto">
         <ul className="flex gap-1 px-1">

@@ -49,6 +49,13 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   'chevron-right': <path d="M9 6l6 6-6 6" />,
+  'external-link': (
+    <>
+      <path d="M15 4h5v5" />
+      <path d="M20 4l-8.5 8.5" />
+      <path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+    </>
+  ),
   search: (
     <>
       <circle cx="11" cy="11" r="7" />
