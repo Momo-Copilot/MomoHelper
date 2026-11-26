@@ -1016,11 +1016,11 @@ export default function SettingsPage()
         </div>
 
         <div className="mt-4 space-y-3">
-          {/* 本地导出：不依赖任何云端配置，配了云端也能额外留一份 */}
-          <div className="rounded-md border border-[var(--color-border)] p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+          {/* ① 本地文件：不依赖任何云端配置，配了云端也能额外留一份 */}
+          <section className="rounded-md border border-[var(--color-border)] p-4">
+            <div>
               <div className="min-w-0">
-                <p className="text-[length:var(--text-sm)] font-medium">导出到本地文件</p>
+                <h3 className="text-[length:var(--text-sm)] font-medium">① 本地文件</h3>
                 <p className="mt-1 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
                   不需要配置云端。下载的 JSON 可以放网盘或 U 盘，换设备时用「从文件恢复」导入。
                 </p>
@@ -1040,7 +1040,7 @@ export default function SettingsPage()
                   </p>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   disabled={backupBusy !== null}
@@ -1077,184 +1077,183 @@ export default function SettingsPage()
                 />
               </div>
             </div>
-          </div>
+          </section>
 
-          {!bindingReady ? (
-            <p className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">读取本机备份配置中…</p>
-          ) : binding ? (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-[var(--color-bg-subtle)] px-4 py-3">
-                <div>
-                  <p className="text-[length:var(--text-sm)] font-medium">
-                    当前备份方式：{BACKUP_TARGET_LABELS[binding.target]}
-                  </p>
-                  <p className="mt-1 break-all font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-                    {binding.target === 'webdav'
-                      ? `${binding.remoteUrl} · ${binding.username} · 密码已保存`
-                      : `${binding.repo} · Token 已保存`}
-                  </p>
-                </div>
-                <span className="flex shrink-0 items-center gap-1.5 text-[length:var(--text-xs)] text-[var(--color-familiar)]">
-                  <Icon name="check" className="h-4 w-4" />
-                  已启用
-                </span>
-              </div>
-
-              <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
-                配置（含 WebDAV 密码）只保存在这台设备的浏览器里，刷新后无需重新输入。三种方式一次只启用一个，如需改用其他方式请先重置。
-              </p>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  disabled={backupBusy !== null}
-                  onClick={() => void runBackup()}
-                  className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
-                >
-                  {backupBusy === 'backup' ? '备份中…' : '立即备份'}
-                </button>
-                <button
-                  type="button"
-                  disabled={backupBusy !== null}
-                  onClick={() => void prepareRestore()}
-                  className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
-                >
-                  {backupBusy === 'restore' ? '恢复中…' : '从云端恢复'}
-                </button>
-                <button
-                  type="button"
-                  disabled={backupBusy !== null}
-                  onClick={resetBackupBinding}
-                  className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-forget)] hover:underline"
-                >
-                  重置配置
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <Segmented
-                ariaLabel="备份目标"
-                value={backupTarget}
-                options={[
-                  ['github', 'GitHub'],
-                  ['gitee', 'Gitee'],
-                  ['webdav', 'WebDAV']
-                ]}
-                onChange={(next) => switchBackupTarget(next as BackupTarget)}
-              />
-
-              {backupTarget === 'webdav' ? (
+          {/* ② 云端备份 */}
+          <section className="rounded-md border border-[var(--color-border)] p-4">
+            <h3 className="text-[length:var(--text-sm)] font-medium">② 云端备份</h3>
+            <div className="mt-3 space-y-3">
+              {!bindingReady ? (
+                <p className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">读取本机备份配置中…</p>
+              ) : binding ? (
                 <>
-                  <input
-                    value={webdavUrl}
-                    onChange={(event) => setWebdavUrl(event.target.value)}
-                    placeholder="服务地址（含目录），如 https://dav.example.com/WebDAV/momo"
-                    className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
-                  />
-                  <div className="flex gap-3">
-                    <input
-                      value={webdavUser}
-                      onChange={(event) => setWebdavUser(event.target.value)}
-                      placeholder="账号"
-                      autoComplete="off"
-                      className="h-10 flex-1 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
-                    />
-                    <input
-                      type="password"
-                      value={webdavPass}
-                      onChange={(event) => setWebdavPass(event.target.value)}
-                      placeholder="密码 / 应用密码"
-                      autoComplete="new-password"
-                      className="h-10 flex-1 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
-                    />
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-[var(--color-bg-subtle)] px-4 py-3">
+                    <div>
+                      <p className="text-[length:var(--text-sm)] font-medium">
+                        当前备份方式：{BACKUP_TARGET_LABELS[binding.target]}
+                      </p>
+                      <p className="mt-1 break-all font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                        {binding.target === 'webdav'
+                          ? `${binding.remoteUrl} · ${binding.username} · 密码已保存`
+                          : `${binding.repo} · Token 已保存`}
+                      </p>
+                    </div>
+                    <span className="flex shrink-0 items-center gap-1.5 text-[length:var(--text-xs)] text-[var(--color-familiar)]">
+                      <Icon name="check" className="h-4 w-4" />
+                      已启用
+                    </span>
+                  </div>
+    
+                  <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+                    配置（含 WebDAV 密码）只保存在这台设备的浏览器里，刷新后无需重新输入。三种方式一次只启用一个，如需改用其他方式请先重置。
+                  </p>
+    
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={backupBusy !== null}
+                      onClick={() => void runBackup()}
+                      className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+                    >
+                      {backupBusy === 'backup' ? '备份中…' : '立即备份'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={backupBusy !== null}
+                      onClick={() => void prepareRestore()}
+                      className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
+                    >
+                      {backupBusy === 'restore' ? '恢复中…' : '从云端恢复'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={backupBusy !== null}
+                      onClick={resetBackupBinding}
+                      className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-forget)] hover:underline"
+                    >
+                      重置配置
+                    </button>
                   </div>
                 </>
               ) : (
                 <>
-                  {backupTarget === 'github' && oauthClientId && (
+                  <Segmented
+                    ariaLabel="备份目标"
+                    value={backupTarget}
+                    options={[
+                      ['github', 'GitHub'],
+                      ['gitee', 'Gitee'],
+                      ['webdav', 'WebDAV']
+                    ]}
+                    onChange={(next) => switchBackupTarget(next as BackupTarget)}
+                  />
+    
+                  {backupTarget === 'webdav' ? (
+                    <>
+                      <input
+                        value={webdavUrl}
+                        onChange={(event) => setWebdavUrl(event.target.value)}
+                        placeholder="服务地址（含目录），如 https://dav.example.com/WebDAV/momo"
+                        className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                      />
+                      <div className="flex gap-3">
+                        <input
+                          value={webdavUser}
+                          onChange={(event) => setWebdavUser(event.target.value)}
+                          placeholder="账号"
+                          autoComplete="off"
+                          className="h-10 flex-1 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                        />
+                        <input
+                          type="password"
+                          value={webdavPass}
+                          onChange={(event) => setWebdavPass(event.target.value)}
+                          placeholder="密码 / 应用密码"
+                          autoComplete="new-password"
+                          className="h-10 flex-1 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {backupTarget === 'github' && oauthClientId && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                          {
+                            try
+                            {
+                              startGithubLogin()
+                            }
+                            catch (error)
+                            {
+                              setBackupError(error instanceof Error ? error.message : 'OAuth 未配置')
+                            }
+                          }}
+                          className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+                        >
+                          <Icon name="link" className="h-4 w-4" />
+                          使用 GitHub 授权登录
+                        </button>
+                      )}
+                      <input
+                        type="password"
+                        value={backupToken}
+                        onChange={(event) => setBackupToken(event.target.value)}
+                        placeholder={backupTarget === 'github' ? 'GitHub Token（OAuth 登录或手动粘贴，需 Contents 读写权限）' : 'Gitee 私人令牌'}
+                        autoComplete="off"
+                        className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                      />
+                      <input
+                        value={backupRepo}
+                        onChange={(event) => setBackupRepo(event.target.value)}
+                        placeholder="仓库名，如 bonanliu/momohelper-backup（需提前创建，建议私有）"
+                        className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
+                      />
+                      {backupTarget === 'gitee' && (
+                        <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+                          Gitee 仓库需至少有一次提交（新建时勾选「使用 Readme 初始化」即可）；备份文件会自动建在 momohelper/ 目录下。
+                        </p>
+                      )}
+                    </>
+                  )}
+    
+                  <div className="flex flex-wrap items-center gap-3">
                     <button
                       type="button"
-                      onClick={() =>
-                      {
-                        try
-                        {
-                          startGithubLogin()
-                        }
-                        catch (error)
-                        {
-                          setBackupError(error instanceof Error ? error.message : 'OAuth 未配置')
-                        }
-                      }}
-                      className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+                      disabled={backupBusy !== null}
+                      onClick={() => void runBackup()}
+                      className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
                     >
-                      <Icon name="link" className="h-4 w-4" />
-                      使用 GitHub 授权登录
+                      {backupBusy === 'backup' ? '备份中…' : '立即备份'}
                     </button>
-                  )}
-                  <input
-                    type="password"
-                    value={backupToken}
-                    onChange={(event) => setBackupToken(event.target.value)}
-                    placeholder={backupTarget === 'github' ? 'GitHub Token（OAuth 登录或手动粘贴，需 Contents 读写权限）' : 'Gitee 私人令牌'}
-                    autoComplete="off"
-                    className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
-                  />
-                  <input
-                    value={backupRepo}
-                    onChange={(event) => setBackupRepo(event.target.value)}
-                    placeholder="仓库名，如 bonanliu/momohelper-backup（需提前创建，建议私有）"
-                    className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
-                  />
-                  {backupTarget === 'gitee' && (
-                    <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
-                      Gitee 仓库需至少有一次提交（新建时勾选「使用 Readme 初始化」即可）；备份文件会自动建在 momohelper/ 目录下。
-                    </p>
-                  )}
+                    <button
+                      type="button"
+                      disabled={backupBusy !== null}
+                      onClick={() => void prepareRestore()}
+                      className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
+                    >
+                      {backupBusy === 'restore' ? '恢复中…' : '从云端恢复'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={backupBusy !== null}
+                      onClick={saveOnly}
+                      className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-text)] hover:underline"
+                    >
+                      仅保存配置
+                    </button>
+                  </div>
+    
+                  <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+                    填写后点任一操作即保存配置并
+                    <span className="font-medium text-[var(--color-text-muted)]">锁定该方式</span>
+                    ；刷新无需重新输入（WebDAV 密码也只存本机浏览器）。切换目标会清空当前输入。
+                  </p>
                 </>
               )}
-
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  disabled={backupBusy !== null}
-                  onClick={() => void runBackup()}
-                  className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
-                >
-                  {backupBusy === 'backup' ? '备份中…' : '立即备份'}
-                </button>
-                <button
-                  type="button"
-                  disabled={backupBusy !== null}
-                  onClick={() => void prepareRestore()}
-                  className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
-                >
-                  {backupBusy === 'restore' ? '恢复中…' : '从云端恢复'}
-                </button>
-                <button
-                  type="button"
-                  disabled={backupBusy !== null}
-                  onClick={saveOnly}
-                  className="text-[length:var(--text-sm)] text-[var(--color-text-subtle)] underline-offset-4 transition-colors hover:text-[var(--color-text)] hover:underline"
-                >
-                  仅保存配置
-                </button>
-              </div>
-
-              <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
-                填写后点任一操作即保存配置并
-                <span className="font-medium text-[var(--color-text-muted)]">锁定该方式</span>
-                ；刷新无需重新输入（WebDAV 密码也只存本机浏览器）。切换目标会清空当前输入。
-              </p>
-            </>
-          )}
-
-          <p className="text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
-            备份内容：AI 诊断历史（合并去重）、AI 词卡缓存（只补缺）、顽固词攻坚记录（按词取更新）、词库学习记录快照、每日学习快照（按日期合并）、思考模式与考试日期。云端与本地导出用的是同一份数据。
-            <span className="font-medium text-[var(--color-text-muted)]">不含墨墨 Token 与 DeepSeek Key</span>
-            （换设备重新粘贴即可，避免明文凭据上云）。
-            {(binding?.target ?? backupTarget) === 'webdav' && ' 若服务不支持跨域，上传会被浏览器拦截，需配置代理后重试。'}
-          </p>
+            </div>
+          </section>
 
           {restorePending && (
             <div className="mt-4 rounded-md border border-[var(--color-info)]/30 bg-[var(--color-info-bg)] p-4">
@@ -1350,6 +1349,14 @@ export default function SettingsPage()
             {backupNotice}
           </p>
         )}
+
+        {/* 两类方式共用同一份备份内容，所以放在两个区块之外统一说明 */}
+        <p className="mt-4 border-t border-[var(--color-border)] pt-3 text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
+          备份内容：AI 诊断历史（合并去重）、AI 词卡缓存（只补缺）、顽固词攻坚记录（按词取更新）、词库学习记录快照、每日学习快照（按日期合并）、思考模式与考试日期。本地与云端用的是同一份数据。
+          <span className="font-medium text-[var(--color-text-muted)]">不含墨墨 Token 与 DeepSeek Key</span>
+          （换设备重新粘贴即可，避免明文凭据上云）。
+          {(binding?.target ?? backupTarget) === 'webdav' && ' 若服务不支持跨域，上传会被浏览器拦截，需配置代理后重试。'}
+        </p>
       </Tile>
 
       <Tile index={4} hover={false} className="mt-4">
