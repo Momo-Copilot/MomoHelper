@@ -1234,7 +1234,7 @@ export default function SettingsPage()
                       <input
                         value={backupRepo}
                         onChange={(event) => setBackupRepo(event.target.value)}
-                        placeholder="仓库名，如 bonanliu/momohelper-backup（需提前创建，建议私有）"
+                        placeholder="仓库名，如 你的用户名/momohelper-backup（需提前创建，建议私有）"
                         className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 text-[length:var(--text-sm)] transition-colors focus:border-[var(--color-accent)] focus:bg-[var(--color-surface)] focus:outline-none"
                       />
                       {backupTarget === 'gitee' && (
