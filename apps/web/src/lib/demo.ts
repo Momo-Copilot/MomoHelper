@@ -42,12 +42,20 @@ export interface DemoData
   dailySnapshots: DemoSnapshotRow[]
 }
 
+/** URL 上的 `?demo=1`：便于分享演示链接、也方便无头浏览器截图 */
+const DEMO_PARAM = 'demo=1'
+
 /** 同步判断：很多渲染分支要在首帧决定是否走演示数据 */
 export function isDemoMode(): boolean
 {
   if (typeof window === 'undefined')
   {
     return false
+  }
+
+  if (window.location.search.includes(DEMO_PARAM))
+  {
+    return true
   }
 
   try
