@@ -161,8 +161,9 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
         </p>
       ) : (
         <>
-          {/* 图例放在词表上方：先告诉用户颜色含义，再看色块，比看完再回头查更省力 */}
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+          {/* 图例放在词表上方：先告诉用户颜色含义，再看色块，比看完再回头查更省力。
+              居中与词表对齐，避免图例贴左、词表居中造成错位感。 */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
             {(['FAMILIAR', 'VAGUE', 'FORGET'] as StudyResponse[]).map((key) => (
               <span key={key} className="flex items-center gap-1.5">
                 <span
@@ -182,7 +183,9 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
             <span>点击任意词看释义</span>
           </div>
 
-          <ul className="mt-3 flex flex-wrap gap-2">
+          {/* 居中而非左对齐：词长不一导致右边缘天然参差，居中把这点差值
+              分摊到两侧，每边只剩一半；左对齐时参差全部堆在右边，更显乱。 */}
+          <ul className="mt-3 flex flex-wrap justify-center gap-2">
             {filtered.map((word) => (
               <li key={word.vocId}>
                 <WordChip word={word} />
