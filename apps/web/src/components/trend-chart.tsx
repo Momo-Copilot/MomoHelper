@@ -87,20 +87,18 @@ export function TrendChart({
           : `${day.date}：当天没打开本站，数据未记录（不等于没学）`
 
         return (
-          <g key={day.date} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
+          /* 点击/悬停挂在整个 slot 分组上，而不是一层透明 rect：
+             rect 只要被柱子盖住就收不到点击（柱子没有自己的 onClick），
+             结果是只有 slot 两侧的窄缝能点中——正是「要点的很靠左边」的原因。
+             把事件放在 <g> 上，命中范围恒等于整个 slot，与绘制顺序无关。 */
+          <g
+            key={day.date}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            onClick={() => onSelect(isSelected ? null : i)}
+            style={{ cursor: 'pointer' }}
+          >
             <title>{label}</title>
-            {/* 命中区：点击选中，再点一次取消 */}
-            <rect
-              x={i * slot}
-              y="0"
-              width={slot}
-              height="160"
-              fill="transparent"
-              style={{ cursor: 'pointer' }}
-              onClick={() => onSelect(isSelected ? null : i)}
-            >
-              <title>{label}</title>
-            </rect>
             {isSelected && (
               <rect
                 x={i * slot + 1}
@@ -191,6 +189,17 @@ export function TrendChart({
                 {isToday ? '今天' : day.date.slice(5)}
               </text>
             )}
+            {/* 兜底命中层：放在最后（最上层）且铺满整个 slot。
+                <g> 只对已绘制的图形做命中测试，没有柱子的日期（空心虚线柱上方
+                的空白、0 值圆点周围的区域）会点不到。这一层保证任意位置都能点。 */}
+            <rect
+              x={i * slot}
+              y="0"
+              width={slot}
+              height="160"
+              fill="transparent"
+              onClick={() => onSelect(isSelected ? null : i)}
+            />
           </g>
         )
       })}

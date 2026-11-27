@@ -222,7 +222,7 @@ export function TrendPanel({
               )}
 
               {picked && (
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-[length:var(--text-xs)]">
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-center text-[length:var(--text-xs)]">
                   <span className="font-[family-name:var(--font-mono)] tabular">{picked.date}</span>
                   {picked.isReliable ? (
                     source === 'library' ? (
