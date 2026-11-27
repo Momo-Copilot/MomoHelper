@@ -49,6 +49,14 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   'chevron-right': <path d="M9 6l6 6-6 6" />,
+  /** 移动端「更多」抽屉入口：三个点 */
+  'more-horizontal': (
+    <>
+      <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    </>
+  ),
   'external-link': (
     <>
       <path d="M15 4h5v5" />

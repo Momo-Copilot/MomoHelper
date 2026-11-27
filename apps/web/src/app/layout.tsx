@@ -75,7 +75,7 @@ export default function RootLayout({ children }: { children: React.ReactNode })
             <SideNav />
             <div className="flex min-w-0 flex-1 flex-col">
               <MobileNav />
-              <main className="min-w-0 flex-1 px-5 py-8 md:px-10 md:py-10">
+              <main className="min-w-0 flex-1 px-5 pb-28 pt-8 md:px-10 md:py-10">
                 <div className="mx-auto w-full max-w-[1240px]">{children}</div>
               </main>
             </div>

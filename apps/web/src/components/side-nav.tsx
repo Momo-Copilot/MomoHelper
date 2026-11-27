@@ -219,40 +219,134 @@ export function SideNav()
   )
 }
 
-/** 移动端顶栏：品牌 + 横向滚动导航 */
-export function MobileNav()
+/**
+ * 移动端底部 Tab。
+ *
+ * 十一个页面塞进顶部横滑不可用：占 96px、右边缘没有可发现性、滑动还容易误点。
+ * 改成底部 4 个高频入口 + 「更多」抽屉：
+ *   今日（每天第一站）、遗忘（当天答错复盘）、攻坚（每天练）、问词（随时问）
+ * 其余七个收进抽屉——它们是「备考策略层」，一周看一两次。
+ */
+const MOBILE_TABS = ['/', '/forget', '/drill', '/ask']
+
+function MobileTabBar()
 {
   const pathname = usePathname()
+  const [open, setOpen] = useState(false)
+
+  const tabs = ITEMS.filter((item) => MOBILE_TABS.includes(item.href))
+  const rest = ITEMS.filter((item) => !MOBILE_TABS.includes(item.href))
+  /** 当前页面在抽屉里时，「更多」也要高亮，否则用户找不到自己在哪 */
+  const restActive = rest.some((item) => item.href === pathname)
 
   return (
-    <div className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 px-4 py-3 backdrop-blur md:hidden">
-      <div className="flex items-center justify-between">
-        <Brand />
-        <div className="flex items-center gap-2">
-          <FooterLink href={MAIMEMO_STUDY_URL} label="去墨墨网页版背单词" imageSrc="/maimemo-logo.png" />
-          <ThemeButton />
-        </div>
-      </div>
-      <nav aria-label="主导航" className="-mx-1 mt-3 overflow-x-auto">
-        <ul className="flex gap-1 px-1">
-          {ITEMS.map((item) => (
-            <li key={item.href} className="shrink-0">
+    <>
+      <nav
+        aria-label="主导航"
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur md:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <ul className="flex items-stretch">
+          {tabs.map((item) => (
+            <li key={item.href} className="flex-1">
               <Link
                 href={item.href}
                 aria-current={pathname === item.href ? 'page' : undefined}
-                className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[length:var(--text-sm)] ${
+                className={`flex flex-col items-center gap-1 py-2 text-[11px] leading-none transition-colors ${
                   pathname === item.href
-                    ? 'bg-[var(--color-accent-bg)] font-semibold text-[var(--color-accent)]'
+                    ? 'text-[var(--color-accent)]'
                     : 'text-[var(--color-text-muted)]'
                 }`}
               >
-                <Icon name={item.icon} className="h-4 w-4" />
+                <Icon name={item.icon} className="h-5 w-5" />
                 {item.label}
               </Link>
             </li>
           ))}
+          <li className="flex-1">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-expanded={open}
+              className={`flex w-full flex-col items-center gap-1 py-2 text-[11px] leading-none transition-colors ${
+                restActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'
+              }`}
+            >
+              <Icon name="more-horizontal" className="h-5 w-5" />
+              更多
+            </button>
+          </li>
         </ul>
       </nav>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-30 md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="更多页面"
+        >
+          {/* 遮罩：点空白处关闭 */}
+          <button
+            type="button"
+            aria-label="关闭"
+            onClick={() => setOpen(false)}
+            className="absolute inset-0 h-full w-full bg-black/40"
+          />
+          <div
+            className="absolute inset-x-0 bottom-0 rounded-t-xl border-t border-[var(--color-border)] bg-[var(--color-surface)] pb-[calc(12px+env(safe-area-inset-bottom))]"
+          >
+            <div className="flex items-center justify-between px-5 pb-1 pt-3">
+              <p className="text-[length:var(--text-sm)] font-medium">更多</p>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-md px-2 py-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]"
+              >
+                关闭
+              </button>
+            </div>
+            <ul className="grid grid-cols-4 gap-1 px-3 py-2">
+              {rest.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    aria-current={pathname === item.href ? 'page' : undefined}
+                    className={`flex flex-col items-center gap-1.5 rounded-md py-3 text-[length:var(--text-xs)] transition-colors ${
+                      pathname === item.href
+                        ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
+                        : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg-subtle)]'
+                    }`}
+                  >
+                    <Icon name={item.icon} className="h-5 w-5" />
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+/** 移动端顶栏：品牌 + 主题 + 底部 Tab（导航在下方） */
+export function MobileNav()
+{
+  return (
+    <div className="md:hidden">
+      <div className="sticky top-0 z-20 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 px-4 py-3 backdrop-blur">
+        <div className="flex items-center justify-between">
+          <Brand />
+          <div className="flex items-center gap-2">
+            <FooterLink href={MAIMEMO_STUDY_URL} label="去墨墨网页版背单词" imageSrc="/maimemo-logo.png" />
+            <ThemeButton />
+          </div>
+        </div>
+      </div>
+      <MobileTabBar />
     </div>
   )
 }
