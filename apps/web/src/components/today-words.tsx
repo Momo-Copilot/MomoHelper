@@ -161,21 +161,13 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
         </p>
       ) : (
         <>
-          <ul className="mt-4 flex flex-wrap gap-2">
-            {filtered.map((word) => (
-              <li key={word.vocId}>
-                <WordChip word={word} />
-              </li>
-            ))}
-          </ul>
-
-          {/* 图例：底色=作答结果，虚线边=还没作答。不解释的话会被当成随机配色 */}
+          {/* 图例放在词表上方：先告诉用户颜色含义，再看色块，比看完再回头查更省力 */}
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
             {(['FAMILIAR', 'VAGUE', 'FORGET'] as StudyResponse[]).map((key) => (
               <span key={key} className="flex items-center gap-1.5">
                 <span
                   aria-hidden
-                  className={`h-3 w-3 rounded-sm border ${CHIP_TONES[key].className}`}
+                  className={`h-3 w-3 shrink-0 rounded-full border ${CHIP_TONES[key].className}`}
                 />
                 {CHIP_TONES[key].label}
               </span>
@@ -183,12 +175,20 @@ export function TodayWordsCard({ words }: { words: TodayWordRowDto[] })
             <span className="flex items-center gap-1.5">
               <span
                 aria-hidden
-                className={`h-3 w-3 rounded-sm border ${PENDING_TONE.className}`}
+                className={`h-3 w-3 shrink-0 rounded-full border ${PENDING_TONE.className}`}
               />
               未作答
             </span>
             <span>点击任意词看释义</span>
           </div>
+
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {filtered.map((word) => (
+              <li key={word.vocId}>
+                <WordChip word={word} />
+              </li>
+            ))}
+          </ul>
         </>
       )}
     </div>
