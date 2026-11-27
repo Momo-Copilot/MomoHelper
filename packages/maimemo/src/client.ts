@@ -106,7 +106,6 @@ export class MaimemoClient
 
     for (;;)
     {
-      const startedAt = Date.now()
       /** 等待日志节流：acquire 内部每 5 秒回调一次，不能每次都打 */
       let lastWaitLog = 0
 
@@ -122,6 +121,10 @@ export class MaimemoClient
 
         this.onRateLimitWait?.(waitMs)
       })
+
+      // 计时从真正发请求开始：排队等待的时间单独有日志，混进耗时里会让人
+      // 以为「一个请求跑了 33 秒」
+      const startedAt = Date.now()
 
       if (!waited)
       {

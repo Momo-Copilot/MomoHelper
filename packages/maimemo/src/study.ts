@@ -546,6 +546,36 @@ export async function queryStudyRecordsAll(
 
   diagnostics.rangePaged = seen.size
 
+  // ---------- 兜底：next_study_date 为空的词不落在任何日期区间 ----------
+  // 区间二分只覆盖「有排期」的词。as_count 与实拉结果差几条时，用一次不带
+  // 日期条件的默认排序查询再捞一遍——如果这些词排在前面就能补上，补不上
+  // 也如实记录缺多少，不伪装成完整。
+  if (total !== null && seen.size < total && !outOfBudget())
+  {
+    diagnostics.requests++
+
+    try
+    {
+      const fallback = await queryStudyRecords(client, { limit: pageSize, retries: 1 })
+      const fresh = absorb(fallback.records)
+
+      logMaimemo(`兜底查询补到 ${fresh} 条（仍缺 ${Math.max(0, total - seen.size)} 条）`)
+      options.onProgress?.(seen.size, total)
+      await emitCheckpoint()
+    }
+    catch (error)
+    {
+      if (error instanceof MaimemoAuthError || error instanceof MaimemoRateLimitError)
+      {
+        throw error
+      }
+
+      logMaimemo(
+        `兜底查询失败：${error instanceof Error ? error.message : String(error)}（缺 ${total - seen.size} 条）`
+      )
+    }
+  }
+
   // 完整性判定：以 as_count 为准；拿不到总数时退化为「队列清空且没有溢出区间」
   return buildResult(
     total !== null ? seen.size >= total : queue.length === 0 && diagnostics.overflowRanges === 0,
