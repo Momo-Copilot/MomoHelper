@@ -120,7 +120,15 @@ const TREND_RANGES: [number, string][] = [
   [365, '365 天']
 ]
 
-function TrendChart({ days }: { days: DashboardTrendPointDto[] })
+function TrendChart({
+  days,
+  selected,
+  onSelect
+}: {
+  days: DashboardTrendPointDto[]
+  selected: number | null
+  onSelect: (index: number | null) => void
+})
 {
   const [hovered, setHovered] = useState<number | null>(null)
   const max = Math.max(...days.map((d) => d.finished), 1)
@@ -159,7 +167,8 @@ function TrendChart({ days }: { days: DashboardTrendPointDto[] })
         const y = baseY - h
         const isToday = day.date === today
         const fill = isToday ? 'var(--color-accent)' : 'var(--color-familiar)'
-        const dim = hovered !== null && hovered !== i
+        const dim = (hovered !== null || selected !== null) && hovered !== i && selected !== i
+        const isSelected = selected === i
         const label = recorded
           ? `${day.date}：完成 ${day.finished}/${day.total}，学习 ${formatDuration(day.studyTimeMs)}`
           : `${day.date}：当天没打开本站，数据未记录（不等于没学）`
@@ -167,8 +176,29 @@ function TrendChart({ days }: { days: DashboardTrendPointDto[] })
         return (
           <g key={day.date} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
             <title>{label}</title>
-            {/* 命中区 */}
-            <rect x={i * slot} y="0" width={slot} height="160" fill="transparent" />
+            {/* 命中区：点击选中，再点一次取消 */}
+            <rect
+              x={i * slot}
+              y="0"
+              width={slot}
+              height="160"
+              fill="transparent"
+              style={{ cursor: 'pointer' }}
+              onClick={() => onSelect(isSelected ? null : i)}
+            >
+              <title>{label}</title>
+            </rect>
+            {isSelected && (
+              <rect
+                x={i * slot + 1}
+                y="2"
+                width={Math.max(slot - 2, 1)}
+                height="152"
+                rx={2}
+                fill="var(--color-accent)"
+                opacity="0.08"
+              />
+            )}
             {!recorded ? (
               /* 没打开本站：空心虚线柱。与「打开了但没学」的圆点区分开，
                  否则一排灰点会被读成「这些天都没学习」 */
@@ -252,11 +282,13 @@ export default function DashboardPage()
 
   /** 趋势范围：快照累积得越久，能看得越远 */
   const [trendRange, setTrendRange] = useState(14)
+  /** 选中的趋势柱子（点击查看某天详情；移动端没有 hover，只能靠点） */
+  const [selectedDay, setSelectedDay] = useState<number | null>(null)
 
   // 趋势从本地快照读取：每次成功拉取（capturedAt 变化）即重算
   const capturedAt = query.data?.capturedAt
   const trendDays = useMemo(
-    () => (capturedAt ? buildDays(getDashboardHistory(trendRange).days) : null),
+    () => (capturedAt ? buildDays(getDashboardHistory(trendRange).days, trendRange) : null),
     [capturedAt, trendRange]
   )
 
@@ -458,7 +490,11 @@ export default function DashboardPage()
                 <button
                   key={range}
                   type="button"
-                  onClick={() => setTrendRange(range)}
+                  onClick={() =>
+                  {
+                    setTrendRange(range)
+                    setSelectedDay(null)
+                  }}
                   aria-pressed={trendRange === range}
                   className={`rounded-md px-2 py-1 font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] transition-colors ${
                     trendRange === range
@@ -480,9 +516,33 @@ export default function DashboardPage()
             {trendDays ? (
               trendDays.some((d) => d.finished > 0) ? (
                 <>
-                  <TrendChart days={trendDays} />
+                  <TrendChart
+                    days={trendDays}
+                    selected={selectedDay}
+                    onSelect={setSelectedDay}
+                  />
+                  {selectedDay !== null && trendDays[selectedDay] && (
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-[length:var(--text-xs)]">
+                      <span className="font-[family-name:var(--font-mono)] tabular">
+                        {trendDays[selectedDay]!.date}
+                      </span>
+                      {trendDays[selectedDay]!.isReliable ? (
+                        <>
+                          <span>
+                            完成 {trendDays[selectedDay]!.finished} /{' '}
+                            {trendDays[selectedDay]!.total}
+                          </span>
+                          <span>学习 {formatDuration(trendDays[selectedDay]!.studyTimeMs)}</span>
+                        </>
+                      ) : (
+                        <span className="text-[var(--color-text-subtle)]">
+                          当天没打开本站，数据未记录（不等于没学）
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <p className="mt-1 text-center text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
-                    空心虚线 = 当天没打开本站，数据未记录（不等于没学）。
+                    空心虚线 = 当天没打开本站，数据未记录（不等于没学）。点击柱子看当天详情。
                   </p>
                 </>
               ) : (
