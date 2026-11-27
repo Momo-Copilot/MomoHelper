@@ -10,11 +10,8 @@ import { Icon } from '@/components/icons'
 import { ErrorNote, PageHeader, Tile, TileSkeleton } from '@/components/kit'
 import { ReportTeaser } from '@/components/report-teaser'
 import { TodayWordsCard } from '@/components/today-words'
-import { ErrorBoundary } from '@/components/error-boundary'
-import type { ChartDay } from '@/components/trend-chart'
-import { TrendChart } from '@/components/trend-chart'
-import { peekTrendEstimate } from '@/lib/library'
-import { getDashboardHistory, getDashboardToday, MaimemoNotConfiguredError } from '@/lib/maimemo'
+import { TrendPanel } from '@/components/trend-panel'
+import { getDashboardToday, MaimemoNotConfiguredError } from '@/lib/maimemo'
 import { getExamDate } from '@/lib/settings'
 
 function beijingDate(d: Date): string
@@ -91,39 +88,6 @@ function ExamCountdownBar()
   )
 }
 
-/** 把接口返回的稀疏快照补齐成连续 N 天（缺的日子记 0） */
-function buildDays(rows: DashboardTrendPointDto[], days = 14): DashboardTrendPointDto[]
-{
-  const map = new Map(rows.map((row) => [row.date, row]))
-  const out: DashboardTrendPointDto[] = []
-
-  for (let i = days - 1; i >= 0; i--)
-  {
-    const date = beijingDate(new Date(Date.now() - i * 86_400_000))
-    out.push(
-      map.get(date) ?? { date, finished: 0, total: 0, studyTimeMs: 0, isReliable: false }
-    )
-  }
-
-  return out
-}
-
-/**
- * 近 14 天趋势：手写 SVG 柱状图，hover 显示数值。
- *
- * 三种状态必须画得不一样，否则「没打开本站」会被读成「没学习」：
- *   实心柱     = 有快照且有完成数
- *   小圆点     = 打开了本站，但当天完成 0
- *   空心虚线柱 = 没有快照（当天没打开本站，这一天的数据根本没被记录）
- */
-/** 趋势范围选项：快照能覆盖多久就显示多久，越长的范围柱子越细 */
-const TREND_RANGES: [number, string][] = [
-  [14, '14 天'],
-  [30, '30 天'],
-  [90, '90 天'],
-  [365, '365 天']
-]
-
 const METRICS = [
   { key: 'newWords', label: '新词', icon: 'plus', color: 'var(--color-info)' },
   { key: 'reviewWords', label: '复习', icon: 'repeat', color: 'var(--color-familiar)' },
@@ -139,80 +103,6 @@ export default function DashboardPage()
     queryFn: () => getDashboardToday()
   })
 
-  /** 趋势范围：快照累积得越久，能看得越远 */
-  const [trendRange, setTrendRange] = useState(14)
-  /** 选中的趋势柱子（点击查看某天详情；移动端没有 hover，只能靠点） */
-  const [selectedDay, setSelectedDay] = useState<number | null>(null)
-  /**
-   * 趋势数据源：
-   *   snapshot = 本地快照，只在打开过本站的日子有值，精确但短
-   *   library  = 用词库记录的 last_study_date 估算，能回溯到最早背词那天，
-   *              但复习量只是「最后一次」的下界
-   */
-  const [trendSource, setTrendSource] = useState<'snapshot' | 'library'>('snapshot')
-
-  // 趋势从本地快照读取：每次成功拉取（capturedAt 变化）即重算
-  const capturedAt = query.data?.capturedAt
-  const trendDays = useMemo(
-    () => (capturedAt ? buildDays(getDashboardHistory(trendRange).days, trendRange) : null),
-    [capturedAt, trendRange]
-  )
-
-  /**
-   * 只在切到「词库估算」时才读缓存。
-   *
-   * 注意这里拿到的是**已经聚合好的 365 天估算**，不是 8000 多条原始记录：
-   * 原始数组交给 React Query 会触发 structuralSharing 深比较 + 整体复制，
-   * 内存直接顶爆（线上表现为整页崩溃）。
-   */
-  const libraryPeek = useQuery({
-    queryKey: ['library', 'trend-estimate'],
-    queryFn: () => peekTrendEstimate(365),
-    enabled: trendSource === 'library',
-    staleTime: 5 * 60 * 1000,
-    retry: false
-  })
-
-  /** 缓存里是完整 365 天，按当前范围截取尾部即可，不用重算 */
-  const estimate = useMemo(
-    () =>
-      trendSource === 'library' && libraryPeek.data
-        ? {
-            ...libraryPeek.data,
-            points: libraryPeek.data.points.slice(-trendRange)
-          }
-        : null,
-    [trendSource, libraryPeek.data, trendRange]
-  )
-
-  /** 统一成图表能吃的形状：估算模式下 finished = 新学 + 复习 */
-  const chartDays: ChartDay[] | null = useMemo(
-    () =>
-    {
-      if (trendSource === 'snapshot')
-      {
-        return trendDays
-      }
-
-      if (!estimate)
-      {
-        return null
-      }
-
-      return estimate.points.map((point) => ({
-        date: point.date,
-        finished: point.newWords + point.reviewWords,
-        total: 0,
-        studyTimeMs: 0,
-        isReliable: point.newWords + point.reviewWords > 0,
-        newWords: point.newWords,
-        reviewWords: point.reviewWords
-      }))
-    },
-    [trendSource, trendDays, estimate]
-  )
-
-  const libraryMissing = trendSource === 'library' && libraryPeek.isSuccess && !libraryPeek.data
 
   if (query.isPending)
   {
@@ -403,139 +293,7 @@ export default function DashboardPage()
 
         {/* 趋势 */}
         <Tile index={2} className="col-span-12 lg:col-span-8">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
-              近 {trendRange} 天完成趋势
-            </p>
-            <div className="flex items-center gap-1">
-              {TREND_RANGES.map(([range, label]) => (
-                <button
-                  key={range}
-                  type="button"
-                  onClick={() =>
-                  {
-                    setTrendRange(range)
-                    setSelectedDay(null)
-                  }}
-                  aria-pressed={trendRange === range}
-                  className={`rounded-md px-2 py-1 font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] transition-colors ${
-                    trendRange === range
-                      ? 'bg-[var(--color-accent-bg)] font-semibold text-[var(--color-accent)]'
-                      : 'text-[var(--color-text-subtle)] hover:bg-[var(--color-bg-subtle)]'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 数据源切换：快照精确但短，词库估算长但复习量是下界 */}
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <div className="flex items-center gap-1">
-              {(
-                [
-                  ['snapshot', '快照'],
-                  ['library', '词库估算']
-                ] as const
-              ).map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() =>
-                  {
-                    setTrendSource(key)
-                    setSelectedDay(null)
-                  }}
-                  aria-pressed={trendSource === key}
-                  className={`rounded-md px-2 py-0.5 text-[length:var(--text-xs)] transition-colors ${
-                    trendSource === key
-                      ? 'bg-[var(--color-bg-subtle)] font-semibold text-[var(--color-text)]'
-                      : 'text-[var(--color-text-subtle)] hover:text-[var(--color-text-muted)]'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <span className="font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-              {chartDays
-                ? `${chartDays.reduce((sum, d) => sum + d.finished, 0)} 词 · ${
-                    trendSource === 'snapshot' ? '已记录' : '有记录'
-                  } ${chartDays.filter((d) => d.isReliable).length}/${chartDays.length} 天`
-                : '—'}
-            </span>
-          </div>
-
-          <div className="mt-3">
-            {trendSource === 'library' && libraryMissing ? (
-              <div className="flex h-40 flex-col items-center justify-center gap-2 text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
-                <p>本机还没有词库缓存，先去词库页拉一次。</p>
-                <Link href="/library" className="text-[var(--color-accent)] underline-offset-4 hover:underline">
-                  去词库页 →
-                </Link>
-              </div>
-            ) : chartDays ? (
-              chartDays.some((d) => d.finished > 0) ? (
-                <>
-                  <ErrorBoundary>
-                    <TrendChart days={chartDays} selected={selectedDay} onSelect={setSelectedDay} />
-                  </ErrorBoundary>
-                  {trendSource === 'library' && (
-                    <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-                      <span className="flex items-center gap-1.5">
-                        <span aria-hidden className="h-2 w-2 rounded-sm bg-[var(--color-info)]" />
-                        新学
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span aria-hidden className="h-2 w-2 rounded-sm bg-[var(--color-familiar)]" />
-                        复习（下界）
-                      </span>
-                    </div>
-                  )}
-                  {selectedDay !== null && chartDays[selectedDay] && (
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-[length:var(--text-xs)]">
-                      <span className="font-[family-name:var(--font-mono)] tabular">
-                        {chartDays[selectedDay]!.date}
-                      </span>
-                      {chartDays[selectedDay]!.isReliable ? (
-                        trendSource === 'library' ? (
-                          <>
-                            <span>新学 {chartDays[selectedDay]!.newWords ?? 0}</span>
-                            <span>复习 {chartDays[selectedDay]!.reviewWords ?? 0}</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>
-                              完成 {chartDays[selectedDay]!.finished} / {chartDays[selectedDay]!.total}
-                            </span>
-                            <span>学习 {formatDuration(chartDays[selectedDay]!.studyTimeMs)}</span>
-                          </>
-                        )
-                      ) : (
-                        <span className="text-[var(--color-text-subtle)]">当天没有记录</span>
-                      )}
-                    </div>
-                  )}
-                  <p className="mt-1 text-center text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
-                    {trendSource === 'library'
-                      ? `由词库记录估算${estimate?.earliest ? `，最早可回溯到 ${estimate.earliest}` : ''}。复习量只是下界——墨墨每个词只保留最后一次学习日期。`
-                      : '空心虚线 = 当天没打开本站，数据未记录（不等于没学）。点击柱子看当天详情。'}
-                  </p>
-                </>
-              ) : (
-                <p className="flex h-40 items-center justify-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
-                  {trendSource === 'library'
-                    ? '词库里还没有学习记录。'
-                    : '快照从今天开始累积，明天回来看趋势。'}
-                </p>
-              )
-            ) : (
-              <div className="flex h-40 items-center justify-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
-                载入趋势中…
-              </div>
-            )}
-          </div>
+          <TrendPanel />
         </Tile>
 
         {/* 快捷入口 */}

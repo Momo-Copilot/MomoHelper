@@ -16,6 +16,7 @@ import { MaimemoAuthError, beijingToday } from '@momo/maimemo'
 import type { ReportSnapshotDto } from '@momo/types'
 import { Icon } from '@/components/icons'
 import { PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
+import { TrendPanel } from '@/components/trend-panel'
 import { ReportHeatmap } from '@/components/report-heatmap'
 import { ReportInsightTile } from '@/components/report-insight'
 import { analyzeLibrary, analyzeReport } from '@/lib/analyze'
@@ -496,6 +497,11 @@ export default function ReportPage()
               <DailyChart rows={report.dailyNew} days={Number(window)} />
             )}
           </div>
+        </Tile>
+
+        {/* 学习趋势：双数据源，快照看精确值、词库估算看长期形态 */}
+        <Tile index={5} className="col-span-12">
+          <TrendPanel title="学习趋势" defaultRange={30} />
         </Tile>
 
         {/* 全年热力图：看积累，和上面的日曲线互补（那张看节奏） */}
