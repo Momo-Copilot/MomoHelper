@@ -17,9 +17,10 @@ import type { ReportSnapshotDto } from '@momo/types'
 import { Icon } from '@/components/icons'
 import { PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
 import { TrendPanel } from '@/components/trend-panel'
+import { VocabGrowthChart } from '@/components/vocab-growth'
 import { ReportHeatmap } from '@/components/report-heatmap'
 import { ReportInsightTile } from '@/components/report-insight'
-import { analyzeLibrary, analyzeReport } from '@/lib/analyze'
+import { analyzeLibrary, analyzeReport, buildVocabGrowth } from '@/lib/analyze'
 import { downloadReportCard } from '@/lib/export-card'
 import { buildHeatmap } from '@/lib/heatmap'
 import { loadLibrary } from '@/lib/library'
@@ -196,6 +197,8 @@ export default function ReportPage()
   const records = query.data?.records
   const report = useMemo(() => (records ? analyzeReport(records) : null), [records])
   const stats = useMemo(() => (records ? analyzeLibrary(records) : null), [records])
+  /** 词汇量增长：按月累计「首次学过」的词数（不是加入词库的词数） */
+  const growth = useMemo(() => (records ? buildVocabGrowth(records) : []), [records])
 
   /**
    * 热力图口径（2026-11 修正）：
@@ -523,8 +526,35 @@ export default function ReportPage()
           <TrendPanel title="学习趋势" defaultRange={30} />
         </Tile>
 
+        {/* 词汇量增长：月粒度，看长期积累速度 */}
+        <Tile index={6} className="col-span-12">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <p className="text-[length:var(--text-sm)]">词汇量增长</p>
+              <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                {growth.length > 0
+                  ? `累计 ${growth[growth.length - 1]!.cumulative.toLocaleString('zh-CN')} 词 · 从 ${growth[0]!.month} 开始；只算真正学过（首次学习），加入词库但没碰过的不计入`
+                  : '还没有首次学习的记录'}
+              </p>
+            </div>
+            <div className="flex items-center gap-4 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden className="h-0.5 w-4 rounded-full bg-[var(--color-accent)]" />
+                累计
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden className="h-2 w-2 rounded-sm bg-[var(--color-border-strong)]" />
+                当月新学
+              </span>
+            </div>
+          </div>
+          <div className="mt-4">
+            <VocabGrowthChart points={growth} />
+          </div>
+        </Tile>
+
         {/* 全年热力图：看积累，和上面的日曲线互补（那张看节奏） */}
-        <Tile index={5} className="col-span-12">
+        <Tile index={7} className="col-span-12">
           <div>
             <p className="text-[length:var(--text-sm)]">学习热力图</p>
               <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">

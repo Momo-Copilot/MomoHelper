@@ -1178,3 +1178,83 @@ export function buildTrendEstimate(
 
   return { points, earliest, coveredDays }
 }
+
+/* ============================= 词汇量增长 ============================= */
+
+/** 按月累计的「已学过词数」 */
+export interface VocabGrowthPointDto
+{
+  /** YYYY-MM */
+  month: string
+  /** 当月首次学习的词数 */
+  learned: number
+  /** 截至该月的累计学过的词数 */
+  cumulative: number
+}
+
+/**
+ * 词汇量增长：按 first_study_date 的月份聚合，逐月补齐后累加。
+ *
+ * 口径选择——用「首次学过的词数」而不是「加入词库的词数」：
+ * add_date 只表示这个词进了计划，可能一次导入几千个都没碰过；拿它画增长曲线
+ * 等于把「买书的动作」当成「读完的书」。想看得更宽的人可以对照词库页的时间线
+ * 视图，那里两根柱子并列（加入 vs 首学），差额就是攒着没背的部分。
+ */
+export function buildVocabGrowth(records: LibraryRecordRowDto[]): VocabGrowthPointDto[]
+{
+  const byMonth = new Map<string, number>()
+  let earliest: string | null = null
+  let latest: string | null = null
+
+  for (const record of records)
+  {
+    const day = beijingDayOf(record.firstStudyDate)
+
+    if (!day)
+    {
+      continue
+    }
+
+    const month = day.slice(0, 7)
+
+    byMonth.set(month, (byMonth.get(month) ?? 0) + 1)
+
+    if (!earliest || month < earliest)
+    {
+      earliest = month
+    }
+
+    if (!latest || month > latest)
+    {
+      latest = month
+    }
+  }
+
+  if (!earliest || !latest)
+  {
+    return []
+  }
+
+  const out: VocabGrowthPointDto[] = []
+  let total = 0
+  let cursor = `${earliest}-01`
+
+  // 逐月推进到 latest，中间没有新词的月份补 0（曲线才有连续性）
+  for (;;)
+  {
+    const month = cursor.slice(0, 7)
+    const learned = byMonth.get(month) ?? 0
+
+    total += learned
+    out.push({ month, learned, cumulative: total })
+
+    if (month >= latest)
+    {
+      break
+    }
+
+    cursor = addDays(cursor, 32).slice(0, 7) + '-01'
+  }
+
+  return out
+}
