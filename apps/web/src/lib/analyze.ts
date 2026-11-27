@@ -277,6 +277,8 @@ export function analyzeReport(
 ): ReportSnapshotDto
 {
   const firstByDay = new Map<string, number>()
+  /** 每日涉猎：首学 + 最后学习（同一天不重复计），给热力图用 */
+  const touchedByDay = new Map<string, number>()
   const nextByDay = new Map<string, number>()
   /** 已学词距今天数（last_study_date 存在才收） */
   const idleDays: number[] = []
@@ -293,6 +295,7 @@ export function analyzeReport(
     if (started)
     {
       firstByDay.set(started, (firstByDay.get(started) ?? 0) + 1)
+      touchedByDay.set(started, (touchedByDay.get(started) ?? 0) + 1)
 
       if (earliest === null || started < earliest)
       {
@@ -310,6 +313,13 @@ export function analyzeReport(
     if (lastDay)
     {
       studied++
+
+      // 首学即最后学习（当天学、当天没再复习）已在上面算过，不重复计
+      if (lastDay !== started)
+      {
+        touchedByDay.set(lastDay, (touchedByDay.get(lastDay) ?? 0) + 1)
+      }
+
       const idle = dayDiff(lastDay, today)
 
       if (idle !== null && idle >= 1)
@@ -350,6 +360,12 @@ export function analyzeReport(
       dailyNew.push({ date: day, count: firstByDay.get(day) ?? 0 })
     }
   }
+
+  // 涉猎曲线：与 dailyNew 同样的日期窗口，数值含复习
+  const dailyTouched: ReportDailyRowDto[] = dailyNew.map((row) => ({
+    date: row.date,
+    count: touchedByDay.get(row.date) ?? 0
+  }))
 
   // 未学新词区间：连续 count === 0 的天数段（>= 3 天），闭区间按日数计
   const gaps: ReportRiskDto['gaps'] = []
@@ -468,7 +484,7 @@ export function analyzeReport(
     unscheduledCount: unscheduled
   }
 
-  return { tier, spanDays, firstDay: earliest, latestDay: latest, dailyNew, risk }
+  return { tier, spanDays, firstDay: earliest, latestDay: latest, dailyNew, dailyTouched, risk }
 }
 
 /* ============================= 遗忘词云 ============================= */

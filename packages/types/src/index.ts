@@ -297,6 +297,14 @@ export interface ReportSnapshotDto
   latestDay: string | null
   /** 日粒度新学曲线（最早开始日 → 今天，含 0 值天与全部历史） */
   dailyNew: ReportDailyRowDto[]
+  /**
+   * 每日「涉猎词数」：首学 + 最后学习去重，用于热力图。
+   *
+   * 与 dailyNew 的区别：dailyNew 只数「第一次学某个词」的日子，只复习旧词的
+   * 一天会是 0；这里把 last_study_date 也算进来，能反映「那天确实碰过单词」。
+   * 注意它仍是下界——一个词只在最后一次学习那天记一笔。
+   */
+  dailyTouched: ReportDailyRowDto[]
   risk: ReportRiskDto
 }
 

@@ -181,16 +181,18 @@ export default function ReportPage()
   const stats = useMemo(() => (records ? analyzeLibrary(records) : null), [records])
 
   /**
-   * 热力图口径：
-   * - 「新学」来自 first_study_date，能完整回溯全年
-   * - 「复习」墨墨没有逐日接口，只能用本地快照的 finished 补
-   * - 两者取较大值：有快照的日子显示当天学习总量（含复习），
-   *   没打开过本站的日子退回新学数（可能偏小）
+   * 热力图口径（2026-11 修正）：
+   *
+   * 原来只数 first_study_date，导致「当天只复习、没学新词」整格空白——用户
+   * 明明背了单词，图上一片灰。现在改用 dailyTouched（首学 + 最后学习去重），
+   * 再与本地快照的真实完成数取较大值：
+   *   有快照的日子  → 当天真实完成数（含复习）
+   *   没快照的日子  → 首学 + 最后学习，仍偏小（一个词只在最后一次那天记一笔）
    */
   const heatRows = useMemo(
     () =>
       report
-        ? report.dailyNew.map((row) => ({
+        ? report.dailyTouched.map((row) => ({
             date: row.date,
             count: Math.max(row.count, snapshots[row.date] ?? 0)
           }))
@@ -509,7 +511,7 @@ export default function ReportPage()
           <div>
             <p className="text-[length:var(--text-sm)]">学习热力图</p>
               <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-                每一格是一天，颜色越深当天学的词越多（含复习）；没有快照的早期日子只统计新学
+                每一格是一天，颜色越深当天涉及的词越多；有快照的日子用真实完成数，没快照的日子按首学 + 最后学习估算（偏小）
               </p>
             </div>
             <div className="mt-4">
