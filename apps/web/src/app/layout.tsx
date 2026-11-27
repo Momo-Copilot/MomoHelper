@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 
 import './globals.css'
 import { Providers } from './providers'
+import { DemoBanner } from '@/components/demo-banner'
 import { MobileNav, SideNav } from '@/components/side-nav'
 
 export const metadata: Metadata = {
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode })
         )}
       </head>
       <body className="min-h-screen">
+        <DemoBanner />
         {GTM_ENABLED && (
           <noscript
             dangerouslySetInnerHTML={{

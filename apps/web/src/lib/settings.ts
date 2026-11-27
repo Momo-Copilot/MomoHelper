@@ -12,6 +12,7 @@
  */
 
 import type { BackupConfig, BackupTarget } from './backup'
+import { isDemoMode } from './demo'
 
 const STORAGE_KEYS = {
   maimemoToken: 'momo.maimemoToken',
@@ -331,11 +332,15 @@ export function getLocalStatus(): LocalStatus
  */
 export function getExamDate(): string | null
 {
-  const value = read(STORAGE_KEYS.examDate)
+  // 演示模式读打包值：访客本机没有考试日期，读到 null 会让推演页空着
+  const value = read(isDemoMode() ? DEMO_EXAM_DATE_KEY : STORAGE_KEYS.examDate)
 
   // 只认 YYYY-MM-DD，脏数据当未设置处理（推演依赖它做日期差）
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null
 }
+
+/** 演示模式的考试日期，与真实设置分开存 */
+export const DEMO_EXAM_DATE_KEY = 'momo.demoExamDate'
 
 export function setExamDate(date: string | null): void
 {

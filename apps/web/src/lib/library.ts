@@ -15,6 +15,7 @@ import { queryStudyRecords, queryStudyRecordsAll } from '@momo/maimemo'
 import type { LibraryRecordRowDto, LibrarySnapshotDto, MaimemoStudyRecord } from '@momo/types'
 
 import { buildTrendEstimate, type TrendEstimateDto } from './analyze'
+import { isDemoMode, loadDemoData } from './demo'
 import { getMaimemoClient } from './maimemo'
 
 const DB_NAME = 'momo-library'
@@ -367,6 +368,19 @@ export async function loadLibrary(
   options: LibraryLoadOptions = {}
 ): Promise<LibrarySnapshotDto>
 {
+  // 演示模式：直接返回打包样本，不读缓存、不发请求、不写 IndexedDB
+  if (isDemoMode())
+  {
+    const demo = await loadDemoData()
+
+    return {
+      records: demo.records,
+      total: demo.records.length,
+      complete: true,
+      fetchedAt: demo.generatedAt
+    }
+  }
+
   // 即使 force 也要读缓存：里面可能存着上次中断的续传现场（meta.resume）
   const cached = await readCache()
 

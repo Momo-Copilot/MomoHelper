@@ -11,6 +11,7 @@ import { ErrorNote, PageHeader, Tile, TileSkeleton } from '@/components/kit'
 import { ReportTeaser } from '@/components/report-teaser'
 import { TodayWordsCard } from '@/components/today-words'
 import { TrendPanel } from '@/components/trend-panel'
+import { startDemo } from '@/lib/demo'
 import { getDashboardToday, MaimemoNotConfiguredError } from '@/lib/maimemo'
 import { getExamDate } from '@/lib/settings'
 
@@ -103,6 +104,9 @@ export default function DashboardPage()
     queryFn: () => getDashboardToday()
   })
 
+  /** 演示模式加载中（要先把样本数据下载完再刷新） */
+  const [demoLoading, setDemoLoading] = useState(false)
+
 
   if (query.isPending)
   {
@@ -129,20 +133,42 @@ export default function DashboardPage()
         </h1>
         <p className="mx-auto mt-1 max-w-md text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
           {err instanceof MaimemoNotConfiguredError
-            ? '尚未绑定墨墨 Token，绑定后即可看到今日学习情况。'
+            ? '尚未绑定墨墨 Token，绑定后即可看到今日学习情况；也可以先看演示。'
             : err instanceof MaimemoAuthError
               ? '墨墨 Token 已失效或无效，请到设置页重新绑定。'
               : err.message}
         </p>
         <div className="mt-5 flex justify-center gap-3">
           {needSetup ? (
-            <Link
-              href="/settings"
-              className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
-            >
-              <Icon name="sliders" className="mr-2 h-4 w-4" />
-              去设置
-            </Link>
+            <>
+              <Link
+                href="/settings"
+                className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
+              >
+                <Icon name="sliders" className="mr-2 h-4 w-4" />
+                去设置
+              </Link>
+              <button
+                type="button"
+                disabled={demoLoading}
+                onClick={async () =>
+                {
+                  setDemoLoading(true)
+
+                  try
+                  {
+                    await startDemo()
+                  }
+                  catch
+                  {
+                    setDemoLoading(false)
+                  }
+                }}
+                className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] hover:bg-[var(--color-bg-subtle)] disabled:opacity-60"
+              >
+                {demoLoading ? '加载演示数据…' : '看看演示'}
+              </button>
+            </>
           ) : (
             <button
               type="button"

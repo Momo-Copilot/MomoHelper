@@ -9,6 +9,7 @@
  */
 
 import { beijingToday } from '@momo/maimemo'
+import { isDemoMode } from './demo'
 import type { FocusWordDto } from '@momo/types'
 
 const STORAGE_KEY = 'momo.drill'
@@ -67,11 +68,20 @@ export interface DrillStore
 
 const EMPTY: DrillStore = { words: {} }
 
+/**
+ * 演示模式写独立的 key：访客在演示里点「认识/模糊/忘记」，不该在他自己的
+ * 浏览器里留下训练记录——退出演示后这些假数据会混进真实进度。
+ */
+function storageKey(): string
+{
+  return isDemoMode() ? 'momo.demoDrill' : STORAGE_KEY
+}
+
 export function loadDrill(): DrillStore
 {
   try
   {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKey())
 
     if (!raw)
     {
@@ -98,7 +108,7 @@ export function saveDrill(store: DrillStore): void
 {
   try
   {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+    localStorage.setItem(storageKey(), JSON.stringify(store))
   }
   catch
   {

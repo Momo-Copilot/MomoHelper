@@ -22,6 +22,7 @@ import {
   queryStudyRecordsFiltered,
   listNotepads
 } from '@momo/maimemo'
+import { isDemoMode, loadDemoData } from './demo'
 import type {
   DashboardHistoryDto,
   DashboardTodayDto,
@@ -96,6 +97,8 @@ interface LocalSnapshot
 }
 
 const SNAPSHOT_KEY = 'momo.dailySnapshots'
+/** 演示模式的样本快照，与真实快照分开存，退出演示时一并清掉 */
+export const DEMO_SNAPSHOT_KEY = 'momo.demoSnapshots'
 /**
  * 保留上限按「不截断有效数据」定，不按一年卡：
  * 每条约 90~120 字节，1200 天也不到 150KB；而考研从起手到上考场约 400 天，
@@ -108,7 +111,8 @@ function loadSnapshots(): LocalSnapshot[]
 {
   try
   {
-    const raw = localStorage.getItem(SNAPSHOT_KEY)
+    // 演示模式读打包好的样本快照：访客本机什么都没存，读 SNAPSHOT_KEY 会是空的
+    const raw = localStorage.getItem(isDemoMode() ? DEMO_SNAPSHOT_KEY : SNAPSHOT_KEY)
     const list = raw ? (JSON.parse(raw) as LocalSnapshot[]) : []
     return Array.isArray(list) ? list : []
   }
@@ -120,6 +124,12 @@ function loadSnapshots(): LocalSnapshot[]
 
 function upsertSnapshot(snapshot: LocalSnapshot): void
 {
+  // 演示数据只读：访客的点击不该写进他自己的本机存储
+  if (isDemoMode())
+  {
+    return
+  }
+
   try
   {
     const list = loadSnapshots().filter((item) => item.date !== snapshot.date)
@@ -280,6 +290,14 @@ function latestSnapshotAsToday(): DashboardTodayDto
  */
 export async function getDashboardToday(): Promise<DashboardTodayDto>
 {
+  // 演示模式：直接返回打包好的样本，不写快照、不发请求
+  if (isDemoMode())
+  {
+    const demo = await loadDemoData()
+
+    return demo.dashboard
+  }
+
   const client = getMaimemoClient()
 
   try
@@ -351,6 +369,7 @@ export async function getDashboardToday(): Promise<DashboardTodayDto>
 export function getDashboardHistory(days: number): DashboardHistoryDto
 {
   const startDate = toBeijingDate(new Date(Date.now() - (days - 1) * 86_400_000))
+
   const rows = loadSnapshots().filter((item) => item.date >= startDate)
 
   return {
@@ -384,6 +403,11 @@ export interface ForgottenResult
  */
 export async function getTodayForgotten(): Promise<ForgottenResult>
 {
+  if (isDemoMode())
+  {
+    return (await loadDemoData()).forgotten
+  }
+
   const client = getMaimemoClient()
   const items = await getTodayItems(client)
   const forgotten = items.filter((item) => item.first_response === 'FORGET')
@@ -444,6 +468,11 @@ export async function getTodayForgotten(): Promise<ForgottenResult>
 /** 顽固词：学习记录标签含 STICKING（FR-3.5）；接口失败同今日遗忘词，直接上抛 */
 export async function getStickingWords(): Promise<ForgottenResult>
 {
+  if (isDemoMode())
+  {
+    return (await loadDemoData()).sticking
+  }
+
   const client = getMaimemoClient()
 
   // 服务端按 STICKING 标签筛选：此前无过滤拉 1000 条再前端过滤，
