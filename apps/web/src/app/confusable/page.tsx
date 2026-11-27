@@ -466,9 +466,10 @@ export default function ConfusablePage()
              * 宽屏自动两列、窄屏自动回落单列，不需要维护断点。
              *
              * 下限 360px：标记改回圆点后单侧只需约 130px，比 400px 更省横向空间，
-             * 1280 屏下仍稳定两列。
+             * 1280 屏下仍稳定两列。用 min(360px,100%) 兜住窄屏：手机内容宽度
+             * 只有 335px 左右，写死 360px 会让整列撑出屏幕（单词和「差1」被裁掉）。
              */}
-            <ul className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-2">
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(360px,100%),1fr))] gap-2">
               {visible.map((item, index) =>
               {
                 const segments = alignDiff(item.pair.a, item.pair.b)
