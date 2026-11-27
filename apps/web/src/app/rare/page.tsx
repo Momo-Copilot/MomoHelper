@@ -15,12 +15,14 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 
+import { MaimemoAuthError } from '@momo/maimemo'
 import type { FocusWordDto } from '@momo/types'
 import { Icon } from '@/components/icons'
 import { PageHeader, Tile, TileSkeleton } from '@/components/kit'
+import { TokenRequired } from '@/components/token-required'
 import { diagnoseWord } from '@/lib/ai'
 import { loadDrill, recordDiagnosis, saveDrill, type DrillDiagnosis, type DrillStore } from '@/lib/drill'
-import { getStickingWords } from '@/lib/maimemo'
+import { getStickingWords, MaimemoNotConfiguredError } from '@/lib/maimemo'
 import { getAiThinkingMode } from '@/lib/settings'
 
 /** 每批诊断多少个：AI 串行调用，25 个约 1~2 分钟 */
@@ -142,6 +144,27 @@ export default function RarePage()
     },
     [auto, busy, ready, pending.length]
   )
+
+  // 未配置 / Token 失效：与其余页面统一提示，不要退化成「没有顽固词」
+  if (
+    sticking.isError &&
+    (sticking.error instanceof MaimemoNotConfiguredError ||
+      sticking.error instanceof MaimemoAuthError)
+  )
+  {
+    return (
+      <div>
+        <PageHeader title="熟词僻义" />
+        <TokenRequired
+          description={
+            sticking.error instanceof MaimemoAuthError
+              ? '墨墨 Token 已失效或无效，到设置页重新绑定即可恢复；也可以先看演示。'
+              : '尚未绑定墨墨 Token，绑定后才能从顽固词里挖熟词僻义；也可以先看演示。'
+          }
+        />
+      </div>
+    )
+  }
 
   if (sticking.isPending || !ready)
   {

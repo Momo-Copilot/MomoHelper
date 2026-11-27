@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { MaimemoAuthError } from '@momo/maimemo'
 import type { ExamPlanDto, PlanAlertDto } from '@momo/types'
 import { Icon } from '@/components/icons'
+import { TokenRequired } from '@/components/token-required'
 import { PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
 import { ForecastCalendar } from '@/components/plan-forecast'
 import { analyzeExamPlan, analyzeForecast, buildPlanAlerts } from '@/lib/analyze'
@@ -170,45 +171,46 @@ export default function PlanPage()
       </div>
     )
   }
-
   if (query.isError)
   {
     const error = query.error
-    const needSetup = error instanceof MaimemoNotConfiguredError || error instanceof MaimemoAuthError
+
+    // 未配置 / 已失效：统一走 TokenRequired（与今日页同一个组件）
+    if (error instanceof MaimemoNotConfiguredError || error instanceof MaimemoAuthError)
+    {
+      return (
+      <div>
+        <PageHeader title="冲刺计划" />
+        <TokenRequired
+          description={
+            error instanceof MaimemoAuthError
+              ? '墨墨 Token 已失效或无效，到设置页重新绑定即可恢复；也可以先看演示。'
+              : '尚未绑定墨墨 Token，绑定后才能算出剩余词数与复习负荷；也可以先看演示。'
+          }
+        />
+      </div>
+      )
+    }
 
     return (
       <div>
         <PageHeader title="冲刺计划" />
-        <Tile hover={false} className="mt-10 text-center">
+        <Tile hover={false} className="mt-16 text-center">
           <Icon name="alert" className="mx-auto h-8 w-8 text-[var(--color-vague)]" />
           <h1 className="mt-3 font-[family-name:var(--font-display)] text-[length:var(--text-lg)]">
-            {needSetup ? '需要先配置墨墨 Token' : '冲刺计划加载失败'}
+            冲刺计划加载失败
           </h1>
           <p className="mx-auto mt-1 max-w-md text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
-            {error instanceof MaimemoNotConfiguredError
-              ? '尚未绑定墨墨 Token，绑定后才能算出剩余词数与复习负荷。'
-              : error instanceof MaimemoAuthError
-                ? '墨墨 Token 已失效或无效，请到设置页重新绑定。'
-                : error.message}
+            {error instanceof Error ? error.message : '加载失败，请稍后重试'}
           </p>
           <div className="mt-5 flex justify-center gap-3">
-            {needSetup ? (
-              <Link
-                href="/settings"
-                className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-5 text-[length:var(--text-sm)] font-medium text-white hover:bg-[var(--color-accent-hover)]"
-              >
-                <Icon name="sliders" className="mr-2 h-4 w-4" />
-                去设置
-              </Link>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void query.refetch()}
-                className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
-              >
-                重试
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => void query.refetch()}
+              className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
+            >
+              重试
+            </button>
           </div>
         </Tile>
       </div>

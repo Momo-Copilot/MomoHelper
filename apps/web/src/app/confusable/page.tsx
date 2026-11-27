@@ -20,6 +20,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { LibraryRecordRowDto } from '@momo/types'
 import { MaimemoAuthError } from '@momo/maimemo'
 import { Icon } from '@/components/icons'
+import { TokenRequired } from '@/components/token-required'
 import { EmptyTile, ErrorNote, PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
 import { WordCardPopover } from '@/components/word-card'
 import { alignDiff, buildConfusablePairs, type ConfusablePair, type DiffSegment } from '@/lib/similar-words'
@@ -276,21 +277,48 @@ export default function ConfusablePage()
       </div>
     )
   }
-
   if (query.isError)
   {
     const error = query.error
-    const message =
-      error instanceof MaimemoNotConfiguredError
-        ? '还没有配置墨墨 Token，去设置页绑定后才能读取词库。'
-        : error instanceof MaimemoAuthError
-          ? '墨墨 Token 已失效，去设置页重新粘贴。'
-          : error.message
+
+    // 未配置 / 已失效：统一走 TokenRequired（与今日页同一个组件）
+    if (error instanceof MaimemoNotConfiguredError || error instanceof MaimemoAuthError)
+    {
+      return (
+      <div>
+        <PageHeader title="易混词对" />
+        <TokenRequired
+          description={
+            error instanceof MaimemoAuthError
+              ? '墨墨 Token 已失效或无效，到设置页重新绑定即可恢复；也可以先看演示。'
+              : '尚未绑定墨墨 Token，绑定后才能比对全库拼写；也可以先看演示。'
+          }
+        />
+      </div>
+      )
+    }
 
     return (
       <div>
         <PageHeader title="易混词对" />
-        <ErrorNote message={message} />
+        <Tile hover={false} className="mt-16 text-center">
+          <Icon name="alert" className="mx-auto h-8 w-8 text-[var(--color-vague)]" />
+          <h1 className="mt-3 font-[family-name:var(--font-display)] text-[length:var(--text-lg)]">
+            易混词对加载失败
+          </h1>
+          <p className="mx-auto mt-1 max-w-md text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
+            {error instanceof Error ? error.message : '加载失败，请稍后重试'}
+          </p>
+          <div className="mt-5 flex justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => void query.refetch()}
+              className="inline-flex h-9 items-center rounded-md border border-[var(--color-border-strong)] px-5 text-[length:var(--text-sm)] hover:bg-[var(--color-bg-subtle)]"
+            >
+              重试
+            </button>
+          </div>
+        </Tile>
       </div>
     )
   }

@@ -6,9 +6,11 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 
 import type { ForgetDiagnosis } from '@momo/ai'
+import { MaimemoAuthError } from '@momo/maimemo'
 import type { FocusWordDto } from '@momo/types'
 import { Icon } from '@/components/icons'
 import { EmptyTile, ErrorNote, PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
+import { TokenRequired } from '@/components/token-required'
 import { WordCardPopover } from '@/components/word-card'
 import { diagnoseWord } from '@/lib/ai'
 import {
@@ -16,7 +18,11 @@ import {
   saveDiagnosis,
   type DiagnoseRecord
 } from '@/lib/diagnose-history'
-import { getStickingWords, getTodayForgotten } from '@/lib/maimemo'
+import {
+  getStickingWords,
+  getTodayForgotten,
+  MaimemoNotConfiguredError
+} from '@/lib/maimemo'
 import { getAiThinkingMode, type AiThinkingMode } from '@/lib/settings'
 import { FORGET_REASON_LABELS as REASON_LABELS } from '@/lib/forget-reason'
 
@@ -263,28 +269,38 @@ export default function ForgetPage()
 
       {query.isPending && <TileSkeleton />}
 
-      {query.isError && (
-        <div className="mb-4 space-y-3">
-          <ErrorNote
-            message={
-              query.error instanceof Error ? query.error.message : '加载失败，请稍后重试'
+      {query.isError &&
+        (query.error instanceof MaimemoNotConfiguredError ||
+        query.error instanceof MaimemoAuthError ? (
+          <TokenRequired
+            description={
+              query.error instanceof MaimemoAuthError
+                ? '墨墨 Token 已失效或无效，到设置页重新绑定即可恢复；也可以先看演示。'
+                : '尚未绑定墨墨 Token，绑定后才能看到今天错在哪；也可以先看演示。'
             }
           />
-          {/* 公测接口偶发不可用会在这里报错（而不是伪装成空状态）；提供重试入口 */}
-          <button
-            type="button"
-            onClick={() => void query.refetch()}
-            disabled={query.isFetching}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
-          >
-            <Icon
-              name="refresh"
-              className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`}
+        ) : (
+          <div className="mb-4 space-y-3">
+            <ErrorNote
+              message={
+                query.error instanceof Error ? query.error.message : '加载失败，请稍后重试'
+              }
             />
-            重新加载
-          </button>
-        </div>
-      )}
+            {/* 公测接口偶发不可用会在这里报错（而不是伪装成空状态）；提供重试入口 */}
+            <button
+              type="button"
+              onClick={() => void query.refetch()}
+              disabled={query.isFetching}
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-4 text-[length:var(--text-sm)] transition-colors hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
+            >
+              <Icon
+                name="refresh"
+                className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`}
+              />
+              重新加载
+            </button>
+          </div>
+        ))}
 
       {query.data && (
         <>
