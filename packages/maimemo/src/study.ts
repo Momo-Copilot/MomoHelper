@@ -346,8 +346,6 @@ const RANGE_END_DAY = toBeijingDayIndex(Date.UTC(2200, 11, 31))
  *   3. 日期窗口按「最后一页的 next_study_date + 1 天」推进，遇到
  *      next_study_date 为空（未安排复习）的词就再也切不动。
  *
- *      next_study_date 为空（未安排复习）的词就再也切不动。
- *
  * ## 现在的做法：区间递归二分
  *
  * 借鉴 MemoSuperform 的 `_fetch_range_tree`：从 [2000-01-01, 2200-12-31]
@@ -355,18 +353,19 @@ const RANGE_END_DAY = toBeijingDayIndex(Date.UTC(2200, 11, 31))
  * 劈开递归，直到每段都不满页。
  *
  * 实测数据：8613 词分布在 1039 个复习日上，单日最多 165 条，远小于 1000，
- * 所以二分必然收敛（深度约 log2(73000 天) ≈ 17，安全阀 24 足够）。
+ * 所以二分必然收敛（深度约 log2(73000 天) ≈ 17）。真正的安全阀是
+ * `maxRequests`（默认 120），不是递归深度。
  *
  * ## 为什么不用 offset 做主策略
  *
  * offset 未在官方文档声明，实测服务端忽略它。递归二分只依赖 next_study_date
  * 这一有文档保证的参数，稳定得多。offset 仅作为「总数很小」时的快速通道。
  *
- * ## 仍然存在的限制（必须如实告知上层）
+ * ## 无排期词的兜底
  *
- * 完全没有 next_study_date 的词，日期区间查询覆盖不到。实测当前账号 8613 条
- * 全部带日期，但其他账号可能有。这类词只能靠 offset（若服务端某天支持）或
- * 单请求兜底，拿不到时 `complete=false`，UI 需标注。
+ * 完全没有 next_study_date 的词，日期区间查询覆盖不到。区间递归跑完后若
+ * `seen.size < total`，再发一次不带日期条件的默认排序查询捞一遍——这些词
+ * 若排在结果前面就能补上。补不到时如实记录缺多少，`complete=false`。
  */
 export async function queryStudyRecordsAll(
   client: MaimemoClient,
