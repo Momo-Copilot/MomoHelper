@@ -146,6 +146,25 @@ export function WordCardPopover({
   const [card, setCard] = useState<WordCard | null>(null)
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  /**
+   * 移动端改成从底部弹出的面板：浮层贴在触发按钮旁边，在小屏上经常被挤出
+   * 屏幕或挡住半个页面，而且手指本来就够不到屏幕中上部。
+   */
+  const [mobile, setMobile] = useState(false)
+
+  useEffect(
+    () =>
+    {
+      const query = window.matchMedia('(max-width: 767px)')
+      const sync = (): void => setMobile(query.matches)
+
+      sync()
+      query.addEventListener('change', sync)
+
+      return () => query.removeEventListener('change', sync)
+    },
+    []
+  )
   // 挂载时就有 anchor（组件由点击触发），首帧即可算好位置，不会闪一下再跳
   const [box, setBox] = useState<PopoverBox | null>(() => (anchor ? measure(anchor) : null))
 
@@ -153,7 +172,8 @@ export function WordCardPopover({
   useEffect(
     () =>
     {
-      if (!anchor)
+      // 移动端固定在底部，不需要跟随锚点重算位置
+      if (!anchor || mobile)
       {
         return
       }
@@ -178,7 +198,7 @@ export function WordCardPopover({
         window.removeEventListener('resize', place)
       }
     },
-    [anchor]
+    [anchor, mobile]
   )
 
   // 点击卡片外任意位置关闭；点锚点交给按钮自己 toggle，否则会「关了又开」
@@ -257,13 +277,20 @@ export function WordCardPopover({
   }
 
   return createPortal(
-    <div
-      ref={ref}
-      role="dialog"
-      aria-label={`${spelling} 词条`}
-      className="fixed z-50 overflow-y-auto overscroll-contain rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-pop)]"
-      style={box ?? { left: POPOVER_GAP, right: POPOVER_GAP, top: 96, maxHeight: 320 }}
-    >
+    <>
+      {/* 移动端遮罩：点它关闭（document 上的 mousedown 监听也会兜住） */}
+      {mobile && <div aria-hidden className="fixed inset-0 z-40 bg-black/35" />}
+      <div
+        ref={ref}
+        role="dialog"
+        aria-label={`${spelling} 词条`}
+        className={
+          mobile
+            ? 'fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto overscroll-contain rounded-t-xl border-t border-[var(--color-border)] bg-[var(--color-surface)] p-4 pb-[calc(16px+env(safe-area-inset-bottom))] text-left shadow-[var(--shadow-pop)] sheet-up'
+            : 'fixed z-50 overflow-y-auto overscroll-contain rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-pop)]'
+        }
+        style={mobile ? undefined : (box ?? { left: POPOVER_GAP, right: POPOVER_GAP, top: 96, maxHeight: 320 })}
+      >
       <div className="flex items-baseline gap-2">
         <span className="font-[family-name:var(--font-display)] text-[length:var(--text-md)] font-semibold">
           {spelling}
@@ -287,9 +314,10 @@ export function WordCardPopover({
         <div className="mt-2 space-y-3">
           <MineSectionView card={card} />
           <AiSectionView card={card} />
-        </div>
-      )}
-    </div>,
+          </div>
+        )}
+      </div>
+    </>,
     document.body
   )
 }

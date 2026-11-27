@@ -198,6 +198,35 @@ body
 
 /* ============ Bento 瓷贴（放 components 层，允许工具类覆盖） ============ */
 
+/* 移动端底部面板：从屏幕下方推上来，短促一点，不要拖沓 */
+@keyframes sheet-up
+{
+  from
+  {
+    transform: translateY(16px);
+    opacity: 0.5;
+  }
+  to
+  {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.sheet-up
+{
+  animation: sheet-up 160ms ease-out;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce)
+{
+  .sheet-up
+  {
+    animation: none;
+  }
+}
+
 @keyframes tile-in
 {
   from
