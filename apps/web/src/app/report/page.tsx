@@ -82,7 +82,7 @@ function DailyChart({ rows, days }: { rows: ReportSnapshotDto['dailyNew']; days:
 {
   const [hovered, setHovered] = useState<number | null>(null)
   const window = rows.slice(-days)
-  const max = Math.max(...window.map((row) => row.count), 1)
+  const max = window.reduce((acc, row) => (row.count > acc ? row.count : acc), 1)
   const slot = 14
   const width = window.length * slot
   const chartH = 96
@@ -101,6 +101,7 @@ function DailyChart({ rows, days }: { rows: ReportSnapshotDto['dailyNew']; days:
       {window.map((row, i) =>
       {
         const h = row.count > 0 ? Math.max(3, (row.count / max) * chartH) : 0
+        const dimmed = hovered !== null && hovered !== i
         const x = i * slot + 3
         const y = baseY - h
         const isToday = i === window.length - 1
@@ -108,7 +109,7 @@ function DailyChart({ rows, days }: { rows: ReportSnapshotDto['dailyNew']; days:
         return (
           <g key={row.date} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
             <rect x={i * slot} y="0" width={slot} height="132" fill="transparent" />
-            {row.count > 0 && (
+            {row.count > 0 ? (
               <rect
                 x={x}
                 y={y}
@@ -116,9 +117,25 @@ function DailyChart({ rows, days }: { rows: ReportSnapshotDto['dailyNew']; days:
                 height={h}
                 rx="2"
                 fill={isToday ? 'var(--color-accent)' : 'var(--color-accent-bg)'}
-                stroke={isToday ? 'var(--color-accent)' : 'var(--color-accent)'}
+                stroke="var(--color-accent)"
                 strokeWidth="1"
-                opacity={hovered === null || hovered === i ? 1 : 0.4}
+                opacity={dimmed ? 0.4 : 1}
+                style={{ transition: 'opacity 0.15s' }}
+              />
+            ) : (
+              /* 当天没学新词画空心虚线柱：整排空白会让人以为「没有数据」，
+                 而实际上只是这条曲线只数首学词，复习旧词不计入 */
+              <rect
+                x={x}
+                y={baseY - 8}
+                width="8"
+                height="8"
+                rx="2"
+                fill="none"
+                stroke="var(--color-border-strong)"
+                strokeWidth="1.2"
+                strokeDasharray="2 2"
+                opacity={dimmed ? 0.4 : 1}
                 style={{ transition: 'opacity 0.15s' }}
               />
             )}
@@ -476,7 +493,7 @@ export default function ReportPage()
               <p className="text-[length:var(--text-sm)]">每日新学词数</p>
               <p className="mt-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 {report.firstDay
-                  ? `从 ${report.firstDay} 起共 ${report.spanDays} 天，空白段即当天没学新词`
+                  ? `从 ${report.firstDay} 起共 ${report.spanDays} 天，虚线 = 当天没学新词（复习旧词不计入）`
                   : '暂无开始学习的日期数据'}
               </p>
             </div>
