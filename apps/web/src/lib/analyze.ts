@@ -1064,3 +1064,101 @@ export function analyzeIntervals(records: LibraryRecordRowDto[]): IntervalAnalys
     }
   }
 }
+
+/* ============================= 趋势估算 ============================= */
+
+/** 由词库记录估算出的单日趋势点 */
+export interface TrendEstimatePointDto
+{
+  date: string
+  /** 当天首次学习的词数（first_study_date 落在当天） */
+  newWords: number
+  /**
+   * 当天「最后一次学习」落在当天的词数。
+   *
+   * 这是下界不是真值：墨墨每个词只保留最后一次学习日期，3 月、5 月、7 月都
+   * 复习过的词只会在 7 月记一笔。所以早期日期会明显偏少，图上必须写明。
+   */
+  reviewWords: number
+}
+
+export interface TrendEstimateDto
+{
+  points: TrendEstimatePointDto[]
+  /** 词库里最早的学习日期，用于说明估算能回溯到哪 */
+  earliest: string | null
+  /** 窗口内真正有记录的天数 */
+  coveredDays: number
+}
+
+/**
+ * 用词库记录重建历史趋势。
+ *
+ * 存在的意义：本地快照只在「打开过本站」的日子留痕，新用户想回看几个月前
+ * 的学习节奏是一片空白。词库记录带 first_study_date / last_study_date，
+ * 能回溯到最早开始背词的那天——代价是复习量只能看到「最后一次」。
+ */
+export function buildTrendEstimate(
+  records: LibraryRecordRowDto[],
+  days: number,
+  today = beijingToday()
+): TrendEstimateDto
+{
+  const map = new Map<string, { newWords: number; reviewWords: number }>()
+  let earliest: string | null = null
+
+  const bump = (date: string, field: 'newWords' | 'reviewWords'): void =>
+  {
+    const current = map.get(date) ?? { newWords: 0, reviewWords: 0 }
+
+    current[field]++
+    map.set(date, current)
+  }
+
+  for (const record of records)
+  {
+    const first = beijingDayOf(record.firstStudyDate)
+    const last = beijingDayOf(record.lastStudyDate)
+
+    if (first)
+    {
+      bump(first, 'newWords')
+
+      if (!earliest || first < earliest)
+      {
+        earliest = first
+      }
+    }
+
+    // 首学当天不重复计为复习
+    if (last && last !== first)
+    {
+      bump(last, 'reviewWords')
+
+      if (!earliest || last < earliest)
+      {
+        earliest = last
+      }
+    }
+  }
+
+  const points: TrendEstimatePointDto[] = []
+  let coveredDays = 0
+
+  for (let i = days - 1; i >= 0; i--)
+  {
+    const date = addDays(today, -i)
+    const hit = map.get(date)
+    const newWords = hit?.newWords ?? 0
+    const reviewWords = hit?.reviewWords ?? 0
+
+    if (newWords + reviewWords > 0)
+    {
+      coveredDays++
+    }
+
+    points.push({ date, newWords, reviewWords })
+  }
+
+  return { points, earliest, coveredDays }
+}

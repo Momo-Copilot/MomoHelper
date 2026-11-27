@@ -583,3 +583,23 @@ import { registerLibraryWriter } from './backup-restore'
 
 registerLibraryReader(readSnapshotForBackup)
 registerLibraryWriter(writeSnapshotFromBackup)
+
+/**
+ * 只读缓存里的词库记录，不触发任何网络请求。
+ *
+ * 今日页的趋势估算用得到：那里只想拿现成的记录画图，绝不能因为「顺手看一眼」
+ * 就触发一次 55 个请求的全量拉取。
+ */
+export async function peekLibraryRecords(): Promise<LibraryRecordRowDto[] | null>
+{
+  try
+  {
+    const cached = await readCache()
+
+    return cached ? cached.records : null
+  }
+  catch
+  {
+    return null
+  }
+}

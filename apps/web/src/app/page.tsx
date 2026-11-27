@@ -10,6 +10,8 @@ import { Icon } from '@/components/icons'
 import { ErrorNote, PageHeader, Tile, TileSkeleton } from '@/components/kit'
 import { ReportTeaser } from '@/components/report-teaser'
 import { TodayWordsCard } from '@/components/today-words'
+import { buildTrendEstimate } from '@/lib/analyze'
+import { peekLibraryRecords } from '@/lib/library'
 import { getDashboardHistory, getDashboardToday, MaimemoNotConfiguredError } from '@/lib/maimemo'
 import { getExamDate } from '@/lib/settings'
 
@@ -120,12 +122,15 @@ const TREND_RANGES: [number, string][] = [
   [365, '365 天']
 ]
 
+/** 趋势单日数据：估算模式下额外带 newWords / reviewWords，用来画堆叠柱 */
+type ChartDay = DashboardTrendPointDto & { newWords?: number; reviewWords?: number }
+
 function TrendChart({
   days,
   selected,
   onSelect
 }: {
-  days: DashboardTrendPointDto[]
+  days: ChartDay[]
   selected: number | null
   onSelect: (index: number | null) => void
 })
@@ -143,34 +148,42 @@ function TrendChart({
   const barWidth = Math.max(slot - (slot >= 24 ? 18 : slot >= 12 ? 5 : 3), 1.5)
   const barOffset = (slot - barWidth) / 2
   const radius = slot >= 40 ? 5 : slot >= 24 ? 3 : slot >= 12 ? 1.5 : 0.5
-  /** 柱子太细时最小高度也要跟着降，否则会集体顶到顶 */
   const minBarHeight = slot >= 24 ? 6 : slot >= 12 ? 3 : 2
 
   const width = days.length * slot
   const chartH = 120
   const baseY = 138
 
+  /** 估算模式：一根柱子拆成「新学（底）+ 复习（顶）」两段 */
+  const stacked = days.some((d) => d.newWords !== undefined || d.reviewWords !== undefined)
+
   return (
     <svg
       viewBox={`0 0 ${width} 160`}
       className="h-40 w-full"
       role="img"
-      aria-label={`近 ${days.length} 天每日完成词数趋势`}
+      aria-label={`近 ${days.length} 天每日学习趋势`}
     >
       <line x1="0" y1={baseY} x2={width} y2={baseY} stroke="var(--color-border)" strokeWidth="1" />
       {days.map((day, i) =>
       {
         const recorded = day.isReliable
+        const newWords = day.newWords ?? 0
+        const reviewWords = day.reviewWords ?? 0
+        const newH = newWords > 0 ? Math.max(minBarHeight, (newWords / max) * chartH) : 0
+        const reviewH = reviewWords > 0 ? Math.max(minBarHeight, (reviewWords / max) * chartH) : 0
         const h = day.finished > 0 ? Math.max(minBarHeight, (day.finished / max) * chartH) : 0
+
         const x = i * slot + barOffset
         const cx = i * slot + slot / 2
         const y = baseY - h
         const isToday = day.date === today
-        const fill = isToday ? 'var(--color-accent)' : 'var(--color-familiar)'
         const dim = (hovered !== null || selected !== null) && hovered !== i && selected !== i
         const isSelected = selected === i
         const label = recorded
-          ? `${day.date}：完成 ${day.finished}/${day.total}，学习 ${formatDuration(day.studyTimeMs)}`
+          ? stacked
+            ? `${day.date}：新学 ${newWords} · 复习 ${reviewWords}`
+            : `${day.date}：完成 ${day.finished}/${day.total}，学习 ${formatDuration(day.studyTimeMs)}`
           : `${day.date}：当天没打开本站，数据未记录（不等于没学）`
 
         return (
@@ -200,8 +213,7 @@ function TrendChart({
               />
             )}
             {!recorded ? (
-              /* 没打开本站：空心虚线柱。与「打开了但没学」的圆点区分开，
-                 否则一排灰点会被读成「这些天都没学习」 */
+              /* 没打开本站 / 没记录：空心虚线柱。与「有记录但为 0」的圆点区分开 */
               <rect
                 x={x}
                 y={baseY - 12}
@@ -215,6 +227,33 @@ function TrendChart({
                 opacity={dim ? 0.45 : 1}
                 style={{ transition: 'opacity 0.2s' }}
               />
+            ) : stacked ? (
+              <>
+                {newH > 0 && (
+                  <rect
+                    x={x}
+                    y={baseY - newH}
+                    width={barWidth}
+                    height={newH}
+                    rx={radius}
+                    fill="var(--color-info)"
+                    opacity={dim ? 0.45 : 1}
+                    style={{ transition: 'opacity 0.2s' }}
+                  />
+                )}
+                {reviewH > 0 && (
+                  <rect
+                    x={x}
+                    y={baseY - newH - reviewH}
+                    width={barWidth}
+                    height={reviewH}
+                    rx={radius}
+                    fill="var(--color-familiar)"
+                    opacity={dim ? 0.45 : 1}
+                    style={{ transition: 'opacity 0.2s' }}
+                  />
+                )}
+              </>
             ) : day.finished > 0 ? (
               <rect
                 x={x}
@@ -222,7 +261,7 @@ function TrendChart({
                 width={barWidth}
                 height={h}
                 rx={radius}
-                fill={fill}
+                fill={isToday ? 'var(--color-accent)' : 'var(--color-familiar)'}
                 opacity={dim ? 0.45 : 1}
                 style={{ transition: 'opacity 0.2s' }}
               />
@@ -244,17 +283,11 @@ function TrendChart({
                 fontWeight="600"
                 fill="var(--color-text)"
               >
-                {day.finished}
+                {stacked ? day.finished : day.finished}
               </text>
             )}
             {(i === 0 || i === days.length - 1 || isToday) && (
-              <text
-                x={cx}
-                y="154"
-                textAnchor="middle"
-                fontSize="10"
-                fill="var(--color-text-subtle)"
-              >
+              <text x={cx} y="154" textAnchor="middle" fontSize="10" fill="var(--color-text-subtle)">
                 {isToday ? '今天' : day.date.slice(5)}
               </text>
             )}
@@ -284,6 +317,13 @@ export default function DashboardPage()
   const [trendRange, setTrendRange] = useState(14)
   /** 选中的趋势柱子（点击查看某天详情；移动端没有 hover，只能靠点） */
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
+  /**
+   * 趋势数据源：
+   *   snapshot = 本地快照，只在打开过本站的日子有值，精确但短
+   *   library  = 用词库记录的 last_study_date 估算，能回溯到最早背词那天，
+   *              但复习量只是「最后一次」的下界
+   */
+  const [trendSource, setTrendSource] = useState<'snapshot' | 'library'>('snapshot')
 
   // 趋势从本地快照读取：每次成功拉取（capturedAt 变化）即重算
   const capturedAt = query.data?.capturedAt
@@ -291,6 +331,52 @@ export default function DashboardPage()
     () => (capturedAt ? buildDays(getDashboardHistory(trendRange).days, trendRange) : null),
     [capturedAt, trendRange]
   )
+
+  // 只在切到「词库估算」时才读缓存；peekLibraryRecords 不会触发网络请求
+  const libraryPeek = useQuery({
+    queryKey: ['library', 'peek'],
+    queryFn: peekLibraryRecords,
+    enabled: trendSource === 'library',
+    staleTime: 5 * 60 * 1000,
+    retry: false
+  })
+
+  const estimate = useMemo(
+    () =>
+      trendSource === 'library' && libraryPeek.data
+        ? buildTrendEstimate(libraryPeek.data, trendRange)
+        : null,
+    [trendSource, libraryPeek.data, trendRange]
+  )
+
+  /** 统一成图表能吃的形状：估算模式下 finished = 新学 + 复习 */
+  const chartDays: ChartDay[] | null = useMemo(
+    () =>
+    {
+      if (trendSource === 'snapshot')
+      {
+        return trendDays
+      }
+
+      if (!estimate)
+      {
+        return null
+      }
+
+      return estimate.points.map((point) => ({
+        date: point.date,
+        finished: point.newWords + point.reviewWords,
+        total: 0,
+        studyTimeMs: 0,
+        isReliable: point.newWords + point.reviewWords > 0,
+        newWords: point.newWords,
+        reviewWords: point.reviewWords
+      }))
+    },
+    [trendSource, trendDays, estimate]
+  )
+
+  const libraryMissing = trendSource === 'library' && libraryPeek.isSuccess && !libraryPeek.data
 
   if (query.isPending)
   {
@@ -507,47 +593,103 @@ export default function DashboardPage()
               ))}
             </div>
           </div>
-          <p className="mt-1 font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-            {trendDays
-              ? `${trendDays.reduce((sum, d) => sum + d.finished, 0)} 词 · 已记录 ${trendDays.filter((d) => d.isReliable).length}/${trendDays.length} 天`
-              : '—'}
-          </p>
+
+          {/* 数据源切换：快照精确但短，词库估算长但复习量是下界 */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="flex items-center gap-1">
+              {(
+                [
+                  ['snapshot', '快照'],
+                  ['library', '词库估算']
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() =>
+                  {
+                    setTrendSource(key)
+                    setSelectedDay(null)
+                  }}
+                  aria-pressed={trendSource === key}
+                  className={`rounded-md px-2 py-0.5 text-[length:var(--text-xs)] transition-colors ${
+                    trendSource === key
+                      ? 'bg-[var(--color-bg-subtle)] font-semibold text-[var(--color-text)]'
+                      : 'text-[var(--color-text-subtle)] hover:text-[var(--color-text-muted)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+              {chartDays
+                ? `${chartDays.reduce((sum, d) => sum + d.finished, 0)} 词 · ${
+                    trendSource === 'snapshot' ? '已记录' : '有记录'
+                  } ${chartDays.filter((d) => d.isReliable).length}/${chartDays.length} 天`
+                : '—'}
+            </span>
+          </div>
+
           <div className="mt-3">
-            {trendDays ? (
-              trendDays.some((d) => d.finished > 0) ? (
+            {trendSource === 'library' && libraryMissing ? (
+              <div className="flex h-40 flex-col items-center justify-center gap-2 text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
+                <p>本机还没有词库缓存，先去词库页拉一次。</p>
+                <Link href="/library" className="text-[var(--color-accent)] underline-offset-4 hover:underline">
+                  去词库页 →
+                </Link>
+              </div>
+            ) : chartDays ? (
+              chartDays.some((d) => d.finished > 0) ? (
                 <>
-                  <TrendChart
-                    days={trendDays}
-                    selected={selectedDay}
-                    onSelect={setSelectedDay}
-                  />
-                  {selectedDay !== null && trendDays[selectedDay] && (
+                  <TrendChart days={chartDays} selected={selectedDay} onSelect={setSelectedDay} />
+                  {trendSource === 'library' && (
+                    <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                      <span className="flex items-center gap-1.5">
+                        <span aria-hidden className="h-2 w-2 rounded-sm bg-[var(--color-info)]" />
+                        新学
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span aria-hidden className="h-2 w-2 rounded-sm bg-[var(--color-familiar)]" />
+                        复习（下界）
+                      </span>
+                    </div>
+                  )}
+                  {selectedDay !== null && chartDays[selectedDay] && (
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-[length:var(--text-xs)]">
                       <span className="font-[family-name:var(--font-mono)] tabular">
-                        {trendDays[selectedDay]!.date}
+                        {chartDays[selectedDay]!.date}
                       </span>
-                      {trendDays[selectedDay]!.isReliable ? (
-                        <>
-                          <span>
-                            完成 {trendDays[selectedDay]!.finished} /{' '}
-                            {trendDays[selectedDay]!.total}
-                          </span>
-                          <span>学习 {formatDuration(trendDays[selectedDay]!.studyTimeMs)}</span>
-                        </>
+                      {chartDays[selectedDay]!.isReliable ? (
+                        trendSource === 'library' ? (
+                          <>
+                            <span>新学 {chartDays[selectedDay]!.newWords ?? 0}</span>
+                            <span>复习 {chartDays[selectedDay]!.reviewWords ?? 0}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>
+                              完成 {chartDays[selectedDay]!.finished} / {chartDays[selectedDay]!.total}
+                            </span>
+                            <span>学习 {formatDuration(chartDays[selectedDay]!.studyTimeMs)}</span>
+                          </>
+                        )
                       ) : (
-                        <span className="text-[var(--color-text-subtle)]">
-                          当天没打开本站，数据未记录（不等于没学）
-                        </span>
+                        <span className="text-[var(--color-text-subtle)]">当天没有记录</span>
                       )}
                     </div>
                   )}
                   <p className="mt-1 text-center text-[length:var(--text-xs)] leading-relaxed text-[var(--color-text-subtle)]">
-                    空心虚线 = 当天没打开本站，数据未记录（不等于没学）。点击柱子看当天详情。
+                    {trendSource === 'library'
+                      ? `由词库记录估算${estimate?.earliest ? `，最早可回溯到 ${estimate.earliest}` : ''}。复习量只是下界——墨墨每个词只保留最后一次学习日期。`
+                      : '空心虚线 = 当天没打开本站，数据未记录（不等于没学）。点击柱子看当天详情。'}
                   </p>
                 </>
               ) : (
                 <p className="flex h-40 items-center justify-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
-                  快照从今天开始累积，明天回来看趋势。
+                  {trendSource === 'library'
+                    ? '词库里还没有学习记录。'
+                    : '快照从今天开始累积，明天回来看趋势。'}
                 </p>
               )
             ) : (
