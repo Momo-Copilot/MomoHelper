@@ -13,7 +13,6 @@
  */
 
 import type { IntervalAnalysisDto, IntervalBucketDto, StalledWordDto } from '@momo/types'
-import Link from 'next/link'
 
 import { Tile } from '@/components/kit'
 
@@ -81,27 +80,6 @@ const RESPONSE_TEXT: Record<string, string> = {
   FORGET: '忘记'
 }
 
-function StalledRow({ word }: { word: StalledWordDto })
-{
-  return (
-    <Link
-      href={`/library?word=${encodeURIComponent(word.spelling)}`}
-      className="flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--color-bg-subtle)]"
-    >
-      <span className="min-w-0 flex-1 truncate text-[length:var(--text-sm)]">{word.spelling}</span>
-      <span className="shrink-0 font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)] tabular">
-        背 {word.studyCount} 次
-      </span>
-      <span className="w-16 shrink-0 text-right font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-forget)] tabular">
-        间隔 {word.intervalDays} 天
-      </span>
-      <span className="w-12 shrink-0 text-right text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-        {word.lastResponse ? (RESPONSE_TEXT[word.lastResponse] ?? word.lastResponse) : '—'}
-      </span>
-    </Link>
-  )
-}
-
 export function LibraryIntervalView({ data }: { data: IntervalAnalysisDto })
 {
   const max = Math.max(...data.buckets.map((bucket) => bucket.count), 1)
@@ -163,27 +141,48 @@ export function LibraryIntervalView({ data }: { data: IntervalAnalysisDto })
           而不是真的记住了。这批词通常不会出现在「遗忘词」页面，因为最近一次可能恰好答对了。
         </p>
 
+        {/* 只读表格：与词库页「词表」同款样式，不带排序/搜索——这批词按学习次数
+            降序已是最有意义的顺序；也不支持点开词卡，点了会跳走反而打断浏览 */}
         {stalledCount === 0 ? (
           <p className="mt-4 rounded-md bg-[var(--color-bg-subtle)] px-4 py-6 text-center text-[length:var(--text-sm)] text-[var(--color-text-subtle)]">
             没有符合这一口径的词。要么词库还小，要么间隔都在正常拉长。
           </p>
         ) : (
-          <div className="mt-3 max-h-[420px] overflow-y-auto overscroll-contain">
-            <div className="flex items-center gap-3 px-2 pb-1 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-              <span className="flex-1">单词</span>
-              <span className="shrink-0">学习次数</span>
-              <span className="w-16 shrink-0 text-right">当前间隔</span>
-              <span className="w-12 shrink-0 text-right">上次</span>
-            </div>
-            {data.stalled.slice(0, 200).map((word) => (
-              <StalledRow key={word.vocId} word={word} />
-            ))}
+          <>
+            <div className="mt-4 max-h-[520px] overflow-auto overscroll-contain rounded-md border border-[var(--color-border)]">
+            <table className="w-full border-collapse text-left">
+              <thead className="sticky top-0 z-10 bg-[var(--color-bg-subtle)]">
+                <tr className="whitespace-nowrap text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                  <th className="px-3 py-2.5 font-normal">单词</th>
+                  <th className="w-24 px-3 py-2.5 text-right font-normal">学习次数</th>
+                  <th className="w-24 px-3 py-2.5 text-right font-normal">当前间隔</th>
+                  <th className="w-20 px-3 py-2.5 text-center font-normal">上次作答</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.stalled.slice(0, 200).map((word) => (
+                  <tr key={word.vocId} className="border-t border-[var(--color-border)]">
+                    <td className="px-3 py-2 text-[length:var(--text-sm)]">{word.spelling}</td>
+                    <td className="px-3 py-2 text-right font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] tabular">
+                      {word.studyCount}
+                    </td>
+                    <td className="px-3 py-2 text-right font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] tabular text-[var(--color-forget)]">
+                      {word.intervalDays} 天
+                    </td>
+                    <td className="px-3 py-2 text-center text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+                      {word.lastResponse ? (RESPONSE_TEXT[word.lastResponse] ?? word.lastResponse) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
             {stalledCount > 200 && (
-              <p className="px-2 pt-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+              <p className="mt-2 text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
                 只显示学习次数最多的 200 个，共 {stalledCount} 个。
               </p>
             )}
-          </div>
+          </>
         )}
       </Tile>
     </div>
