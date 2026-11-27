@@ -27,12 +27,22 @@ const WRITE_BATCH = 500
 const FRESH_MS = 6 * 60 * 60 * 1000
 const MAX_AGE_MS = 24 * 60 * 60 * 1000
 
+/** 中断时留下的续传现场（不含 seenIds，恢复时从已有的行重建，避免每条 meta 存 8000 个 id） */
+interface LibraryResumeState
+{
+  ranges: { startDay: number; endDay: number }[]
+  total: number | null
+  loaded: number
+}
+
 interface LibraryMeta
 {
   key: string
   total: number | null
   complete: boolean
   fetchedAt: string
+  /** 非空表示上次没拉完，下次「重新拉取」从这里接着来 */
+  resume?: LibraryResumeState | null
 }
 
 export interface LibraryLoadOptions
@@ -173,6 +183,30 @@ async function putMeta(meta: LibraryMeta): Promise<void>
 
   tx.objectStore(STORE_META).put(meta)
   await txDone(tx)
+}
+
+/** 增量写入：按 vocId 覆盖写，不清空。用于断点续传，未拉完也能保住已拉到的 */
+async function upsertRecords(records: LibraryRecordRowDto[]): Promise<void>
+{
+  if (records.length === 0)
+  {
+    return
+  }
+
+  const db = await getDb()
+
+  for (let i = 0; i < records.length; i += WRITE_BATCH)
+  {
+    const tx = db.transaction(STORE_RECORDS, 'readwrite')
+    const store = tx.objectStore(STORE_RECORDS)
+
+    for (const record of records.slice(i, i + WRITE_BATCH))
+    {
+      store.put(record)
+    }
+
+    await txDone(tx)
+  }
 }
 
 /** 整表替换：先清空再分批写，避免新旧记录混在一起 */
@@ -332,15 +366,13 @@ export async function loadLibrary(
   options: LibraryLoadOptions = {}
 ): Promise<LibrarySnapshotDto>
 {
-  // 上次没拉全的缓存直接作废：否则页面会一直显示偏小的统计，
-  // 直到缓存自然过期（最多 24 小时）才重试，用户以为数据就是这么多
-  const raw = options.force ? null : await readCache()
+  // 即使 force 也要读缓存：里面可能存着上次中断的续传现场（meta.resume）
+  const cached = await readCache()
+
   // 不完整缓存也复用：完全没有 next_study_date 的词日期区间覆盖不到，
   // 这类账号每次进页面重拉 50+ 个请求、结果还是同样偏小，纯属白花额度。
   // 保留 FRESH_MS 窗口，过期再试；用户也可以在词库页手动「重新拉取」强制一次。
-  const cached = raw ?? null
-
-  if (cached)
+  if (!options.force && cached)
   {
     const age = ageOf(cached.meta.fetchedAt)
 
@@ -374,23 +406,99 @@ export async function loadLibrary(
     }
   }
 
+  // 续传只发生在「手动重新拉取」：自动过期重拉若接着上次的半截数据，
+  // 用户会看到一个永远只到 30% 却标着「已是最新」的词库，更迷惑。
+  const resumeState = options.force ? (cached?.meta.resume ?? null) : null
+  const existingRows = cached?.records ?? []
+
+  if (resumeState)
+  {
+    console.log(
+      `%c[momo]%c 从断点续传（上次已拉 ${resumeState.loaded} 条，剩 ${resumeState.ranges.length} 段）`,
+      'color:#28b69d;font-weight:600',
+      'color:inherit'
+    )
+  }
+
   const client = getMaimemoClient({ onRateLimitWait: options.onRateLimitWait })
   const result = await queryStudyRecordsAll(client, {
-    onProgress: options.onProgress
+    onProgress: options.onProgress,
+    resume: resumeState
+      ? {
+          ranges: resumeState.ranges,
+          seenIds: existingRows.map((row) => row.vocId),
+          total: resumeState.total,
+          loaded: resumeState.loaded
+        }
+      : null,
+    /**
+     * 每拉完一段就落盘一次。中途撞频控时，已拉到的记录留在 IndexedDB 里，
+     * 下次「重新拉取」从剩余区间接着走，不必从 2000 年重来。
+     */
+    onCheckpoint: async (checkpoint, fresh) =>
+    {
+      const rows = fresh.map(toRow)
+
+      if (rows.length > 0)
+      {
+        await upsertRecords(rows).catch(() => undefined)
+      }
+
+      await putMeta({
+        key: META_KEY,
+        total: checkpoint.total,
+        complete: false,
+        fetchedAt: new Date().toISOString(),
+        resume: {
+          ranges: checkpoint.ranges,
+          total: checkpoint.total,
+          loaded: checkpoint.loaded
+        }
+      }).catch(() => undefined)
+    }
   })
-  const records = result.records.map(toRow)
+
+  const freshRows = result.records.map(toRow)
   const fetchedAt = new Date().toISOString()
+  const nextResume = result.checkpoint
+    ? {
+        ranges: result.checkpoint.ranges,
+        total: result.checkpoint.total,
+        loaded: result.checkpoint.loaded
+      }
+    : null
+
+  if (resumeState)
+  {
+    // 续传：每批已由 checkpoint 写入，最后把新旧合并后的全量读回来
+    await upsertRecords(freshRows)
+
+    const all = await readAll<LibraryRecordRowDto>(STORE_RECORDS)
+    const meta: LibraryMeta = {
+      key: META_KEY,
+      total: result.total ?? all.length,
+      complete: result.complete,
+      fetchedAt,
+      resume: nextResume
+    }
+
+    await putMeta(meta)
+
+    return toSnapshot({ records: all, meta })
+  }
+
   const meta: LibraryMeta = {
     key: META_KEY,
     // as_count 可能为 null，用实际到手条数兜底
-    total: result.total ?? records.length,
+    total: result.total ?? freshRows.length,
     complete: result.complete,
-    fetchedAt
+    fetchedAt,
+    resume: nextResume
   }
 
-  await writeCache(records, meta)
+  await writeCache(freshRows, meta)
 
-  return { records, total: meta.total, complete: meta.complete, fetchedAt }
+  return { records: freshRows, total: meta.total, complete: meta.complete, fetchedAt }
 }
 
 /* ============================ 备份集成 ============================ */

@@ -6,7 +6,12 @@ import type {
 import { z } from 'zod'
 
 import type { MaimemoClient } from './client'
-import { MaimemoAuthError, MaimemoStudyUnavailableError } from './errors'
+import { logMaimemo } from './client'
+import {
+  MaimemoAuthError,
+  MaimemoRateLimitError,
+  MaimemoStudyUnavailableError
+} from './errors'
 
 /**
  * 学习数据接口（公测，不保证可用）。
@@ -78,6 +83,12 @@ export interface QueryStudyRecordsParams
   limit?: number
   /** 偏移量（接口未在文档中声明，实测若被忽略会返回重复数据，调用方需自行判定） */
   offset?: number
+  /**
+   * 429 时自动重试次数（默认 0）。
+   * 全量拉取建议设 1：撞频控后限流器会进入 65 秒冷却，重试能自动接上，
+   * 不必让用户手动再点一次。
+   */
+  retries?: number
 }
 
 export interface QueryStudyRecordsResult
@@ -110,7 +121,7 @@ export async function queryStudyRecords(
       voc_ids: params.vocIds,
       limit: params.limit,
       offset: params.offset
-    })
+    }, { retries: params.retries })
 
     const parsed = recordsSchema.parse(data)
 
@@ -125,6 +136,26 @@ export async function queryStudyRecords(
   }
 }
 
+/** 一个北京日期序号闭区间 [startDay, endDay] */
+export interface StudyRange
+{
+  startDay: number
+  endDay: number
+}
+
+/** 断点续传：上次中断时的现场，存进 IndexedDB 后下次原样带回来 */
+export interface StudyFetchCheckpoint
+{
+  /** 尚未拉取的区间队列（第一个是下一次要拉的） */
+  ranges: StudyRange[]
+  /** 已经吸收过的 voc_id，用于重建去重集合 */
+  seenIds: string[]
+  /** 上次已知总数 */
+  total: number | null
+  /** 已拉取条数，仅用于 UI 展示 */
+  loaded: number
+}
+
 export interface QueryAllStudyRecordsOptions
 {
   /** 每页条数，接口硬上限 1000（超过会被静默截断，不要调大） */
@@ -133,6 +164,17 @@ export interface QueryAllStudyRecordsOptions
   maxRequests?: number
   /** 每翻完一页回吐一次已拉取条数，供 UI 显示进度 */
   onProgress?: (loaded: number, total: number | null) => void
+  /** 因频控排队时回调（毫秒） */
+  onRateLimitWait?: (waitMs: number) => void
+  /** 从这里接着拉（上次没拉完的现场）。不传则从头开始 */
+  resume?: StudyFetchCheckpoint | null
+  /**
+   * 每完成一个区间就回调一次，调用方应立即把已拉到的记录与剩余区间落盘。
+   *
+   * 这是断点续传的关键：全量 50+ 个请求，中途撞频控时如果没有 checkpoint，
+   * 前面拉到的几千条会全部丢掉，下次从 2000 年重新开始，很容易陷入死循环。
+   */
+  onCheckpoint?: (checkpoint: StudyFetchCheckpoint, records: MaimemoStudyRecord[]) => void
 }
 
 /** 各策略实际取到的条数，用于 UI 标注与线上排查 */
@@ -237,6 +279,8 @@ export interface QueryAllStudyRecordsResult
   /** false = 被分页边界或安全阀截断，UI 需标注数据可能不全 */
   complete: boolean
   diagnostics: StudyRecordFetchDiagnostics
+  /** 没拉完时可供下次续传的现场；拉完为 null */
+  checkpoint: StudyFetchCheckpoint | null
 }
 
 /** 接口单次响应硬上限：文档写 1000，实测超过也会被静默截断 */
@@ -331,21 +375,21 @@ export async function queryStudyRecordsAll(
 {
   const pageSize = Math.min(options.pageSize ?? API_PAGE_LIMIT, API_PAGE_LIMIT)
   const maxRequests = options.maxRequests ?? DEFAULT_MAX_REQUESTS
+  const resume = options.resume ?? null
+  const startedAt = Date.now()
 
-  // 先拿总数：既是进度分母，也用于最终完整性判定
-  const countResult = await queryStudyRecords(client, { asCount: true })
-  const total = countResult.count ?? null
-
-  const seen = new Set<string>()
+  const seen = new Set<string>(resume?.seenIds ?? [])
   const records: MaimemoStudyRecord[] = []
   const diagnostics: StudyRecordFetchDiagnostics = {
-    total,
+    total: resume?.total ?? null,
     singleShot: 0,
     offsetPaged: 0,
     rangePaged: 0,
-    requests: 1,
+    requests: 0,
     overflowRanges: 0
   }
+
+  let total: number | null = resume?.total ?? null
 
   /** 去重吸收一页，返回新增条数 */
   function absorb(list: MaimemoStudyRecord[]): number
@@ -365,31 +409,105 @@ export async function queryStudyRecordsAll(
     return fresh
   }
 
-  const hasAll = (): boolean => total !== null && records.length >= total
+  const hasAll = (): boolean => total !== null && seen.size >= total
   const outOfBudget = (): boolean => diagnostics.requests >= maxRequests
 
   /**
-   * 递归拉取 [startDay, endDay] 北京日期序号区间（闭区间）。
-   *
-   * 返回 false 表示这段彻底放弃了（预算耗尽 / 单日超量），调用方据此判定不完整。
-   *
-   * 拆分规则：拉满 pageSize 就说明这段被 API 截断，对半劈开递归。
-   * 用整数天序号切分，保证：
-   *   - 左段 [startDay, midDay]、右段 [midDay + 1, endDay] 严格相邻且无空隙
-   *   - 每段都严格小于父区间，必然收敛（最细到单日）
+   * 拉取队列。用显式队列而不是递归：
+   * 递归栈无法持久化，中途撞频控就丢了「还剩哪些区间」，只能从头再来。
    */
-  async function fetchRange(startDay: number, endDay: number): Promise<boolean>
+  const queue: StudyRange[] = resume?.ranges?.length
+    ? resume.ranges.map((range) => ({ ...range }))
+    : [{ startDay: RANGE_START_DAY, endDay: RANGE_END_DAY }]
+
+  /** 上次 checkpoint 时 records 的长度，用于只回吐新增部分（避免重复写几千条） */
+  let checkpointedCount = 0
+
+  async function emitCheckpoint(): Promise<void>
   {
-    if (startDay > endDay || hasAll() || outOfBudget())
+    if (!options.onCheckpoint)
     {
-      return !outOfBudget()
+      return
     }
+
+    const fresh = records.slice(checkpointedCount)
+
+    checkpointedCount = records.length
+
+    await options.onCheckpoint(
+      {
+        ranges: queue.map((range) => ({ ...range })),
+        seenIds: [...seen],
+        total,
+        loaded: seen.size
+      },
+      fresh
+    )
+  }
+
+  // ---------- 总数：续传时已知，省一个请求 ----------
+  if (total === null)
+  {
+    const countResult = await queryStudyRecords(client, { asCount: true, retries: 1 })
+
+    diagnostics.requests++
+    total = countResult.count ?? null
+    diagnostics.total = total
+  }
+
+  // ---------- 快速通道：总数不超过单页时，一次请求就够 ----------
+  // 必须校验「返回数是否等于请求数」，否则会把截断当成拉全（旧实现的坑）。
+  if (!resume && total !== null && total > 0 && total <= pageSize)
+  {
+    try
+    {
+      diagnostics.requests++
+      const shot = await queryStudyRecords(client, { limit: total, retries: 1 })
+
+      diagnostics.singleShot = shot.records.length
+      absorb(shot.records)
+      options.onProgress?.(seen.size, total)
+
+      if (shot.records.length >= total)
+      {
+        return buildResult(true, [])
+      }
+    }
+    catch (error)
+    {
+      // 401 必须上抛；频控也要上抛（由上层提示等待）；其余不致命，退回区间队列
+      if (error instanceof MaimemoAuthError || error instanceof MaimemoRateLimitError)
+      {
+        throw error
+      }
+    }
+  }
+
+  // ---------- 主策略：按 next_study_date 区间队列广度推进 ----------
+
+  while (queue.length > 0)
+  {
+    if (hasAll())
+    {
+      break
+    }
+
+    if (outOfBudget())
+    {
+      logMaimemo(`请求数达到安全阀 ${maxRequests}，停止拉取（已拉 ${seen.size} / ${total ?? '?'}）`)
+      break
+    }
+
+    const range = queue.shift()!
+    const startText = dayIndexToRangeStart(range.startDay)
+    const endText = dayIndexToRangeEnd(range.endDay)
 
     diagnostics.requests++
     const result = await queryStudyRecords(client, {
       limit: pageSize,
-      nextStudyDateStart: dayIndexToRangeStart(startDay),
-      nextStudyDateEnd: dayIndexToRangeEnd(endDay)
+      nextStudyDateStart: startText,
+      nextStudyDateEnd: endText,
+      retries: 1
     })
 
     const page = result.records
@@ -398,71 +516,65 @@ export async function queryStudyRecordsAll(
     if (page.length < pageSize)
     {
       absorb(page)
-      options.onProgress?.(records.length, total)
-      return true
+      options.onProgress?.(seen.size, total)
+      await emitCheckpoint()
+      continue
     }
 
     // 满页 = 被截断。已经细到单日还满页，说明这一天真有超 1000 个词，无法再分
-    if (startDay >= endDay)
+    if (range.startDay >= range.endDay)
     {
       diagnostics.overflowRanges++
       absorb(page)
-      options.onProgress?.(records.length, total)
-      return false
+      logMaimemo(`${startText} 单日超过 ${pageSize} 条，无法再分，已标记为可能不全`)
+      await emitCheckpoint()
+      continue
     }
 
-    // 整数对半：单日区间已在上面返回，这里 startDay < endDay，midDay 必在两者之间
-    const midDay = startDay + Math.floor((endDay - startDay) / 2)
+    // 整数对半：左右子区间严格相邻，必然收敛（最细到单日）
+    const midDay = range.startDay + Math.floor((range.endDay - range.startDay) / 2)
 
-    const okLeft = await fetchRange(startDay, midDay)
-
-    if (hasAll() || outOfBudget())
-    {
-      return okLeft
-    }
-
-    const okRight = await fetchRange(midDay + 1, endDay)
-
-    return okLeft && okRight
+    queue.unshift(
+      { startDay: midDay + 1, endDay: range.endDay },
+      { startDay: range.startDay, endDay: midDay }
+    )
+    logMaimemo(
+      `区间 ${startText.slice(0, 10)}~${endText.slice(0, 10)} 满页 ${page.length} → 拆成两段（剩余 ${queue.length} 段）`
+    )
+    await emitCheckpoint()
   }
 
-  // ---------- 快速通道：总数不超过单页时，一次请求就够 ----------
-  // 必须校验「返回数是否等于请求数」，否则会把截断当成拉全（旧实现的坑）。
-  if (total !== null && total > 0 && total <= pageSize)
+  diagnostics.rangePaged = seen.size
+
+  // 完整性判定：以 as_count 为准；拿不到总数时退化为「队列清空且没有溢出区间」
+  return buildResult(
+    total !== null ? seen.size >= total : queue.length === 0 && diagnostics.overflowRanges === 0,
+    queue
+  )
+
+  function buildResult(complete: boolean, pending: StudyRange[]): QueryAllStudyRecordsResult
   {
-    try
-    {
-      diagnostics.requests++
-      const shot = await queryStudyRecords(client, { limit: total })
+    logMaimemo(
+      `拉取结束 ${seen.size}/${total ?? '?'} 条 · ${diagnostics.requests} 请求 · ` +
+        `${((Date.now() - startedAt) / 1000).toFixed(1)}s · complete=${complete}` +
+        (pending.length > 0 ? ` · 剩余 ${pending.length} 段待续` : '')
+    )
 
-      diagnostics.singleShot = shot.records.length
-      absorb(shot.records)
-      options.onProgress?.(records.length, total)
-
-      if (shot.records.length >= total)
-      {
-        return { records, total, complete: true, diagnostics }
-      }
-    }
-    catch (error)
-    {
-      // 401 必须上抛；其余（体积 / 超时）不致命，退回区间递归
-      if (error instanceof MaimemoAuthError)
-      {
-        throw error
-      }
+    return {
+      records,
+      total,
+      complete,
+      diagnostics,
+      checkpoint: pending.length > 0
+        ? {
+            ranges: pending.map((range) => ({ ...range })),
+            seenIds: [...seen],
+            total,
+            loaded: seen.size
+          }
+        : null
     }
   }
-
-  // ---------- 主策略：按 next_study_date 区间递归二分 ----------
-  const fullyFetched = await fetchRange(RANGE_START_DAY, RANGE_END_DAY)
-
-  diagnostics.rangePaged = records.length
-
-  // 完整性判定：以 as_count 为准；拿不到总数时退化为「没放弃任何区间」
-  const complete = total !== null ? records.length >= total : fullyFetched
-
-  return { records, total, complete, diagnostics }
 }
 
 /**
@@ -470,11 +582,19 @@ export async function queryStudyRecordsAll(
  *
  * 401 鉴权失败必须原样上抛：页面要引导用户重新绑定 Token，
  * 而不是把失效凭据伪装成「接口暂不可用、显示旧快照」。
- * 其余失败（含业务错误、频控、网络）一律转译为不可用错误，由上层降级。
+ *
+ * 频控（429）同样原样上抛：它不是「接口坏了」，而是「等一会儿再来」，
+ * 包装成不可用会让 UI 显示错误的提示，也丢掉「冷却多久」这个信息。
+ *
+ * 其余失败（含业务错误、网络）一律转译为不可用错误，由上层降级。
  */
 function rethrowStudyError(error: unknown): never
 {
-  if (error instanceof MaimemoStudyUnavailableError || error instanceof MaimemoAuthError)
+  if (
+    error instanceof MaimemoStudyUnavailableError ||
+    error instanceof MaimemoAuthError ||
+    error instanceof MaimemoRateLimitError
+  )
   {
     throw error
   }

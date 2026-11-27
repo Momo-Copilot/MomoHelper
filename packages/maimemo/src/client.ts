@@ -41,6 +41,43 @@ export interface RequestOptions
 const sharedLimiter = new MaimemoRateLimiter()
 
 /**
+ * 墨墨接口调试日志，默认开启。
+ *
+ * 拉取全量时会有 50+ 个请求，出问题（频控、区间拆错、拉不全）只能靠日志定位。
+ * 关闭：控制台执行 localStorage.setItem('momo.debugFetch', '0') 后刷新。
+ * 只打印方法/路径/状态/耗时，不打印 Authorization 头与请求体。
+ */
+function maimemoDebugEnabled(): boolean
+{
+  const store = (
+    globalThis as { localStorage?: { getItem(key: string): string | null } }
+  ).localStorage
+
+  if (!store)
+  {
+    return false
+  }
+
+  try
+  {
+    return store.getItem('momo.debugFetch') !== '0'
+  }
+  catch
+  {
+    return false
+  }
+}
+
+/** 供同包其他模块（study.ts）复用的日志出口 */
+export function logMaimemo(...args: unknown[]): void
+{
+  if (maimemoDebugEnabled())
+  {
+    console.log('%c[momo]', 'color:#28b69d;font-weight:600', ...args)
+  }
+}
+
+/**
  * 墨墨 Open API 客户端：统一请求、包裹层解析、限流与错误映射。
  *
  * 解析规则以真机实测为准（api-capability-gap.md 第七节）：
@@ -69,7 +106,27 @@ export class MaimemoClient
 
     for (;;)
     {
-      await sharedLimiter.acquire(this.onRateLimitWait)
+      const startedAt = Date.now()
+      /** 等待日志节流：acquire 内部每 5 秒回调一次，不能每次都打 */
+      let lastWaitLog = 0
+
+      const waited = await sharedLimiter.acquire((waitMs) =>
+      {
+        const now = Date.now()
+
+        if (now - lastWaitLog > 3_000)
+        {
+          lastWaitLog = now
+          logMaimemo(`排队等待频控 ${Math.ceil(waitMs / 1000)}s（${method} ${path}）`)
+        }
+
+        this.onRateLimitWait?.(waitMs)
+      })
+
+      if (!waited)
+      {
+        logMaimemo(`→ ${method} ${path}`)
+      }
 
       let response: Response
 
@@ -86,10 +143,16 @@ export class MaimemoClient
       }
       catch (error)
       {
-        throw new MaimemoNetworkError(
-          `墨墨接口网络错误: ${error instanceof Error ? error.message : String(error)}`
-        )
+        const message = error instanceof Error ? error.message : String(error)
+
+        logMaimemo(`✗ ${method} ${path} 网络错误：${message}`)
+
+        throw new MaimemoNetworkError(`墨墨接口网络错误: ${message}`)
       }
+
+      logMaimemo(
+        `${response.ok ? '←' : '✗'} ${response.status} ${method} ${path} ${Date.now() - startedAt}ms`
+      )
 
       if (response.status === 401)
       {
@@ -98,6 +161,10 @@ export class MaimemoClient
 
       if (response.status === 429)
       {
+        // 本地窗口只是估算，429 才是事实：立刻进入强制冷却
+        sharedLimiter.penalize()
+        logMaimemo(`429 频控 → 强制冷却 ${Math.round(sharedLimiter.cooldownRemaining() / 1000)}s`)
+
         if (attempt < maxRetries)
         {
           attempt++

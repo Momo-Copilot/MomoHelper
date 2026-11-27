@@ -16,7 +16,9 @@ export type {
   QueryStudyRecordsResult,
   QueryAllStudyRecordsOptions,
   QueryAllStudyRecordsResult,
-  QueryFilteredStudyRecordsResult
+  QueryFilteredStudyRecordsResult,
+  StudyRange,
+  StudyFetchCheckpoint
 } from './study'
 export { listNotepads } from './notepads'
 export { createNote, deleteNote, findNoteByBody } from './notes'

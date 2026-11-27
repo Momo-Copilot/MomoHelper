@@ -13,7 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 
-import { MaimemoAuthError } from '@momo/maimemo'
+import { MaimemoAuthError, MaimemoRateLimitError } from '@momo/maimemo'
 import { Icon } from '@/components/icons'
 import { PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
 import { LibraryStatsView } from '@/components/library-stats'
@@ -201,7 +201,13 @@ export default function LibraryPage()
 
       {refresh.isError && (
         <p className="mb-4 rounded-md border border-[var(--color-forget)]/25 bg-[var(--color-forget-bg)] px-4 py-2.5 text-[length:var(--text-sm)] text-[var(--color-forget)]">
-          重新拉取失败：{refresh.error.message}
+          {refresh.error instanceof MaimemoRateLimitError ? (
+            <>
+              触发了墨墨的请求频控。已经拉到的部分已经存下来了，等 1 分钟再点「重新拉取」会从断点继续，不用从头再来。
+            </>
+          ) : (
+            <>重新拉取失败：{refresh.error.message}</>
+          )}
         </p>
       )}
 
