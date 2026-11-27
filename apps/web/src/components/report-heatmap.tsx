@@ -82,7 +82,9 @@ export function ReportHeatmap({ rows }: { rows: ReportDailyRowDto[] })
       {/* 外层 relative + 气泡挂在这里：气泡若放在 overflow-x-auto 里面会被裁掉 */}
       <div ref={wrapRef} className="relative mt-3" onMouseLeave={() => setHover(null)}>
         <div className="overflow-x-auto pb-1">
-          <div className="flex min-w-max gap-[3px]">
+          {/* mx-auto + w-max：内容比卡片窄时居中，比卡片宽时才横向滚动。
+              只写 min-w-max 会让网格永远贴左边，右边留一大块空白 */}
+          <div className="mx-auto flex w-max gap-[3px]">
             {map.weeks.map((week, index) => (
               <div key={index} className="flex flex-col gap-[3px]">
                 {week.map((cell, row) =>
