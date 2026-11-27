@@ -14,7 +14,7 @@ import type { LibraryRecordRowDto } from '@momo/types'
 import { Segmented } from '@/components/kit'
 import { Icon } from '@/components/icons'
 import { ResponseBadge } from '@/components/response-badge'
-import { WordCardPopover } from '@/components/word-card'
+import { WordButton } from '@/components/word-button'
 import { beijingDayOf } from '@/lib/analyze'
 import { alignDiff, findSimilarWords, type SimilarWord } from '@/lib/similar-words'
 
@@ -70,40 +70,6 @@ const SORTERS: Record<SortKey, (a: LibraryRecordRowDto, b: LibraryRecordRowDto) 
 }
 
 /** 可点击单词：点按弹词卡（与遗忘词页一致），点其他位置自动关闭 */
-function WordButton({
-  spelling,
-  render
-}: {
-  spelling: string
-  /** 自定义单词渲染（模糊模式用它把差异字母标红）；不传则显示原拼写 */
-  render?: (word: string) => React.ReactNode
-})
-{
-  const [open, setOpen] = useState(false)
-  const buttonRef = useRef<HTMLButtonElement>(null)
-
-  return (
-    <span className="relative inline-block">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        title="点击查看词条释义"
-        className="font-[family-name:var(--font-display)] text-[length:var(--text-md)] underline decoration-[var(--color-border-strong)] decoration-dotted underline-offset-4 transition-colors hover:decoration-[var(--color-accent)]"
-      >
-        {render ? render(spelling) : spelling}
-      </button>
-      {open && (
-        <WordCardPopover
-          spelling={spelling}
-          anchor={buttonRef.current}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </span>
-  )
-}
 
 /** 相似度类型标签：告诉用户这一条是「差字母」还是「顺序不同」 */
 function SimilarityTag({ kind }: { kind: SimilarWord['kind'] })

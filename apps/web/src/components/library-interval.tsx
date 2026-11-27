@@ -15,6 +15,8 @@
 import type { IntervalAnalysisDto, IntervalBucketDto, StalledWordDto } from '@momo/types'
 
 import { Tile } from '@/components/kit'
+import { ResponseBadge } from '@/components/response-badge'
+import { WordButton } from '@/components/word-button'
 
 function Metric({
   label,
@@ -72,12 +74,6 @@ function IntervalRow({ bucket, max }: { bucket: IntervalBucketDto; max: number }
       </span>
     </div>
   )
-}
-
-const RESPONSE_TEXT: Record<string, string> = {
-  FAMILIAR: '认识',
-  VAGUE: '模糊',
-  FORGET: '忘记'
 }
 
 export function LibraryIntervalView({ data }: { data: IntervalAnalysisDto })
@@ -162,15 +158,20 @@ export function LibraryIntervalView({ data }: { data: IntervalAnalysisDto })
               <tbody>
                 {data.stalled.slice(0, 200).map((word) => (
                   <tr key={word.vocId} className="border-t border-[var(--color-border)]">
-                    <td className="px-3 py-2 text-[length:var(--text-sm)]">{word.spelling}</td>
+                    <td className="px-3 py-2 text-[length:var(--text-sm)]">
+                      <WordButton
+                        spelling={word.spelling}
+                        className="text-[length:var(--text-sm)] underline decoration-[var(--color-border-strong)] decoration-dotted underline-offset-4 transition-colors hover:decoration-[var(--color-accent)]"
+                      />
+                    </td>
                     <td className="px-3 py-2 text-right font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] tabular">
                       {word.studyCount}
                     </td>
                     <td className="px-3 py-2 text-right font-[family-name:var(--font-mono)] text-[length:var(--text-sm)] tabular text-[var(--color-forget)]">
                       {word.intervalDays} 天
                     </td>
-                    <td className="px-3 py-2 text-center text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-                      {word.lastResponse ? (RESPONSE_TEXT[word.lastResponse] ?? word.lastResponse) : '—'}
+                    <td className="px-3 py-2 text-center text-[length:var(--text-xs)]">
+                      <ResponseBadge value={word.lastResponse} />
                     </td>
                   </tr>
                 ))}
