@@ -16,17 +16,19 @@ import { useEffect, useMemo, useState } from 'react'
 import { MaimemoAuthError, MaimemoRateLimitError } from '@momo/maimemo'
 import { Icon } from '@/components/icons'
 import { PageHeader, Segmented, Tile, TileSkeleton } from '@/components/kit'
+import { LibraryIntervalView } from '@/components/library-interval'
 import { LibraryStatsView } from '@/components/library-stats'
 import { LibraryTableView } from '@/components/library-table'
 import { LibraryTimelineView } from '@/components/library-timeline'
-import { analyzeLibrary } from '@/lib/analyze'
+import { analyzeIntervals, analyzeLibrary } from '@/lib/analyze'
 import { loadLibrary } from '@/lib/library'
 import { MaimemoNotConfiguredError } from '@/lib/maimemo'
 
-type ViewKey = 'stats' | 'timeline' | 'table'
+type ViewKey = 'stats' | 'interval' | 'timeline' | 'table'
 
 const VIEWS: [ViewKey, string][] = [
   ['stats', '掌握度'],
+  ['interval', '间隔'],
   ['timeline', '时间线'],
   ['table', '词表']
 ]
@@ -86,6 +88,7 @@ export default function LibraryPage()
 
   const records = query.data?.records
   const stats = useMemo(() => (records ? analyzeLibrary(records) : null), [records])
+  const intervals = useMemo(() => (records ? analyzeIntervals(records) : null), [records])
 
   const busy = refresh.isPending && progress !== null
   const refreshLabel = refresh.isPending
@@ -221,6 +224,7 @@ export default function LibraryPage()
       </div>
 
       {stats && view === 'stats' && <LibraryStatsView stats={stats} />}
+      {intervals && view === 'interval' && <LibraryIntervalView data={intervals} />}
       {stats && view === 'timeline' && <LibraryTimelineView months={stats.months} />}
       {view === 'table' && (
         <Tile hover={false}>

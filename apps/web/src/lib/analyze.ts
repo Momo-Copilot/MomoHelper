@@ -13,11 +13,14 @@ import type {
   LibraryBucketDto,
   LibraryMonthRowDto,
   LibraryRecordRowDto,
+  IntervalAnalysisDto,
+  IntervalBucketDto,
   LibraryStatsDto,
   PlanAlertDto,
   ReportDailyRowDto,
   ReportRiskDto,
   ReportSnapshotDto,
+  StalledWordDto,
   StudyResponse,
   WordCloudDto,
   WordCloudWordDto
@@ -905,4 +908,159 @@ export function buildPlanAlerts(
   }
 
   return alerts
+}
+
+/* ============================= 复习间隔 ============================= */
+
+/**
+ * 间隔分桶（闭区间）。
+ *
+ * 为什么按「间隔」而不是按「距今天数」分桶：
+ * - 距今天数只是「多久没碰」，长间隔往往是因为 SRS 判定已掌握、不再安排复习，
+ *   按它分桶会得出「越久越牢」的反直觉结论（memo-superform 的记忆曲线就是这个坑）
+ * - 间隔是墨墨自己给出的判断：间隔越长 = 系统认为记得越稳，这才是掌握度的直接证据
+ */
+const INTERVAL_BUCKETS: { key: string; label: string; min: number; max: number }[] = [
+  { key: '0-3', label: '≤3 天', min: 0, max: 3 },
+  { key: '4-7', label: '4–7 天', min: 4, max: 7 },
+  { key: '8-14', label: '8–14 天', min: 8, max: 14 },
+  { key: '15-30', label: '15–30 天', min: 15, max: 30 },
+  { key: '31-60', label: '31–60 天', min: 31, max: 60 },
+  { key: '61-90', label: '61–90 天', min: 61, max: 90 },
+  { key: '91+', label: '90 天以上', min: 91, max: Number.POSITIVE_INFINITY }
+]
+
+/** 停滞判定：学过这么多次，间隔仍不超过这么多天 */
+const STALLED_MIN_STUDY_COUNT = 5
+const STALLED_MAX_INTERVAL_DAYS = 7
+
+function median(values: number[]): number | null
+{
+  if (values.length === 0)
+  {
+    return null
+  }
+
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+
+  return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!
+}
+
+/**
+ * 复习间隔分析：把 next_study_date − last_study_date 当作墨墨给出的复习周期。
+ *
+ * 「间隔停滞」是这个函数的核心产出：学习次数很多、但间隔一直上不去的词，
+ * 说明每次都在「刚背完 → 又忘」的循环里。这批词比 STICKING 标签更隐蔽——
+ * 标签只标近期答错的，而停滞词可能最近一次恰好答对了，看上去一切正常。
+ */
+export function analyzeIntervals(records: LibraryRecordRowDto[]): IntervalAnalysisDto
+{
+  const today = beijingToday()
+
+  const groups = INTERVAL_BUCKETS.map(() => ({
+    studyCounts: [] as number[],
+    sinceDays: [] as number[],
+    remembered: 0,
+    answered: 0
+  }))
+
+  const allIntervals: number[] = []
+  const stalled: StalledWordDto[] = []
+  let measurable = 0
+
+  for (const record of records)
+  {
+    const last = beijingDayOf(record.lastStudyDate)
+    const next = beijingDayOf(record.nextStudyDate)
+
+    // 两个日期缺一个就无法计算间隔；负间隔属于脏数据，一并跳过
+    if (!last || !next)
+    {
+      continue
+    }
+
+    const interval = dayDiff(last, next)
+
+    if (interval === null || interval < 0)
+    {
+      continue
+    }
+
+    const bucketIndex = INTERVAL_BUCKETS.findIndex(
+      (bucket) => interval >= bucket.min && interval <= bucket.max
+    )
+
+    if (bucketIndex < 0)
+    {
+      continue
+    }
+
+    measurable++
+    allIntervals.push(interval)
+
+    const group = groups[bucketIndex]!
+    const studyCount = record.studyCount ?? 0
+    const response = record.lastResponse
+    const since = dayDiff(last, today)
+
+    group.studyCounts.push(studyCount)
+
+    if (since !== null)
+    {
+      group.sinceDays.push(since)
+    }
+
+    if (response === 'FAMILIAR')
+    {
+      group.remembered++
+      group.answered++
+    }
+    else if (response === 'VAGUE' || response === 'FORGET')
+    {
+      group.answered++
+    }
+
+    if (studyCount >= STALLED_MIN_STUDY_COUNT && interval <= STALLED_MAX_INTERVAL_DAYS)
+    {
+      stalled.push({
+        vocId: record.vocId,
+        spelling: record.spelling,
+        studyCount,
+        intervalDays: interval,
+        daysSinceStudy: since,
+        lastResponse: response ?? null,
+        tags: record.tags ?? []
+      })
+    }
+  }
+
+  stalled.sort((a, b) => b.studyCount - a.studyCount || a.intervalDays - b.intervalDays)
+
+  const buckets: IntervalBucketDto[] = INTERVAL_BUCKETS.map((bucket, index) => {
+    const group = groups[index]!
+
+    return {
+      key: bucket.key,
+      label: bucket.label,
+      min: bucket.min,
+      max: bucket.max,
+      count: group.studyCounts.length,
+      medianStudyCount: median(group.studyCounts) ?? 0,
+      rememberedRate:
+        group.answered > 0 ? Math.round((group.remembered / group.answered) * 100) : null,
+      medianDaysSinceStudy: median(group.sinceDays)
+    }
+  })
+
+  return {
+    measurable,
+    buckets,
+    medianInterval: median(allIntervals),
+    stalled,
+    stalledThreshold: {
+      minStudyCount: STALLED_MIN_STUDY_COUNT,
+      maxIntervalDays: STALLED_MAX_INTERVAL_DAYS
+    }
+  }
 }

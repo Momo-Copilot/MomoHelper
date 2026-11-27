@@ -112,12 +112,32 @@ function buildDays(rows: DashboardTrendPointDto[], days = 14): DashboardTrendPoi
  *   小圆点     = 打开了本站，但当天完成 0
  *   空心虚线柱 = 没有快照（当天没打开本站，这一天的数据根本没被记录）
  */
+/** 趋势范围选项：快照能覆盖多久就显示多久，越长的范围柱子越细 */
+const TREND_RANGES: [number, string][] = [
+  [14, '14 天'],
+  [30, '30 天'],
+  [90, '90 天'],
+  [365, '365 天']
+]
+
 function TrendChart({ days }: { days: DashboardTrendPointDto[] })
 {
   const [hovered, setHovered] = useState<number | null>(null)
   const max = Math.max(...days.map((d) => d.finished), 1)
   const today = beijingDate(new Date())
-  const slot = 40
+
+  /**
+   * 柱距随天数自适应。
+   * 原来固定 40px：365 天时总宽 14600，缩进 1440 的容器后每根柱子只剩 2px，
+   * 看着像一排噪点。分段收窄后，长范围也能看清整体形状。
+   */
+  const slot = days.length <= 14 ? 40 : days.length <= 31 ? 24 : days.length <= 92 ? 12 : 6
+  const barWidth = Math.max(slot - (slot >= 24 ? 18 : slot >= 12 ? 5 : 3), 1.5)
+  const barOffset = (slot - barWidth) / 2
+  const radius = slot >= 40 ? 5 : slot >= 24 ? 3 : slot >= 12 ? 1.5 : 0.5
+  /** 柱子太细时最小高度也要跟着降，否则会集体顶到顶 */
+  const minBarHeight = slot >= 24 ? 6 : slot >= 12 ? 3 : 2
+
   const width = days.length * slot
   const chartH = 120
   const baseY = 138
@@ -127,37 +147,26 @@ function TrendChart({ days }: { days: DashboardTrendPointDto[] })
       viewBox={`0 0 ${width} 160`}
       className="h-40 w-full"
       role="img"
-      aria-label="近 14 天每日完成词数趋势"
+      aria-label={`近 ${days.length} 天每日完成词数趋势`}
     >
-      <line
-        x1="0"
-        y1={baseY}
-        x2={width}
-        y2={baseY}
-        stroke="var(--color-border)"
-        strokeWidth="1"
-      />
+      <line x1="0" y1={baseY} x2={width} y2={baseY} stroke="var(--color-border)" strokeWidth="1" />
       {days.map((day, i) =>
       {
         const recorded = day.isReliable
-        const h = day.finished > 0 ? Math.max(6, (day.finished / max) * chartH) : 0
-        const x = i * slot + 9
+        const h = day.finished > 0 ? Math.max(minBarHeight, (day.finished / max) * chartH) : 0
+        const x = i * slot + barOffset
+        const cx = i * slot + slot / 2
         const y = baseY - h
         const isToday = day.date === today
         const fill = isToday ? 'var(--color-accent)' : 'var(--color-familiar)'
         const dim = hovered !== null && hovered !== i
+        const label = recorded
+          ? `${day.date}：完成 ${day.finished}/${day.total}，学习 ${formatDuration(day.studyTimeMs)}`
+          : `${day.date}：当天没打开本站，数据未记录（不等于没学）`
 
         return (
-          <g
-            key={day.date}
-            onMouseEnter={() => setHovered(i)}
-            onMouseLeave={() => setHovered(null)}
-          >
-            <title>
-              {recorded
-                ? `${day.date}：完成 ${day.finished}/${day.total}`
-                : `${day.date}：当天没打开本站，数据未记录（不等于没学）`}
-            </title>
+          <g key={day.date} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
+            <title>{label}</title>
             {/* 命中区 */}
             <rect x={i * slot} y="0" width={slot} height="160" fill="transparent" />
             {!recorded ? (
@@ -166,12 +175,12 @@ function TrendChart({ days }: { days: DashboardTrendPointDto[] })
               <rect
                 x={x}
                 y={baseY - 12}
-                width="22"
+                width={barWidth}
                 height="12"
-                rx="5"
+                rx={radius}
                 fill="none"
                 stroke="var(--color-border-strong)"
-                strokeWidth="1.5"
+                strokeWidth={slot >= 12 ? 1.5 : 0.8}
                 strokeDasharray="3 3"
                 opacity={dim ? 0.45 : 1}
                 style={{ transition: 'opacity 0.2s' }}
@@ -180,25 +189,25 @@ function TrendChart({ days }: { days: DashboardTrendPointDto[] })
               <rect
                 x={x}
                 y={y}
-                width="22"
+                width={barWidth}
                 height={h}
-                rx="5"
+                rx={radius}
                 fill={fill}
                 opacity={dim ? 0.45 : 1}
                 style={{ transition: 'opacity 0.2s' }}
               />
             ) : (
               <circle
-                cx={x + 11}
+                cx={cx}
                 cy={baseY - 4}
-                r="3"
+                r={slot >= 12 ? 3 : 1.5}
                 fill="var(--color-border-strong)"
                 opacity={dim ? 0.45 : 1}
               />
             )}
             {hovered === i && day.finished > 0 && (
               <text
-                x={x + 11}
+                x={cx}
                 y={y - 8}
                 textAnchor="middle"
                 fontSize="12"
@@ -210,7 +219,7 @@ function TrendChart({ days }: { days: DashboardTrendPointDto[] })
             )}
             {(i === 0 || i === days.length - 1 || isToday) && (
               <text
-                x={x + 11}
+                x={cx}
                 y="154"
                 textAnchor="middle"
                 fontSize="10"
@@ -219,7 +228,6 @@ function TrendChart({ days }: { days: DashboardTrendPointDto[] })
                 {isToday ? '今天' : day.date.slice(5)}
               </text>
             )}
-            <title>{`${day.date}：完成 ${day.finished} / ${day.total}，学习 ${formatDuration(day.studyTimeMs)}`}</title>
           </g>
         )
       })}
@@ -242,11 +250,14 @@ export default function DashboardPage()
     queryFn: () => getDashboardToday()
   })
 
+  /** 趋势范围：快照累积得越久，能看得越远 */
+  const [trendRange, setTrendRange] = useState(14)
+
   // 趋势从本地快照读取：每次成功拉取（capturedAt 变化）即重算
   const capturedAt = query.data?.capturedAt
   const trendDays = useMemo(
-    () => (capturedAt ? buildDays(getDashboardHistory(14).days) : null),
-    [capturedAt]
+    () => (capturedAt ? buildDays(getDashboardHistory(trendRange).days) : null),
+    [capturedAt, trendRange]
   )
 
   if (query.isPending)
@@ -438,16 +449,33 @@ export default function DashboardPage()
 
         {/* 趋势 */}
         <Tile index={2} className="col-span-12 lg:col-span-8">
-          <div className="flex items-baseline justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[length:var(--text-sm)] text-[var(--color-text-muted)]">
-              近 14 天完成趋势
+              近 {trendRange} 天完成趋势
             </p>
-            <p className="font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
-              {trendDays
-                ? `${trendDays.reduce((sum, d) => sum + d.finished, 0)} 词 · 已记录 ${trendDays.filter((d) => d.isReliable).length}/${trendDays.length} 天`
-                : '—'}
-            </p>
+            <div className="flex items-center gap-1">
+              {TREND_RANGES.map(([range, label]) => (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => setTrendRange(range)}
+                  aria-pressed={trendRange === range}
+                  className={`rounded-md px-2 py-1 font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] transition-colors ${
+                    trendRange === range
+                      ? 'bg-[var(--color-accent-bg)] font-semibold text-[var(--color-accent)]'
+                      : 'text-[var(--color-text-subtle)] hover:bg-[var(--color-bg-subtle)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
+          <p className="mt-1 font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--color-text-subtle)]">
+            {trendDays
+              ? `${trendDays.reduce((sum, d) => sum + d.finished, 0)} 词 · 已记录 ${trendDays.filter((d) => d.isReliable).length}/${trendDays.length} 天`
+              : '—'}
+          </p>
           <div className="mt-3">
             {trendDays ? (
               trendDays.some((d) => d.finished > 0) ? (

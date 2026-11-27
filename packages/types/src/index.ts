@@ -205,6 +205,56 @@ export interface LibrarySnapshotDto
   fetchedAt: string
 }
 
+/* ============================= 复习间隔 ============================= */
+
+/**
+ * 复习间隔分桶。
+ *
+ * 间隔 = next_study_date − last_study_date，即墨墨给这个词排的复习周期。
+ * 它是 SRS 的核心输出：间隔越长，说明系统判定这个词记得越稳。
+ */
+export interface IntervalBucketDto
+{
+  key: string
+  label: string
+  min: number
+  max: number
+  count: number
+  /** 该桶内学习次数的中位数（看清「背了多少次才到这个间隔」） */
+  medianStudyCount: number
+  /** 最近一次作答为「熟知 + 认识」的占比；无作答样本为 null */
+  rememberedRate: number | null
+  /** 每个词距今天数中位数，用于提示桶内是否大量已过期 */
+  medianDaysSinceStudy: number | null
+}
+
+/** 间隔停滞词：背了很多次，间隔却一直上不去 */
+export interface StalledWordDto
+{
+  vocId: string
+  spelling: string
+  studyCount: number
+  intervalDays: number
+  /** 距上次学习天数 */
+  daysSinceStudy: number | null
+  lastResponse: string | null
+  tags: string[]
+}
+
+/** 复习间隔分析结果 */
+export interface IntervalAnalysisDto
+{
+  /** 可计算间隔的词数（last 与 next 都存在且间隔非负） */
+  measurable: number
+  buckets: IntervalBucketDto[]
+  /** 全库间隔中位数（天） */
+  medianInterval: number | null
+  /** 间隔停滞词（背 ≥5 次且间隔 ≤7 天），按学习次数降序 */
+  stalled: StalledWordDto[]
+  /** 停滞词的判定阈值，页面上要写明，避免用户以为这是官方口径 */
+  stalledThreshold: { minStudyCount: number; maxIntervalDays: number }
+}
+
 /* ============================= 学情快照 ============================= */
 
 /** 学情快照日粒度行 */
