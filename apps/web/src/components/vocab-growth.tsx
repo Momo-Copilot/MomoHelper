@@ -10,6 +10,27 @@ import { useState } from 'react'
 
 import type { VocabGrowthPointDto } from '@/lib/analyze'
 
+/** 把任意最大值向上取整成「好看的刻度」：8000 → 步长 2000，7300 → 步长 2000 */
+function niceStep(raw: number): number
+{
+  if (raw <= 0)
+  {
+    return 1
+  }
+
+  const pow = 10 ** Math.floor(Math.log10(raw))
+  const n = raw / pow
+  const nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10
+
+  return nice * pow
+}
+
+/** 刻度文字：8000 → 8k，避免 Y 轴挤成一条 */
+function formatTick(value: number): string
+{
+  return value >= 1000 ? `${value / 1000}k` : String(value)
+}
+
 function slotFor(count: number): number
 {
   if (count <= 12) return 48
@@ -36,17 +57,25 @@ export function VocabGrowthChart({ points }: { points: VocabGrowthPointDto[] })
   const width = points.length * slot
   const chartH = 120
   const baseY = 138
-  const barArea = chartH * 0.3
+  
+  const rawMax = points.reduce((acc, p) => (p.cumulative > acc ? p.cumulative : acc), 1)
 
-  const maxCum = points.reduce((acc, p) => (p.cumulative > acc ? p.cumulative : acc), 1)
-  const maxLearned = points.reduce((acc, p) => (p.learned > acc ? p.learned : acc), 1)
+  // 纵轴分 4 段，步长取整到「好看的数字」
+  const step = niceStep(rawMax / 4)
+  const axisMax = step * 4
+  const ticks = [0, step, step * 2, step * 3, axisMax]
+
+  /** 左侧留给刻度文字 */
+  const AXIS_W = 38
+  /** 数值 → SVG 纵坐标（0 在 baseY，最大值在 baseY - chartH） */
+  const yFor = (value: number): number => baseY - (value / axisMax) * chartH
 
   const barWidth = Math.max(slot - (slot >= 32 ? 22 : slot >= 20 ? 12 : 6), 1.5)
   const barOffset = (slot - barWidth) / 2
 
   // 折线点：每个月的累计值
   const linePoints = points
-    .map((p, i) => `${i * slot + slot / 2},${baseY - (p.cumulative / maxCum) * chartH}`)
+    .map((p, i) => `${i * slot + slot / 2},${yFor(p.cumulative)}`)
     .join(' ')
 
   // 面积填充：折线 + 回到基线
@@ -56,21 +85,51 @@ export function VocabGrowthChart({ points }: { points: VocabGrowthPointDto[] })
 
   return (
     <svg
-      viewBox={`0 0 ${width} 160`}
+      viewBox={`0 0 ${width + AXIS_W} 160`}
       className="h-40 w-full"
       role="img"
       aria-label="词汇量增长：累计学过的词数与每月新增"
     >
-      <line x1="0" y1={baseY} x2={width} y2={baseY} stroke="var(--color-border)" strokeWidth="1" />
+      {/* 纵轴刻度：放在 SVG 内而不是 HTML 覆盖层 —— 容器宽高比与 viewBox 不一致时
+          SVG 会等比缩放并留白，HTML 标签对不齐 */}
+      {ticks.map((value) => (
+        <text
+          key={`tick-${value}`}
+          x={AXIS_W - 6}
+          y={yFor(value) + 3}
+          textAnchor="end"
+          fontSize="10"
+          fill="var(--color-text-subtle)"
+        >
+          {formatTick(value)}
+        </text>
+      ))}
+
+      <g transform={`translate(${AXIS_W},0)`}>
+      {/* 横向网格：每档一条虚线，和左侧刻度对齐 */}
+      {ticks.map((value) => (
+        <line
+          key={`grid-${value}`}
+          x1="0"
+          y1={yFor(value)}
+          x2={width}
+          y2={yFor(value)}
+          stroke="var(--color-border)"
+          strokeWidth="1"
+          strokeDasharray={value === 0 ? undefined : '3 4'}
+          opacity={value === 0 ? 1 : 0.55}
+        />
+      ))}
 
       {/* 折线下的淡色面积，强化「累计」的视觉重量 */}
       <polygon points={areaPoints} fill="var(--color-accent)" opacity="0.08" />
 
       {points.map((point, i) =>
       {
-        const barH = point.learned > 0 ? Math.max(2, (point.learned / maxLearned) * barArea) : 0
+        // 同一纵轴：有了刻度，柱子高度必须和刻度对得上，不能独立缩放
+        const barH = point.learned > 0 ? Math.max(1.5, (point.learned / axisMax) * chartH) : 0
         const cx = i * slot + slot / 2
-        const cy = baseY - (point.cumulative / maxCum) * chartH
+        const cy = yFor(point.cumulative)
         const dim = hovered !== null && hovered !== i
 
         return (
@@ -130,6 +189,7 @@ export function VocabGrowthChart({ points }: { points: VocabGrowthPointDto[] })
           </text>
         )
       )}
+      </g>
     </svg>
   )
 }
