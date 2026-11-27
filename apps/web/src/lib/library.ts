@@ -14,6 +14,7 @@
 import { queryStudyRecords, queryStudyRecordsAll } from '@momo/maimemo'
 import type { LibraryRecordRowDto, LibrarySnapshotDto, MaimemoStudyRecord } from '@momo/types'
 
+import { buildTrendEstimate, type TrendEstimateDto } from './analyze'
 import { getMaimemoClient } from './maimemo'
 
 const DB_NAME = 'momo-library'
@@ -585,18 +586,28 @@ registerLibraryReader(readSnapshotForBackup)
 registerLibraryWriter(writeSnapshotFromBackup)
 
 /**
- * 只读缓存里的词库记录，不触发任何网络请求。
+ * 只读缓存，就地算好趋势估算，**不把 8000 多条原始记录交给调用方**。
  *
- * 今日页的趋势估算用得到：那里只想拿现成的记录画图，绝不能因为「顺手看一眼」
- * 就触发一次 55 个请求的全量拉取。
+ * 为什么要这样切：如果直接把 records 数组塞进 React Query 的缓存，它会做
+ * structuralSharing 深比较、再整体复制一遍，8000 多条 × 9 个字段能把页面
+ * 内存顶到崩溃（2026-11-27 线上：点「词库估算」整页崩掉）。
+ * 这里在读出记录的同一个函数里就聚合成 365 个轻量对象，交给缓存的只有
+ * 几十 KB。
+ *
+ * 不触发任何网络请求：今日页顺手看一眼趋势，不该因此发 55 个全量拉取请求。
  */
-export async function peekLibraryRecords(): Promise<LibraryRecordRowDto[] | null>
+export async function peekTrendEstimate(days = 365): Promise<TrendEstimateDto | null>
 {
   try
   {
     const cached = await readCache()
 
-    return cached ? cached.records : null
+    if (!cached)
+    {
+      return null
+    }
+
+    return buildTrendEstimate(cached.records, days)
   }
   catch
   {
